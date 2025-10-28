@@ -11,17 +11,18 @@ RUFF = ${VENV_DIR}/bin/ruff
 STRICTDOC = ${VENV_DIR}/bin/strictdoc
 PYDOCSTYLE = ${VENV_DIR}/bin/pydocstyle
 
-# Default target
-all: venv install
+# Default target - venv installs everything
+all: venv
 
-# Create virtual environment - uses actual file as target
+# Create virtual environment and install all dependencies
 venv: ${VENV_PYTHON}
 
 ${VENV_PYTHON}:
 	${PYTHON} -m venv ${VENV_DIR}
 	${VENV_PIP} install uv
+	${VENV_UV} pip install -e .
 
-# Install dependencies
+# Install dependencies (reinstall/upgrade)
 install: ${VENV_UV}
 	${VENV_UV} pip install -e .
 
