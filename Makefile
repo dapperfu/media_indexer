@@ -1,11 +1,10 @@
-.PHONY: all venv install test lint clean help
+.PHONY: all venv install install-dev test lint lint-format format check validate-requirements clean help
 
 # Python and virtual environment setup
 VENV_DIR = venv
 PYTHON = python3
 PIP = ${VENV_DIR}/bin/pip
 PYTEST = ${VENV_DIR}/bin/pytest
-BLACK = ${VENV_DIR}/bin/black
 RUFF = ${VENV_DIR}/bin/ruff
 
 # Default target
@@ -29,13 +28,19 @@ test: venv
 
 # Run linters
 lint: venv
-	${BLACK} --check src/
 	${RUFF} check src/
+
+# Check formatting
+lint-format: venv
+	${RUFF} format --check src/
 
 # Format code
 format: venv
-	${BLACK} src/
-	${RUFF} --fix src/
+	${RUFF} format src/
+	${RUFF} check --fix src/
+
+# Run all checks
+check: lint test
 
 # Validate requirements.sdoc
 validate-requirements:
@@ -58,8 +63,10 @@ help:
 	@echo "  make install           - Install dependencies"
 	@echo "  make install-dev       - Install development dependencies"
 	@echo "  make test              - Run tests"
-	@echo "  make lint              - Run linters"
-	@echo "  make format            - Format code"
+	@echo "  make lint              - Run ruff linter"
+	@echo "  make lint-format       - Check formatting without fixing"
+	@echo "  make format            - Format code with ruff"
+	@echo "  make check             - Run all checks (lint + test)"
 	@echo "  make validate-requirements - Validate requirements.sdoc"
 	@echo "  make clean             - Clean generated files"
 
