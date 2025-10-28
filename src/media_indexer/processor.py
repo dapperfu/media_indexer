@@ -26,10 +26,7 @@ from media_indexer.object_detector import ObjectDetector, get_object_detector
 from media_indexer.pose_detector import PoseDetector, get_pose_detector
 from media_indexer.sidecar_generator import SidecarGenerator, get_sidecar_generator
 
-try:
-    import image_sidecar_rust
-except ImportError:
-    image_sidecar_rust = None  # type: ignore[assignment, misc]
+import image_sidecar_rust
 
 logger = logging.getLogger(__name__)
 
@@ -212,14 +209,9 @@ class ImageProcessor:
         # REQ-013: Check if already processed (idempotent)
         # Check for sidecar in output directory using image-sidecar-rust's naming
         # The library determines the sidecar filename based on format
-        try:
-            sidecar_filename = image_sidecar_rust.get_sidecar_filename(str(image_path))  # type: ignore[misc, arg-type]
-            sidecar_path = self.output_dir / sidecar_filename
-        except Exception:
-            # Fallback if library not available
-            image_filename = image_path.name
-            sidecar_path = self.output_dir / image_filename
-            
+        sidecar_filename = image_sidecar_rust.get_sidecar_filename(str(image_path))  # type: ignore[misc, arg-type]
+        sidecar_path = self.output_dir / sidecar_filename
+        
         if sidecar_path.exists():
             logger.debug(f"REQ-013: Skipping already processed {image_path}")
             self.stats["skipped_images"] += 1

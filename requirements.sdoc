@@ -27,6 +27,10 @@ UID: REQ-006
 STATEMENT: The tool shall operate exclusively on GPU hardware. CPU fallback shall be disabled and the tool shall fail if no GPU is available.
 
 [REQUIREMENT]
+UID: REQ-021
+STATEMENT: There shall be no Python fallback for any external module which has been specifically called out in the requirements. The tool shall fail if any required external module is not available.
+
+[REQUIREMENT]
 UID: REQ-007
 STATEMENT: Face recognition shall be performed using both the insightface library and the yolov11-face model.
 
