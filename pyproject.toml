@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "GPU-accelerated image analysis tool for extracting metadata, faces, objects, and poses"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Cursor.sh User", email = "user@example.com"}
 ]
@@ -48,11 +48,7 @@ dev = [
 [project.scripts]
 media-indexer = "media_indexer.cli:main"
 
-[tool.setuptools]
-packages = ["media_indexer"]
 
-[tool.setuptools.package-data]
-media_indexer = ["py.typed"]
 
 [tool.mypy]
 python_version = "3.10"
