@@ -40,7 +40,7 @@ STATEMENT: Object detection shall be performed using the YOLOv12x model download
 
 [REQUIREMENT]
 UID: REQ-009
-STATEMENT: Human pose detection shall be performed using the YOLOv12-pose model.
+STATEMENT: Human pose detection shall be performed using the YOLOv11-pose model.
 
 [REQUIREMENT]
 UID: REQ-010

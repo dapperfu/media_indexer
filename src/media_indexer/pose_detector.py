@@ -1,7 +1,7 @@
 """
 Human Pose Detection Module
 
-REQ-009: Human pose detection using YOLOv12-pose model.
+REQ-009: Human pose detection using YOLOv11-pose model.
 REQ-010: All code components directly linked to requirements.
 """
 
@@ -17,16 +17,16 @@ logger = logging.getLogger(__name__)
 
 class PoseDetector:
     """
-    Human pose detector using YOLOv12-pose.
+    Human pose detector using YOLOv11-pose.
 
-    REQ-009: Use YOLOv12-pose model for human pose detection.
+    REQ-009: Use YOLOv11-pose model for human pose detection.
     """
 
-    def __init__(self, device: torch.device, model_path: str = "yolo12-pose.pt", cache_dir: Path | None = None) -> None:
+    def __init__(self, device: torch.device, model_path: str = "yolo11x-pose.pt", cache_dir: Path | None = None) -> None:
         """
         Initialize pose detector.
 
-        REQ-009: Initialize YOLOv12-pose model.
+        REQ-009: Initialize YOLOv11-pose model.
 
         Args:
             device: GPU device for model execution.
@@ -44,12 +44,12 @@ class PoseDetector:
         cache.setup_environment()
         
         try:
-            logger.info(f"REQ-009: Loading YOLOv12-pose model from {model_path}")
+            logger.info(f"REQ-009: Loading YOLOv11-pose model from {model_path}")
             logger.debug(f"REQ-009: Model cache: {cache.yolo_cache}")
             self.model: YOLO = YOLO(model_path)
-            logger.info("REQ-009: YOLOv12-pose model loaded successfully")
+            logger.info("REQ-009: YOLOv11-pose model loaded successfully")
         except Exception as e:
-            error_msg = f"REQ-009: Failed to load YOLOv12-pose model: {e}"
+            error_msg = f"REQ-009: Failed to load YOLOv11-pose model: {e}"
             logger.error(error_msg)
             raise RuntimeError(error_msg) from e
 
@@ -57,7 +57,7 @@ class PoseDetector:
         """
         Detect human poses in an image.
 
-        REQ-009: Detect human poses using YOLOv12-pose.
+        REQ-009: Detect human poses using YOLOv11-pose.
 
         Args:
             image_path: Path to the image file.
@@ -67,7 +67,7 @@ class PoseDetector:
         """
         try:
             logger.debug(f"REQ-009: Detecting poses in {image_path}")
-            # REQ-009: Use YOLOv12-pose for pose detection
+            # REQ-009: Use YOLOv11-pose for pose detection
             results = self.model(str(image_path), device=self.device)
 
             poses: List[Dict[str, Any]] = []
@@ -96,7 +96,7 @@ class PoseDetector:
 
 
 def get_pose_detector(
-    device: torch.device, model_path: str = "yolo12-pose.pt"
+    device: torch.device, model_path: str = "yolo11x-pose.pt"
 ) -> PoseDetector:
     """
     Factory function to get pose detector instance.

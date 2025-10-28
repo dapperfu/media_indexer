@@ -36,7 +36,7 @@ This project implements a GPU-accelerated image analysis tool for processing lar
    - Detects objects with class labels and confidence
 
 7. **Pose Detector** (REQ-009)
-   - Uses YOLOv12-pose model
+   - Uses YOLOv11-pose model
    - Detects human poses with keypoints
 
 8. **Sidecar Generator** (REQ-004)

@@ -8,7 +8,7 @@ GPU-accelerated image analysis tool for extracting metadata, faces, objects, and
 - **EXIF extraction** - Fast EXIF parsing using fast-exif-rs-py
 - **Face detection** - Multi-model approach using insightface, YOLOv8-face, and YOLOv11-face
 - **Object detection** - YOLOv12x for comprehensive object detection
-- **Pose detection** - YOLOv12-pose for human pose estimation
+- **Pose detection** - YOLOv11-pose for human pose estimation
 - **Sidecar files** - JSON format sidecar files containing extracted metadata
 - **Checkpoint/Resume** - Resume interrupted processing
 - **Progress tracking** - Real-time progress with TQDM

@@ -42,7 +42,7 @@ def download_models(args: argparse.Namespace) -> None:
         try:
             from ultralytics import YOLO
 
-            models_to_download = ["yolo12x.pt", "yolo12-pose.pt", "yolov8n-face.pt", "yolov11n-face.pt"]
+            models_to_download = ["yolo12x.pt", "yolo11x-pose.pt", "yolov8n-face.pt", "yolov11n-face.pt"]
             for model_name in models_to_download:
                 logger.info(f"Downloading {model_name}...")
                 model = YOLO(model_name)

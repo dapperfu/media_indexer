@@ -168,7 +168,7 @@ class ImageProcessor:
 
         # REQ-009: Initialize pose detector
         try:
-            self.pose_detector = get_pose_detector(self.device, "yolo12-pose.pt")
+            self.pose_detector = get_pose_detector(self.device, "yolo11x-pose.pt")
             logger.info("REQ-009: Pose detector initialized")
         except Exception as e:
             logger.warning(f"REQ-009: Pose detector not available: {e}")
