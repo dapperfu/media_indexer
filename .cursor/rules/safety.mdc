@@ -1,0 +1,5 @@
+# Safety and Security Rules
+
+Never under any circumstances run rm -rf on ~/
+Under no circumstances should you run sudo. All commands SHALL be done in userspace.
+Do NOT use ! in strings meant for the command line / bash.

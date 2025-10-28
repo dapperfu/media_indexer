@@ -1,0 +1,5 @@
+# StrictDoc Documents
+
+All StrictDoc (.sdoc) documents SHALL follow the StrictDoc grammar rules: https://github.com/strictdoc-project/strictdoc/blob/main/strictdoc/backend/sdoc/grammar/grammar.py
+StrictDoc (.sdoc) documents SHALL not have C-style comments at the top of the file.
+StrictDoc (.sdoc) documents SHALL have the tool (Cursor.AI) and model (Claude) listed in any Git commit message involving a StrictDoc.

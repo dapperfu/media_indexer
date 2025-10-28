@@ -1,0 +1,4 @@
+# Requirements and Code Traceability
+
+Requirements SHALL be in strictdoc format.
+All code changes SHALL have an accompanying requirement in the requirements documentation. Requirements SHALL be tracked in strictdoc format. When implementing new features or functionality, ensure the corresponding requirement exists or create it. All code MUST trace back to at least one requirement.

@@ -1,0 +1,3 @@
+# Notebook Generation
+
+Remember that ALL notebooks must be generated programatically from a .py script. This shall have the same name as the .ipynb. It shall be the golden master for the notebook. If the notebooks need to be regenerated they are regenerated from that.

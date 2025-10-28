@@ -1,0 +1,4 @@
+# Makefile Standards
+
+Makefiles SHALL use full escape for all variables: ${VAR} not $VAR to avoid confusion.
+All makefiles SHALL use an actual file/folder where possible as a target. For example python -mvenv venv generates venv. Any target that depends on Python having the venv built shall use `venv` as a dependency so that the GNU make resolves everything correctly and in the right order.

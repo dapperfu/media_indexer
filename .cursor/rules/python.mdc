@@ -1,0 +1,9 @@
+# Python Development Standards
+
+Do NOT attempt to use the system pip.
+Do NOT attempt to install Python packages to the system.
+All Python related matters SHALL use a virtual environment.
+The Python virtual environment SHALL be called `venv`
+All Makefile references to pip and python installed tools like pytest SHALL use the full path to the venv bin directory, eg `venv/bin/pytest`, `venv/bin/pip`
+All python language scripts SHALL use full mypy typing.
+All python language scripts SHALL be documented such that they meet numpy style guidelines.
