@@ -1,4 +1,4 @@
-.PHONY: all venv install install-dev test lint lint-format format check validate-requirements clean help
+.PHONY: all venv install install-dev test lint format format-check check validate-requirements clean help
 
 # Python and virtual environment setup
 VENV_DIR = venv
@@ -30,8 +30,8 @@ test: venv
 lint: venv
 	${RUFF} check src/
 
-# Check formatting
-lint-format: venv
+# Check formatting (does not format)
+format-check: venv
 	${RUFF} format --check src/
 
 # Format code
@@ -64,8 +64,8 @@ help:
 	@echo "  make install-dev       - Install development dependencies"
 	@echo "  make test              - Run tests"
 	@echo "  make lint              - Run ruff linter"
-	@echo "  make lint-format       - Check formatting without fixing"
 	@echo "  make format            - Format code with ruff"
+	@echo "  make format-check      - Check formatting without fixing"
 	@echo "  make check             - Run all checks (lint + test)"
 	@echo "  make validate-requirements - Validate requirements.sdoc"
 	@echo "  make clean             - Clean generated files"

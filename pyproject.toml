@@ -60,9 +60,10 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = false
+line-length = 120
 
 [tool.ruff]
-line-length = 88
+line-length = 120
 target-version = "py310"
 select = [
     "E",   # pycodestyle errors
