@@ -138,4 +138,8 @@ STATEMENT: The 'convert' subcommand shall support exporting database contents to
 UID: REQ-034
 STATEMENT: The 'convert' subcommand shall provide --direction flag with values 'to-db' (import sidecar to database) and 'to-sidecar' (export database to sidecar).
 
+[REQUIREMENT]
+UID: REQ-035
+STATEMENT: All Python functions and files SHALL be documented to meet NumPy documentation standards as specified in the NumPy documentation style guide.
+
 

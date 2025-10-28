@@ -7,3 +7,4 @@ The Python virtual environment SHALL be called `venv`
 All Makefile references to pip and python installed tools like pytest SHALL use the full path to the venv bin directory, eg `venv/bin/pytest`, `venv/bin/pip`
 All python language scripts SHALL use full mypy typing.
 All python language scripts SHALL be documented such that they meet numpy style guidelines.
+ALL functions and files in Python SHALL be documented to meet numpy documentation standards.

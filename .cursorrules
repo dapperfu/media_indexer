@@ -34,5 +34,6 @@
 # The commit message shall include the filename and what changed / why it was added. In addition to a summary of the prompt as to why the changes were made.
 # All python language scripts SHALL use full mypy typing.
 # All python language scripts SHALL be documented such that they meet numpy style guidelines. 
+# ALL functions and files in Python SHALL be documented to meet numpy documentation standards. 
 # ALWAYS pull from remote before committing changes.
 # All code changes SHALL have an accompanying requirement in the requirements documentation. Requirements SHALL be tracked in strictdoc format. When implementing new features or functionality, ensure the corresponding requirement exists or create it. All code MUST trace back to at least one requirement.

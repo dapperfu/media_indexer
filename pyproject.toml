@@ -35,6 +35,8 @@ dependencies = [
     "insightface>=0.7.3",
     "ultralytics>=8.3.0",
     "image-sidecar-rust @ git+https://github.com/dapperfu/image-sidecar-rust.git",
+    "pony>=0.7.17",
+    "xxhash>=3.0.0",
 ]
 
 [project.optional-dependencies]
@@ -44,6 +46,7 @@ dev = [
     "mypy>=1.5.0",
     "ruff>=0.1.0",
     "strictdoc>=0.0.51",
+    "pydocstyle>=6.0.0",
 ]
 
 [project.scripts]

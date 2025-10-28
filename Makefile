@@ -1,4 +1,4 @@
-.PHONY: all venv install install-dev test lint format format-check check validate-requirements generate-sdocs-html clean help
+.PHONY: all venv install install-dev test lint doc-check format format-check check validate-requirements generate-sdocs-html clean help
 
 # Python and virtual environment setup
 VENV_DIR = venv
@@ -7,6 +7,7 @@ PIP = ${VENV_DIR}/bin/pip
 PYTEST = ${VENV_DIR}/bin/pytest
 RUFF = ${VENV_DIR}/bin/ruff
 STRICTDOC = ${VENV_DIR}/bin/strictdoc
+PYDOCSTYLE = ${VENV_DIR}/bin/pydocstyle
 
 # Default target
 all: venv install
@@ -41,7 +42,11 @@ format: venv
 	${RUFF} check --fix src/
 
 # Run all checks
-check: lint test
+check: lint doc-check test
+
+# Check documentation style
+doc-check: venv
+	${PYDOCSTYLE} src/media_indexer --convention=numpy
 
 # Validate requirements.sdoc
 validate-requirements: venv
@@ -71,9 +76,10 @@ help:
 	@echo "  make install-dev       - Install development dependencies"
 	@echo "  make test              - Run tests"
 	@echo "  make lint              - Run ruff linter"
+	@echo "  make doc-check         - Check documentation style (pydocstyle)"
 	@echo "  make format            - Format code with ruff"
 	@echo "  make format-check      - Check formatting without fixing"
-	@echo "  make check             - Run all checks (lint + test)"
+	@echo "  make check             - Run all checks (lint + doc-check + test)"
 	@echo "  make validate-requirements - Validate requirements.sdoc"
 	@echo "  make generate-sdocs-html - Generate HTML from .sdoc files"
 	@echo "  make clean             - Clean generated files"
