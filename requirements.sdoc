@@ -16,11 +16,11 @@ STATEMENT: EXIF data parsing shall be performed using the fast-exif-rs-py librar
 
 [REQUIREMENT]
 UID: REQ-004
-STATEMENT: Sidecar files shall be generated in binary format using the image-sidecar-rust library.
+STATEMENT: Sidecar files shall be generated for each processed image containing extracted metadata (faces, objects, poses, EXIF data).
 
 [REQUIREMENT]
 UID: REQ-005
-STATEMENT: A complete pyproject.toml file shall be included with all necessary dependencies including fast-exif-rs-py, image-sidecar-rust, insightface, ultralytics, torch, and GPU acceleration libraries.
+STATEMENT: A complete pyproject.toml file shall be included with all necessary dependencies including insightface, ultralytics, torch, and GPU acceleration libraries.
 
 [REQUIREMENT]
 UID: REQ-006
