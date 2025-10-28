@@ -22,7 +22,7 @@ class PoseDetector:
     REQ-009: Use YOLOv12-pose model for human pose detection.
     """
 
-    def __init__(self, device: torch.device, model_path: str = "yolo12-pose.pt") -> None:
+    def __init__(self, device: torch.device, model_path: str = "yolo12-pose.pt", cache_dir: Path | None = None) -> None:
         """
         Initialize pose detector.
 
@@ -31,13 +31,21 @@ class PoseDetector:
         Args:
             device: GPU device for model execution.
             model_path: Path to YOLO pose model file.
+            cache_dir: Optional cache directory for model storage.
 
         Raises:
             RuntimeError: If model cannot be loaded.
         """
         self.device: torch.device = device
+        
+        # Setup model cache for centralized storage
+        from media_indexer.model_cache import ModelCache
+        cache = ModelCache(cache_dir)
+        cache.setup_environment()
+        
         try:
             logger.info(f"REQ-009: Loading YOLOv12-pose model from {model_path}")
+            logger.debug(f"REQ-009: Model cache: {cache.yolo_cache}")
             self.model: YOLO = YOLO(model_path)
             logger.info("REQ-009: YOLOv12-pose model loaded successfully")
         except Exception as e:

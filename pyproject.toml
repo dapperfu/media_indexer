@@ -46,6 +46,7 @@ dev = [
 
 [project.scripts]
 media-indexer = "media_indexer.cli:main"
+media-indexer-download-models = "media_indexer.download_models:main"
 
 
 

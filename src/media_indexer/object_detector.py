@@ -12,6 +12,8 @@ from typing import Any, Dict, List
 import torch
 from ultralytics import YOLO
 
+from media_indexer.model_cache import setup_model_cache
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,22 +24,30 @@ class ObjectDetector:
     REQ-008: Use YOLOv12x model for object detection.
     """
 
-    def __init__(self, device: torch.device, model_path: str = "yolo12x.pt") -> None:
+    def __init__(self, device: torch.device, model_path: str = "yolo12x.pt", cache_dir: Path | None = None) -> None:
         """
         Initialize object detector.
 
-        REQ-008: Initialize YOLOv12x model.
+        REQ-008: Initialize YOLOv12x model with centralized cache.
 
         Args:
             device: GPU device for model execution.
             model_path: Path to YOLO model file.
+            cache_dir: Optional cache directory for model storage.
 
         Raises:
             RuntimeError: If model cannot be loaded.
         """
         self.device: torch.device = device
+        
+        # Setup model cache for centralized storage
+        from media_indexer.model_cache import ModelCache
+        cache = ModelCache(cache_dir)
+        cache.setup_environment()
+        
         try:
             logger.info(f"REQ-008: Loading YOLOv12x model from {model_path}")
+            logger.debug(f"REQ-008: Model cache: {cache.yolo_cache}")
             self.model: YOLO = YOLO(model_path)
             logger.info("REQ-008: YOLOv12x model loaded successfully")
         except Exception as e:
