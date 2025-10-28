@@ -15,7 +15,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import tqdm
 
@@ -42,8 +42,8 @@ class ImageProcessor:
     def __init__(
         self,
         input_dir: Path,
-        output_dir: Optional[Path] = None,
-        checkpoint_file: Optional[Path] = None,
+        output_dir: Path | None = None,
+        checkpoint_file: Path | None = None,
         verbose: int = 20,
         batch_size: int = 1,
     ) -> None:
@@ -85,7 +85,7 @@ class ImageProcessor:
         self.batch_size = batch_size
 
         # REQ-012: Statistics tracking
-        self.stats: Dict[str, Any] = {
+        self.stats: dict[str, Any] = {
             "total_images": 0,
             "processed_images": 0,
             "skipped_images": 0,
@@ -95,11 +95,11 @@ class ImageProcessor:
         }
 
         # REQ-002: Initialize components
-        self.exif_extractor: Optional[EXIFExtractor] = None
-        self.face_detector: Optional[FaceDetector] = None
-        self.object_detector: Optional[ObjectDetector] = None
-        self.pose_detector: Optional[PoseDetector] = None
-        self.sidecar_generator: Optional[SidecarGenerator] = None
+        self.exif_extractor: EXIFExtractor | None = None
+        self.face_detector: FaceDetector | None = None
+        self.object_detector: ObjectDetector | None = None
+        self.pose_detector: PoseDetector | None = None
+        self.sidecar_generator: SidecarGenerator | None = None
 
         # REQ-011: Load checkpoint if exists
         self._load_checkpoint()
@@ -111,7 +111,7 @@ class ImageProcessor:
         if self.checkpoint_file.exists():
             logger.info(f"REQ-011: Loading checkpoint from {self.checkpoint_file}")
             try:
-                with open(self.checkpoint_file, "r") as f:
+                with open(self.checkpoint_file) as f:
                     data = json.load(f)
                     self.processed_files = set(data.get("processed_files", []))
                     self.stats.update(data.get("stats", {}))
@@ -173,12 +173,12 @@ class ImageProcessor:
 
         # REQ-004: Initialize sidecar generator
         try:
-            self.sidecar_generator = get_sidecar_generator()
+            self.sidecar_generator = get_sidecar_generator(self.output_dir)
             logger.info("REQ-004: Sidecar generator initialized")
         except Exception as e:
             logger.warning(f"REQ-004: Sidecar generator not available: {e}")
 
-    def _get_image_files(self) -> List[Path]:
+    def _get_image_files(self) -> list[Path]:
         """
         Get list of image files to process (REQ-018).
 
@@ -186,7 +186,7 @@ class ImageProcessor:
             List of image file paths.
         """
         extensions = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".raw", ".cr2", ".nef", ".arw"}
-        images: List[Path] = []
+        images: list[Path] = []
 
         for ext in extensions:
             images.extend(self.input_dir.glob(f"*{ext}"))
@@ -205,14 +205,16 @@ class ImageProcessor:
             True if successful, False otherwise.
         """
         # REQ-013: Check if already processed (idempotent)
-        sidecar_path = Path(f"{image_path}.sidecar")
+        # Check for sidecar in output directory
+        image_filename = image_path.name
+        sidecar_path = self.output_dir / f"{image_filename}.sidecar"
         if sidecar_path.exists():
             logger.debug(f"REQ-013: Skipping already processed {image_path}")
             self.stats["skipped_images"] += 1
             return True
 
         try:
-            metadata: Dict[str, Any] = {"image_path": str(image_path)}
+            metadata: dict[str, Any] = {"image_path": str(image_path)}
 
             # REQ-003: Extract EXIF
             if self.exif_extractor is not None:
@@ -261,7 +263,7 @@ class ImageProcessor:
             self.stats["error_images"] += 1
             return False
 
-    def process(self) -> Dict[str, Any]:
+    def process(self) -> dict[str, Any]:
         """
         Process all images (REQ-002, REQ-012).
 
