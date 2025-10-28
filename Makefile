@@ -1,4 +1,4 @@
-.PHONY: all venv install install-dev test lint format format-check check validate-requirements clean help
+.PHONY: all venv install install-dev test lint format format-check check validate-requirements generate-sdocs-html clean help
 
 # Python and virtual environment setup
 VENV_DIR = venv
@@ -6,6 +6,7 @@ PYTHON = python3
 PIP = ${VENV_DIR}/bin/pip
 PYTEST = ${VENV_DIR}/bin/pytest
 RUFF = ${VENV_DIR}/bin/ruff
+STRICTDOC = ${VENV_DIR}/bin/strictdoc
 
 # Default target
 all: venv install
@@ -43,8 +44,13 @@ format: venv
 check: lint test
 
 # Validate requirements.sdoc
-validate-requirements:
-	strictdoc export requirements.sdoc --output-dir /tmp/strictdoc_export
+validate-requirements: venv
+	${STRICTDOC} export requirements.sdoc --output-dir /tmp/strictdoc_export_validate
+
+# Generate HTML from all .sdoc files
+generate-sdocs-html: venv
+	mkdir -p docs
+	${STRICTDOC} export requirements.sdoc --output-dir docs/requirements
 
 # Clean generated files
 clean:
@@ -55,6 +61,7 @@ clean:
 	rm -rf dist/
 	rm -rf build/
 	rm -rf *.egg-info
+	rm -rf docs/
 
 # Help
 help:
@@ -68,5 +75,6 @@ help:
 	@echo "  make format-check      - Check formatting without fixing"
 	@echo "  make check             - Run all checks (lint + test)"
 	@echo "  make validate-requirements - Validate requirements.sdoc"
+	@echo "  make generate-sdocs-html - Generate HTML from .sdoc files"
 	@echo "  make clean             - Clean generated files"
 
