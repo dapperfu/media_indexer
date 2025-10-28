@@ -47,6 +47,7 @@ dev = [
     "ruff>=0.1.0",
     "strictdoc>=0.0.51",
     "pydocstyle>=6.0.0",
+    "uv>=0.1.0",
 ]
 
 [project.scripts]

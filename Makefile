@@ -1,9 +1,11 @@
-.PHONY: all venv install install-dev test lint doc-check format format-check check validate-requirements generate-sdocs-html clean help
+.PHONY: all install install-dev test lint doc-check format format-check check validate-requirements generate-sdocs-html clean help
 
 # Python and virtual environment setup
 VENV_DIR = venv
+VENV_PYTHON = ${VENV_DIR}/bin/python
+VENV_PIP = ${VENV_DIR}/bin/pip
+VENV_UV = ${VENV_DIR}/bin/uv
 PYTHON = python3
-PIP = ${VENV_DIR}/bin/pip
 PYTEST = ${VENV_DIR}/bin/pytest
 RUFF = ${VENV_DIR}/bin/ruff
 STRICTDOC = ${VENV_DIR}/bin/strictdoc
@@ -12,32 +14,36 @@ PYDOCSTYLE = ${VENV_DIR}/bin/pydocstyle
 # Default target
 all: venv install
 
-# Create virtual environment
-venv:
+# Create virtual environment - uses actual file as target
+venv: ${VENV_PYTHON}
+
+${VENV_PYTHON}:
 	${PYTHON} -m venv ${VENV_DIR}
+	${VENV_PIP} install uv
+	touch $@
 
 # Install dependencies
-install: venv
-	${PIP} install -e .
+install: ${VENV_UV}
+	${VENV_UV} pip install -e .
 
 # Install development dependencies
-install-dev: venv
-	${PIP} install -e ".[dev]"
+install-dev: ${VENV_UV}
+	${VENV_UV} pip install -e ".[dev]"
 
 # Run tests
-test: venv
+test: ${VENV_PYTHON}
 	${PYTEST} tests/
 
 # Run linters
-lint: venv
+lint: ${VENV_PYTHON}
 	${RUFF} check src/
 
 # Check formatting (does not format)
-format-check: venv
+format-check: ${VENV_PYTHON}
 	${RUFF} format --check src/
 
 # Format code
-format: venv
+format: ${VENV_PYTHON}
 	${RUFF} format src/
 	${RUFF} check --fix src/
 
@@ -45,15 +51,15 @@ format: venv
 check: lint doc-check test
 
 # Check documentation style
-doc-check: venv
+doc-check: ${VENV_PYTHON}
 	${PYDOCSTYLE} src/media_indexer --convention=numpy
 
 # Validate requirements.sdoc
-validate-requirements: venv
+validate-requirements: ${VENV_PYTHON}
 	${STRICTDOC} export requirements.sdoc --output-dir /tmp/strictdoc_export_validate
 
 # Generate HTML from all .sdoc files
-generate-sdocs-html: venv
+generate-sdocs-html: ${VENV_PYTHON}
 	mkdir -p docs
 	${STRICTDOC} export requirements.sdoc --output-dir docs/requirements
 
