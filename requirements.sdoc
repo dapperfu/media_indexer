@@ -84,6 +84,6 @@ STATEMENT: The tool shall provide an optional SQLite database index for extracte
 
 [REQUIREMENT]
 UID: REQ-020
-STATEMENT: The tool shall implement performance optimization including multi-GPU support, async I/O, minimizing GPU idle time, and profiling capabilities.
+STATEMENT: The tool shall implement performance optimization including parallel processing with thread-based I/O operations, batch processing for GPU acceleration, and optimized default batch sizing based on available VRAM (default 4 images per batch for 12GB VRAM).
 
 

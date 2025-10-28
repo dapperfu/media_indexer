@@ -97,7 +97,7 @@ def parse_args() -> argparse.Namespace:
         "-b", "--batch-size",
         type=int,
         default=1,
-        help="Batch size for processing (REQ-014)",
+        help="Batch size for parallel processing (default: 1 auto-scales to 4 for 12GB VRAM) (REQ-014, REQ-020)",
     )
 
     parser.add_argument(

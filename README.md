@@ -5,6 +5,7 @@ GPU-accelerated image analysis tool for extracting metadata, faces, objects, and
 ## Features
 
 - **GPU-accelerated processing** - No CPU fallback, GPU-only operation
+- **Parallel processing** - Thread-based I/O with batch processing (default 4 images/batch for 12GB VRAM)
 - **EXIF extraction** - Fast EXIF parsing using fast-exif-rs-py
 - **Face detection** - Multi-model approach using insightface, YOLOv8-face, and YOLOv11-face
 - **Object detection** - YOLOv12x for comprehensive object detection

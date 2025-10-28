@@ -43,8 +43,10 @@ This project implements a GPU-accelerated image analysis tool for processing lar
    - Uses image-sidecar-rust
    - Generates binary format sidecar files
 
-9. **Main Processor** (REQ-002, REQ-011, REQ-012, REQ-013, REQ-015)
+9. **Main Processor** (REQ-002, REQ-011, REQ-012, REQ-013, REQ-014, REQ-015, REQ-020)
    - Orchestrates all components
+   - Parallel processing with threading for I/O operations
+   - Batch processing for GPU acceleration (default 4 images/batch)
    - Checkpoint/resume functionality
    - Progress tracking with statistics
    - Idempotent processing (skips already-processed images)

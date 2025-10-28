@@ -13,8 +13,11 @@ REQ-016: Multi-level verbosity logging.
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
+from queue import Queue
+from threading import Lock
 from typing import Any
 
 import tqdm
@@ -85,6 +88,9 @@ class ImageProcessor:
 
         # REQ-014: Batch size configuration
         self.batch_size = batch_size
+        # REQ-020: Use optimal defaults for 12GB VRAM
+        if self.batch_size == 1:
+            self.batch_size = 4  # Default batch size for better GPU utilization
 
         # REQ-012: Statistics tracking
         self.stats: dict[str, Any] = {
@@ -95,6 +101,7 @@ class ImageProcessor:
             "start_time": datetime.now().isoformat(),
             "end_time": None,
         }
+        self.stats_lock: Lock = Lock()  # For thread-safe stat updates
 
         # REQ-002: Initialize components
         self.exif_extractor: EXIFExtractor | None = None
@@ -258,23 +265,21 @@ class ImageProcessor:
                     return False
 
             self.processed_files.add(str(image_path))
-            self.stats["processed_images"] += 1
             return True
 
         except Exception as e:
             # REQ-015: Robust error handling
             logger.error(f"REQ-015: Error processing {image_path}: {e}")
-            self.stats["error_images"] += 1
             return False
 
     def process(self) -> dict[str, Any]:
         """
-        Process all images (REQ-002, REQ-012).
+        Process all images with parallel/batch processing (REQ-002, REQ-012, REQ-014, REQ-020).
 
         Returns:
             Dictionary with processing statistics.
         """
-        logger.info("REQ-002: Starting image processing")
+        logger.info(f"REQ-002: Starting image processing with batch size {self.batch_size}")
 
         # Initialize components
         self._initialize_components()
@@ -284,23 +289,57 @@ class ImageProcessor:
         self.stats["total_images"] = len(images)
         logger.info(f"REQ-002: Found {len(images)} images to process")
 
+        # Filter out already processed images
+        images_to_process = [
+            img for img in images 
+            if str(img) not in self.processed_files
+        ]
+
+        if not images_to_process:
+            logger.info("REQ-013: All images already processed")
+            return self.stats
+
         # REQ-012: Progress tracking with TQDM if verbose level <= 12
         if self.verbose <= 12:
-            images_iter = tqdm.tqdm(images, desc="Processing images")
+            progress_bar = tqdm.tqdm(total=len(images_to_process), desc="Processing images")
         else:
-            images_iter = images
+            progress_bar = None
 
-        # Process images
-        for image_path in images_iter:
-            # REQ-013: Skip if already processed
-            if str(image_path) in self.processed_files:
-                continue
+        # REQ-020: Process images in batches with threading for I/O
+        try:
+            # Process in batches
+            for i in range(0, len(images_to_process), self.batch_size):
+                batch = images_to_process[i:i + self.batch_size]
+                
+                # REQ-015: Robust error handling with thread pool
+                with ThreadPoolExecutor(max_workers=self.batch_size) as executor:
+                    futures = {
+                        executor.submit(self._process_single_image, img): img 
+                        for img in batch
+                    }
+                    
+                    for future in as_completed(futures):
+                        image_path = futures[future]
+                        try:
+                            success = future.result()
+                            if success:
+                                self._update_stats_increment("processed_images")
+                            else:
+                                self._update_stats_increment("error_images")
+                        except Exception as e:
+                            logger.error(f"REQ-015: Error processing {image_path}: {e}")
+                            self._update_stats_increment("error_images")
+                        
+                        # Update progress bar
+                        if progress_bar:
+                            progress_bar.update(1)
 
-            self._process_single_image(image_path)
-
-            # REQ-011: Save checkpoint periodically
-            if self.stats["processed_images"] % 100 == 0:
-                self._save_checkpoint()
+                # REQ-011: Save checkpoint periodically
+                if self.stats["processed_images"] % 100 == 0:
+                    self._save_checkpoint()
+        finally:
+            if progress_bar:
+                progress_bar.close()
 
         # REQ-011: Final checkpoint save
         self._save_checkpoint()
@@ -310,6 +349,16 @@ class ImageProcessor:
         self._print_statistics()
 
         return self.stats
+    
+    def _update_stats_increment(self, key: str) -> None:
+        """
+        Thread-safe stats update.
+        
+        Args:
+            key: Stat key to increment.
+        """
+        with self.stats_lock:
+            self.stats[key] += 1
 
     def _print_statistics(self) -> None:
         """
