@@ -30,8 +30,24 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install dependencies
 pip install -e .
 
-# Download models (optional, will auto-download on first run)
-wget -O yolo12x.pt https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo12x.pt
+# Download models to central cache (optional, will auto-download on first run)
+media-indexer-download-models --download-yolo --download-insightface
+
+# Or just list cached models
+media-indexer-download-models --list
+```
+
+### Centralized Model Cache
+
+Models are stored in `~/.media_indexer/models/` by default. This prevents re-downloading on every install:
+
+- **YOLO models** (REQ-008, REQ-009): `~/.media_indexer/models/yolo/`
+- **InsightFace models** (REQ-007): `~/.media_indexer/models/insightface/`
+
+You can specify a custom cache location:
+
+```bash
+media-indexer /path/to/images --cache-dir /custom/path
 ```
 
 ## Usage
