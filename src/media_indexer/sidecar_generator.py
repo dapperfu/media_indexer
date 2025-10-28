@@ -1,7 +1,7 @@
 """
 Sidecar Generator Module
 
-REQ-004: Sidecar file generation in JSON format.
+REQ-004: Sidecar file generation.
 REQ-010: All code components directly linked to requirements.
 """
 
@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 
 class SidecarGenerator:
     """
-    Sidecar file generator using JSON format.
+    Sidecar file generator.
 
-    REQ-004: Generate sidecar files in JSON format.
+    REQ-004: Generate sidecar files containing extracted metadata.
     """
 
     def __init__(self, output_dir: Path) -> None:
@@ -37,7 +37,7 @@ class SidecarGenerator:
         """
         Generate sidecar file for an image.
 
-        REQ-004: Generate JSON sidecar file for image.
+        REQ-004: Generate sidecar file for image containing metadata.
 
         Args:
             image_path: Path to the image file.
@@ -57,7 +57,7 @@ class SidecarGenerator:
             image_filename = image_path.name
             sidecar_path: Path = self.output_dir / f"{image_filename}.sidecar"
 
-            # REQ-004: Write JSON sidecar file
+            # REQ-004: Write sidecar file
             with open(sidecar_path, "w", encoding="utf-8") as f:
                 json.dump(metadata, f, indent=2)
 
@@ -73,7 +73,7 @@ class SidecarGenerator:
         """
         Read metadata from a sidecar file.
 
-        REQ-004: Read JSON sidecar file.
+        REQ-004: Read sidecar file containing metadata.
 
         Args:
             sidecar_path: Path to the sidecar file.
@@ -86,7 +86,7 @@ class SidecarGenerator:
         """
         try:
             logger.debug(f"REQ-004: Reading sidecar from {sidecar_path}")
-            # REQ-004: Read JSON sidecar file
+            # REQ-004: Read sidecar file
             with open(sidecar_path, encoding="utf-8") as f:
                 metadata: dict[str, Any] = json.load(f)
 
