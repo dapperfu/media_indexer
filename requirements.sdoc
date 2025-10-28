@@ -83,7 +83,59 @@ UID: REQ-019
 STATEMENT: The tool shall provide an optional SQLite database index for extracted metadata to enable querying by faces, objects, poses, and EXIF tags.
 
 [REQUIREMENT]
+UID: REQ-022
+STATEMENT: The tool shall use PonyORM as the Object-Relational Mapping (ORM) framework for database operations.
+
+[REQUIREMENT]
+UID: REQ-023
+STATEMENT: Each PonyORM model entity (Image, Face, Object, Pose, EXIFData) shall be defined in a separate file within the db module directory.
+
+[REQUIREMENT]
+UID: REQ-024
+STATEMENT: The database schema shall implement relational design with proper foreign key relationships: Image (1:N with Face, Object, Pose), Image (1:1 with EXIFData, ImageMetadata).
+
+[REQUIREMENT]
+UID: REQ-025
+STATEMENT: The tool shall support database storage mode with the --db flag specifying the database file path. When specified, metadata shall be stored in the database.
+
+[REQUIREMENT]
+UID: REQ-026
+STATEMENT: The tool shall support the --no-sidecar flag to disable sidecar file generation when using database storage mode.
+
+[REQUIREMENT]
+UID: REQ-027
+STATEMENT: The tool shall support concurrent storage to both database and sidecar files when --db is specified without --no-sidecar.
+
+[REQUIREMENT]
+UID: REQ-028
+STATEMENT: The database schema shall be designed to support efficient querying by face embeddings, object classes, pose keypoints, and EXIF tags without requiring schema changes for new query patterns.
+
+[REQUIREMENT]
 UID: REQ-020
 STATEMENT: The tool shall implement performance optimization including parallel processing with thread-based I/O operations, batch processing for GPU acceleration, and optimized default batch sizing based on available VRAM (default 4 images per batch for 12GB VRAM).
+
+[REQUIREMENT]
+UID: REQ-029
+STATEMENT: The tool shall support subcommand-based CLI operation with commands: extract (extract features from images), annotate (add features to images), and convert (migrate data between sidecar and database formats).
+
+[REQUIREMENT]
+UID: REQ-030
+STATEMENT: The 'extract' subcommand shall process images and extract features including faces, objects, poses, and EXIF data, storing results in sidecar files and/or database as specified by configuration.
+
+[REQUIREMENT]
+UID: REQ-031
+STATEMENT: The 'annotate' subcommand shall process images and add features (faces, objects, poses, EXIF data) as annotations, storing results in sidecar files and/or database as specified by configuration.
+
+[REQUIREMENT]
+UID: REQ-032
+STATEMENT: The 'convert' subcommand shall support importing existing sidecar files into the database, allowing migration from sidecar-only storage to database storage.
+
+[REQUIREMENT]
+UID: REQ-033
+STATEMENT: The 'convert' subcommand shall support exporting database contents to sidecar files, allowing extraction of database-stored features to individual sidecar JSON files.
+
+[REQUIREMENT]
+UID: REQ-034
+STATEMENT: The 'convert' subcommand shall provide --direction flag with values 'to-db' (import sidecar to database) and 'to-sidecar' (export database to sidecar).
 
 
