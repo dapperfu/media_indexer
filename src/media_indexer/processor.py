@@ -31,6 +31,10 @@ from media_indexer.sidecar_generator import SidecarGenerator, get_sidecar_genera
 
 import image_sidecar_rust
 
+# REQ-022: Import database modules
+from media_indexer.db.connection import DatabaseConnection
+from media_indexer.db.hash_util import calculate_file_hash
+
 logger = logging.getLogger(__name__)
 
 
@@ -51,12 +55,16 @@ class ImageProcessor:
         checkpoint_file: Path | None = None,
         verbose: int = 20,
         batch_size: int = 1,
+        database_path: Path | None = None,
+        disable_sidecar: bool = False,
     ) -> None:
         """
         Initialize image processor.
 
         REQ-006: Ensure GPU-only operation.
         REQ-016: Multi-level verbosity.
+        REQ-025: Support database storage.
+        REQ-026: Support disabling sidecar generation.
 
         Args:
             input_dir: Directory containing images to process.
@@ -64,6 +72,8 @@ class ImageProcessor:
             checkpoint_file: Path to checkpoint file (REQ-011).
             verbose: Verbosity level (REQ-016).
             batch_size: Batch size for processing (REQ-014).
+            database_path: Path to database file (REQ-025).
+            disable_sidecar: Disable sidecar generation when using database (REQ-026).
 
         Raises:
             RuntimeError: If no GPU is available (REQ-006).
@@ -109,6 +119,22 @@ class ImageProcessor:
         self.object_detector: ObjectDetector | None = None
         self.pose_detector: PoseDetector | None = None
         self.sidecar_generator: SidecarGenerator | None = None
+
+        # REQ-025: Initialize database if specified
+        self.database_path: Path | None = database_path
+        self.disable_sidecar: bool = disable_sidecar
+        self.database_connection: DatabaseConnection | None = None
+        if self.database_path:
+            logger.info(f"REQ-025: Database path specified: {self.database_path}")
+            self.database_connection = DatabaseConnection(self.database_path)
+            self.database_connection.connect()
+
+        # REQ-026: Check if sidecar should be disabled
+        if self.disable_sidecar and not self.database_path:
+            logger.warning("REQ-026: --no-sidecar specified without --db, ignoring flag")
+            self.disable_sidecar = False
+        if self.disable_sidecar:
+            logger.info("REQ-026: Sidecar generation disabled")
 
         # REQ-011: Load checkpoint if exists
         self._load_checkpoint()
@@ -203,6 +229,99 @@ class ImageProcessor:
 
         return images
 
+    def _store_to_database(self, image_path: Path, metadata: dict[str, Any]) -> bool:
+        """
+        Store image metadata to database.
+
+        REQ-025: Store image metadata to database using PonyORM.
+
+        Args:
+            image_path: Path to the image file.
+            metadata: Extracted metadata dictionary.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        if not self.database_connection:
+            return True
+
+        try:
+            from media_indexer.db.image import Image as DBImage
+            from media_indexer.db.face import Face as DBFace
+            from media_indexer.db.object import Object as DBObject
+            from media_indexer.db.pose import Pose as DBPose
+            from media_indexer.db.exif import EXIFData as DBEXIFData
+            from pony.orm import db_session
+            from media_indexer.db.hash_util import get_file_size
+
+            with db_session:
+                # REQ-028: Calculate file hash for deduplication
+                file_hash = calculate_file_hash(image_path)
+                file_size = get_file_size(image_path) or 0
+
+                # Check if image already exists in database
+                existing_image = DBImage.get_by_path(str(image_path))
+                if existing_image:
+                    logger.debug(f"REQ-024: Image {image_path} already exists in database, skipping")
+                    return True
+
+                # REQ-024: Create Image entity
+                from datetime import datetime
+                db_image = DBImage(
+                    path=str(image_path),
+                    file_hash=file_hash,
+                    file_size=file_size,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now(),
+                )
+
+                # REQ-024: Store faces
+                if "faces" in metadata:
+                    for face_data in metadata["faces"]:
+                        DBFace(
+                            image=db_image,
+                            confidence=face_data.get("confidence", 0.0),
+                            bbox=face_data.get("bbox", []),
+                            embedding=face_data.get("embedding"),
+                            model=face_data.get("model", "unknown"),
+                        )
+
+                # REQ-024: Store objects
+                if "objects" in metadata:
+                    for obj_data in metadata["objects"]:
+                        DBObject(
+                            image=db_image,
+                            class_id=obj_data.get("class_id", -1),
+                            class_name=obj_data.get("class_name", "unknown"),
+                            confidence=obj_data.get("confidence", 0.0),
+                            bbox=obj_data.get("bbox", []),
+                        )
+
+                # REQ-024: Store poses
+                if "poses" in metadata:
+                    for pose_data in metadata["poses"]:
+                        DBPose(
+                            image=db_image,
+                            confidence=pose_data.get("confidence", 0.0),
+                            bbox=pose_data.get("bbox", []),
+                            keypoints=pose_data.get("keypoints", []),
+                            keypoints_conf=pose_data.get("keypoints_conf"),
+                        )
+
+                # REQ-024: Store EXIF data
+                if "exif" in metadata and metadata["exif"]:
+                    DBEXIFData(
+                        image=db_image,
+                        data=metadata["exif"],
+                    )
+
+                logger.debug(f"REQ-025: Stored metadata for {image_path} in database")
+                return True
+
+        except Exception as e:
+            logger.error(f"REQ-025: Failed to store to database: {e}")
+            return False
+
     def _process_single_image(self, image_path: Path) -> bool:
         """
         Process a single image (REQ-002, REQ-015).
@@ -214,6 +333,21 @@ class ImageProcessor:
             True if successful, False otherwise.
         """
         # REQ-013: Check if already processed (idempotent)
+        # REQ-025: Check database if using database storage
+        if self.database_connection:
+            try:
+                from media_indexer.db.image import Image as DBImage
+                from pony.orm import db_session
+
+                with db_session:
+                    existing_image = DBImage.get_by_path(str(image_path))
+                    if existing_image:
+                        logger.debug(f"REQ-013: Image {image_path} already exists in database, skipping")
+                        self.stats["skipped_images"] += 1
+                        return True
+            except Exception as e:
+                logger.warning(f"REQ-025: Database check failed: {e}")
+
         # Check for sidecar in output directory using image-sidecar-rust's naming
         # The library determines the sidecar filename based on format
         sidecar_filename = image_sidecar_rust.get_sidecar_filename(str(image_path))  # type: ignore[misc, arg-type]
@@ -255,14 +389,27 @@ class ImageProcessor:
                 except Exception as e:
                     logger.debug(f"REQ-009: Pose detection failed: {e}")
 
-            # REQ-004: Generate sidecar
-            if self.sidecar_generator is not None:
+            # REQ-025: Store to database
+            if self.database_connection:
+                db_success = self._store_to_database(image_path, metadata)
+                if not db_success:
+                    logger.error(f"REQ-025: Failed to store {image_path} to database")
+
+            # REQ-027: Generate sidecar if not disabled
+            if not self.disable_sidecar and self.sidecar_generator is not None:
                 try:
                     sidecar_path = self.sidecar_generator.generate_sidecar(image_path, metadata)
-                    logger.debug(f"REQ-004: Generated sidecar for {image_path}")
+                    logger.debug(f"REQ-027: Generated sidecar for {image_path}")
                 except Exception as e:
                     logger.error(f"REQ-004: Sidecar generation failed: {e}")
-                    return False
+                    if self.database_connection:
+                        # If using database, sidecar failure is not fatal
+                        self.processed_files.add(str(image_path))
+                        return True
+                    else:
+                        return False
+            elif self.disable_sidecar:
+                logger.debug(f"REQ-026: Skipping sidecar generation for {image_path}")
 
             self.processed_files.add(str(image_path))
             return True
@@ -347,6 +494,10 @@ class ImageProcessor:
         # REQ-012: Final statistics
         self.stats["end_time"] = datetime.now().isoformat()
         self._print_statistics()
+
+        # REQ-022: Close database connection
+        if self.database_connection:
+            self.database_connection.close()
 
         return self.stats
     

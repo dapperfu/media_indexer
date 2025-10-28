@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+  <meta charset="UTF-8"/>
+  <meta name="keywords" content="strictdoc, documentation, documentation-tool, requirements-management, requirements, documentation-generator, requirement-specifications, requirements-engineering, technical-documentation, requirements-specification"/>
+  <meta name="description" content="strictdoc. Software for technical documentation and requirements management."/>
+  <meta name="strictdoc-export-type" content="static">
+  <meta name="strictdoc-document-level" content="1">
+
+  <link rel="shortcut icon" href="../_static/favicon.ico" type="image/x-icon"/>
+
+  
+  
+  <link rel="stylesheet" href="../_static/base.css"/>
+  <link rel="stylesheet" href="../_static/layout.css"/>
+  <link rel="stylesheet" href="../_static/content.css"/>
+  <link rel="stylesheet" href="../_static/node.css"/>
+  <link rel="stylesheet" href="../_static/node_content.css"/>
+  <link rel="stylesheet" href="../_static/element.css"/>
+  <link rel="stylesheet" href="../_static/form.css"/>
+  <link rel="stylesheet" href="../_static/requirement__temporary.css"/>
+  <link rel="stylesheet" href="../_static/autogen.css"/>
+  
+  <link rel="stylesheet" href="../_static/table_vew.css"/>
+
+
+  
+  <script src="../_static/viewtype_menu.js"></script>
+  <script src="../_static/resizable_bar.js"></script>
+  <script src="../_static/collapsible_toc.js"></script>
+  <script src="../_static/toc_highlighting.js"></script>
+  
+  
+
+
+  <title>Media Indexer Requirements - Table</title>
+
+  
+</head>
+
+<body data-viewtype="table" data-turbo="false">
+
+<div class="mars">
+  
+</div>
+
+  <div class="layout" id="layout">
+
+    <nav class="layout_nav">
+      <div class="nav">
+
+
+
+  <a
+    data-link="index"
+    class="nav_button"
+    href="../index.html"
+    title="Project index">
+    <svg class="svg_icon" width="16" height="16" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <line x1="9" y1="4" x2="7" y2="4"></line>
+  <line x1="12" y1="9" x2="12" y2="7"></line>
+  <line x1="6" y1="10" x2="10" y2="6"></line>
+  <circle cx="4" cy="12" r="2.25"></circle>
+  <circle cx="12" cy="4" r="2.25"></circle>
+  <circle cx="4" cy="4" r="2.25"></circle>
+  <circle cx="12" cy="12" r="2.25"></circle>
+</svg>
+  </a></div>
+    </nav><aside class="layout_tree">
+      
+  
+
+
+
+<div
+  js-resizable_bar="tree"
+  data-state="open"
+  data-position="left"
+>
+<div class="tree">
+    
+        
+        <a
+          href="../media_indexer/requirements.html"
+          class="tree_item"
+          
+          active="true"
+          
+          data-folder="media_indexer"
+          data-testid="tree-document-link"
+        >
+          <svg class="svg_icon" width="16" height="16" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <path d=" M13,13 L13,8 C13,7.5 12.6,7 12,7 L9,7 C8.5,7 8,6.5 8,6 L8,3 C8,2.5 7.5,2 7,2 L4,2 C3.5,2 3,2.5 3,3 L3,13 C3,13.5 3.5,14 4,14 L12,14 C12.6,14 13,13.5 13,13 Z M13,9 L13,8 C13,7.5 13,7 12.5,6.5 L8.5,2.5 C8,2 7.5,2 7,2 L6,2"></path>
+</svg>
+          <div
+            class="document_title"
+            title="Media Indexer Requirements"
+            data-file_name="requirements.sdoc"
+          >Media Indexer Requirements</div>
+        </a>
+        
+        
+        
+        
+      </div>
+</div>
+
+    </aside><aside
+        data-position="right"
+        class="layout_toc"
+      >
+        
+  
+
+
+
+<div
+  js-resizable_bar="toc"
+  data-state="open"
+  data-position="right"
+>
+<turbo-frame
+  id="frame-toc"
+  style="display: contents"
+>
+      <ul
+      data-testid="toc-list"
+      js-collapsible_list="list"
+      class="toc"
+      id="toc"
+      data-controller="draggable_list">
+</turbo-frame>
+</div>
+
+      </aside><header class="layout_header">
+      <div class="header">
+
+  
+  <svg class="svg_icon" width="16px" height="16px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <polyline points="14 5 14 10.5 8 15 2 10.5 2 5 8 1 14 5 8 9.5"></polyline>
+  <polyline points="2.5 5.5 8 9.5 8 15"></polyline>
+</svg>
+  <div
+    class="header__project_name"
+    title="Untitled Project"
+  >Untitled Project
+  </div>
+
+  
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" class="sc-gLvsXj bpkaBy"><path stroke="currentColor" d="M12.5 4.5l-5 11" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      <turbo-frame id="header_document_title">
+  <svg class="svg_icon" width="16" height="16" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <path d=" M13,13 L13,8 C13,7.5 12.6,7 12,7 L9,7 C8.5,7 8,6.5 8,6 L8,3 C8,2.5 7.5,2 7,2 L4,2 C3.5,2 3,2.5 3,3 L3,13 C3,13.5 3.5,14 4,14 L12,14 C12.6,14 13,13.5 13,13 Z M13,9 L13,8 C13,7.5 13,7 12.5,6.5 L8.5,2.5 C8,2 7.5,2 7,2 L6,2"></path>
+</svg>
+  <div
+    class="header__document_title"
+    title="Media Indexer Requirements"
+  >
+    Media Indexer Requirements
+  </div>
+</turbo-frame>
+    
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" class="sc-gLvsXj bpkaBy"><path stroke="currentColor" d="M12.5 4.5l-5 11" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      <div class="viewtype">
+  <div
+    id="viewtype_handler"
+    class="viewtype__handler"
+    aria-expanded="false"
+    aria-controls="viewtype_menu"
+  >
+    <span>Table</span>
+    <svg class="svg_icon" width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" >
+  <path d="M5 10l3 3 3-3M5 6l3-3 3 3"></path>
+</svg>
+  </div>
+  <menu
+    id="viewtype_menu"
+    class="viewtype__menu"
+    aria-hidden="true"
+    aria-labelledby="viewtype_handler"
+  >
+    <li class="viewtype__menu_header">VIEWS</li>
+    <li>
+      <a
+        data-viewtype_link="document"
+        class="viewtype__menu_item"
+        title="Go to Document view"
+        href="../media_indexer/requirements.html#_TOP">
+      Document</a>
+    </li><li>
+      <a
+        data-viewtype_link="table"
+        class="viewtype__menu_item"
+        title="Go to Table view"
+        href="../media_indexer/requirements-TABLE.html#_TOP">
+      Table</a>
+    </li><li>
+      <a
+        data-viewtype_link="traceability"
+        class="viewtype__menu_item"
+        title="Go to Traceability view"
+        href="../media_indexer/requirements-TRACE.html#_TOP">
+      Traceability</a>
+    </li><li>
+      <a
+        data-viewtype_link="deep_traceability"
+        class="viewtype__menu_item"
+        title="Go to Deep Traceability view"
+        href="../media_indexer/requirements-DEEP-TRACE.html#_TOP">
+      Deep Traceability</a>
+    </li></menu>
+</div>
+    </div>
+    </header>
+
+    <main class="layout_main">
+      
+  <div class="main">
+    
+<div class="tags">
+</div>
+      <div class="content">
+        <sdoc-node>
+        <h1 data-testid="document-title">Media Indexer Requirements</h1>
+        
+
+        </sdoc-node>
+        <table class="content-view-table">
+          <thead>
+            <tr>
+              <th class="content-view-th">Type</th>
+              <th class="content-view-th">Level</th><th class="content-view-th">UID</th><th class="content-view-th">PREFIX</th><th class="content-view-th">REFS</th>
+              <th class="content-view-th">Title</th>
+              <th class="content-view-th">Statement</th>
+              <th class="content-view-th">Rationale</th>
+              <th class="content-view-th">Comment</th></tr>
+          </thead>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-001</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>All requirements documentation shall be written in StrictDoc (.sdoc) format and the grammar of the requirements document shall be validated by the strictdoc tool.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-002</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall analyze all images in the specified collection (2.2TB+) and generate sidecar files containing extracted metadata for each image.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-003</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>EXIF data parsing shall be performed using the fast-exif-rs-py library for optimal performance.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-004</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>Sidecar files shall be generated for each processed image containing extracted metadata (faces, objects, poses, EXIF data) using the image-sidecar-rust library (<a class="reference external" href="https://github.com/dapperfu/image-sidecar-rust">https://github.com/dapperfu/image-sidecar-rust</a>).</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-005</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>A complete pyproject.toml file shall be included with all necessary dependencies including image-sidecar-rust, insightface, ultralytics, torch, and GPU acceleration libraries.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-006</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall operate exclusively on GPU hardware. CPU fallback shall be disabled and the tool shall fail if no GPU is available.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-021</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>There shall be no Python fallback for any external module which has been specifically called out in the requirements. The tool shall fail if any required external module is not available.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-007</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>Face recognition shall be performed using the insightface library, the yolov8-face model, and the yolov11-face model.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-008</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>Object detection shall be performed using the YOLOv12x model downloaded from <a class="reference external" href="https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo12x.pt">https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo12x.pt</a></p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-009</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>Human pose detection shall be performed using the YOLOv11-pose model.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-010</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>All code components shall be directly linked to specific requirements and labeled with the corresponding requirement ID (REQ-###).</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-011</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall support checkpoint and resume functionality to allow processing to resume after interruption, tracking processed images to avoid reprocessing.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-012</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall provide real-time progress tracking with statistics including processing speed (images/sec, MB/sec), estimated time to completion (ETA), and a final summary report.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-013</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall implement idempotent processing by detecting and skipping already-processed images based on existing sidecar files, with options for selective reprocessing.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-014</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall support configurable batch processing with memory-aware batch sizing to balance processing speed and GPU memory constraints.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-015</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall implement robust error handling to gracefully handle corrupted or unreadable images, log errors, continue processing, and report error statistics at completion with optional retry mechanisms.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-016</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall implement multi-level verbosity logging with support for verbose flags (-v through -vvvv): -vvvv for DEBUG level (10), -vvv for TRACE level with TQDM progress bars (12), -vv for VERBOSE level with detailed processing info (15), -v for DETAILED file-by-file processing (17), and default INFO level (20). Structured logging shall be configured with file destination options.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-017</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall support configuration file (YAML/TOML) for batch processing settings with CLI argument override capability.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-018</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall support image format filtering to specify which image formats to process, defaulting to common formats (JPEG, PNG, TIFF, RAW).</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-019</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall provide an optional SQLite database index for extracted metadata to enable querying by faces, objects, poses, and EXIF tags.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-022</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall use PonyORM as the Object-Relational Mapping (ORM) framework for database operations.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-023</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>Each PonyORM model entity (Image, Face, Object, Pose, EXIFData) shall be defined in a separate file within the db module directory.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-024</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The database schema shall implement relational design with proper foreign key relationships: Image (1:N with Face, Object, Pose), Image (1:1 with EXIFData, ImageMetadata).</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-025</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall support database storage mode with the --db flag specifying the database file path. When specified, metadata shall be stored in the database.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-026</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall support the --no-sidecar flag to disable sidecar file generation when using database storage mode.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-027</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall support concurrent storage to both database and sidecar files when --db is specified without --no-sidecar.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-028</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The database schema shall be designed to support efficient querying by face embeddings, object classes, pose keypoints, and EXIF tags without requiring schema changes for new query patterns.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-020</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall implement performance optimization including parallel processing with thread-based I/O operations, batch processing for GPU acceleration, and optimized default batch sizing based on available VRAM (default 4 images per batch for 12GB VRAM).</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-029</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The tool shall support subcommand-based CLI operation with commands: extract (extract features from images), annotate (add features to images), and convert (migrate data between sidecar and database formats).</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-030</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The 'extract' subcommand shall process images and extract features including faces, objects, poses, and EXIF data, storing results in sidecar files and/or database as specified by configuration.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-031</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The 'annotate' subcommand shall process images and add features (faces, objects, poses, EXIF data) as annotations, storing results in sidecar files and/or database as specified by configuration.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-032</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The 'convert' subcommand shall support importing existing sidecar files into the database, allowing migration from sidecar-only storage to database storage.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-033</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The 'convert' subcommand shall support exporting database contents to sidecar files, allowing extraction of database-stored features to individual sidecar JSON files.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-034</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>The 'convert' subcommand shall provide --direction flag with values 'to-db' (import sidecar to database) and 'to-sidecar' (export database to sidecar).</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+              <tr>
+                <td class="content-view-td content-view-td-type">
+                  REQUIREMENT
+                </td>
+                <td class="content-view-td content-view-td-meta">
+                  
+                </td>
+                  <td class="content-view-td content-view-td-meta">REQ-035</td>
+                  <td class="content-view-td content-view-td-meta"></td><td class="content-view-td content-view-td-meta content-view-td-related">
+                </td>
+                <td class="content-view-td content-view-td-title"></td>
+                <td class="content-view-td content-view-td-content"><sdoc-autogen><div class="document">
+<p>All Python functions and files SHALL be documented to meet NumPy documentation standards as specified in the NumPy documentation style guide.</p>
+</div>
+</sdoc-autogen></td>
+                <td class="content-view-td content-view-td-content"></td>
+                <td class="content-view-td content-view-td-content"></td></tr>
+        </table>
+      </div>
+      
+  </div>
+  
+
+    </main>
+
+    <footer class="layout_footer">
+      <div class="footer">
+        Built with
+        <a
+          class="strictdoc__link"
+          href="https://github.com/strictdoc-project/strictdoc"
+          target="_blank"
+        >StrictDoc</a>
+        <a
+          class="strictdoc__version"
+          href="https://github.com/strictdoc-project/strictdoc/releases/tag/0.14.0"
+          target="_blank"
+        >
+          <svg height="16" viewBox="0 0 16 16" version="1.1" width="16" >
+            <path fill-rule="evenodd" d="M2.5 7.775V2.75a.25.25 0 01.25-.25h5.025a.25.25 0 01.177.073l6.25 6.25a.25.25 0 010 .354l-5.025 5.025a.25.25 0 01-.354 0l-6.25-6.25a.25.25 0 01-.073-.177zm-1.5 0V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 010 2.474l-5.026 5.026a1.75 1.75 0 01-2.474 0l-6.25-6.25A1.75 1.75 0 011 7.775zM6 5a1 1 0 100 2 1 1 0 000-2z"/>
+          </svg>
+          0.14.0
+        </a>
+      </div>
+    </footer>
+
+    <aside class="layout_aside">
+      
+    </aside>
+
+  </div>
+  
+  <div id="modal"></div>
+  <div id="confirm"></div>
+  
+
+</body>
+</html>

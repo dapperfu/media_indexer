@@ -40,6 +40,12 @@ media-indexer /path/to/images -b 4
 
 # Image format filtering
 media-indexer /path/to/images --formats jpg png jpeg
+
+# Database storage (with sidecar files)
+media-indexer /path/to/images --db mydb.db
+
+# Database storage only (no sidecar files)
+media-indexer /path/to/images --db mydb.db --no-sidecar
 ```
 
 ### Python Library Usage
@@ -48,13 +54,32 @@ media-indexer /path/to/images --formats jpg png jpeg
 from media_indexer import ImageProcessor
 from pathlib import Path
 
-# Create processor
+# Create processor with sidecar only
 processor = ImageProcessor(
     input_dir=Path("/path/to/images"),
     output_dir=Path("/path/to/output"),  # optional
     verbose=12,  # TRACE level with TQDM
     batch_size=1,
     checkpoint_file=Path(".checkpoint.json")
+)
+
+# Create processor with database storage
+processor = ImageProcessor(
+    input_dir=Path("/path/to/images"),
+    output_dir=Path("/path/to/output"),
+    database_path=Path("mydb.db"),
+    disable_sidecar=False,  # Also generate sidecar files
+    verbose=12,
+    batch_size=4,
+)
+
+# Create processor with database only (no sidecar files)
+processor = ImageProcessor(
+    input_dir=Path("/path/to/images"),
+    database_path=Path("mydb.db"),
+    disable_sidecar=True,  # No sidecar files
+    verbose=12,
+    batch_size=4,
 )
 
 # Process all images
@@ -165,6 +190,63 @@ The sidecar contains:
 - Detected faces with bounding boxes and embeddings
 - Detected objects with class labels
 - Detected human poses with keypoints
+
+## Database Storage
+
+Media Indexer can store metadata in a SQLite database using PonyORM:
+
+```bash
+# Store in database with sidecar files
+media-indexer --db mydb.db /path/to/images
+
+# Store in database only (no sidecar files)
+media-indexer --db mydb.db --no-sidecar /path/to/images
+```
+
+### Database Schema
+
+The database contains the following tables:
+
+- **Image**: Main image metadata (path, hash, size, timestamps)
+- **Face**: Detected faces with embeddings and confidence scores
+- **Object**: Detected objects with class names and bounding boxes
+- **Pose**: Detected human poses with keypoints
+- **EXIFData**: EXIF metadata as JSON
+
+### Querying the Database
+
+You can query the database using PonyORM:
+
+```python
+from media_indexer.db import Image, Face, Object, Pose, get_db
+from pony.orm import db_session
+
+# Get all images
+with db_session:
+    images = Image.get_all_images()
+    for img in images:
+        print(f"Image: {img.path}")
+        
+        # Get faces for this image
+        faces = Face.get_by_image(img)
+        print(f"  Faces: {len(faces)}")
+        
+        # Get objects
+        objects = Object.get_by_image(img)
+        print(f"  Objects: {len(objects)}")
+        
+        # Get poses
+        poses = Pose.get_by_image(img)
+        print(f"  Poses: {len(poses)}")
+
+# Query by face confidence
+with db_session:
+    high_conf_faces = Face.get_by_confidence(0.8)
+
+# Query by object class
+with db_session:
+    person_objects = Object.get_by_class("person")
+```
 
 ## Checkpoint/Resume
 
