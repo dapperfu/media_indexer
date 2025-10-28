@@ -1,0 +1,106 @@
+"""
+Human Pose Detection Module
+
+REQ-009: Human pose detection using YOLOv12-pose model.
+REQ-010: All code components directly linked to requirements.
+"""
+
+import logging
+from pathlib import Path
+from typing import Any, Dict, List
+
+import torch
+from ultralytics import YOLO
+
+logger = logging.getLogger(__name__)
+
+
+class PoseDetector:
+    """
+    Human pose detector using YOLOv12-pose.
+
+    REQ-009: Use YOLOv12-pose model for human pose detection.
+    """
+
+    def __init__(self, device: torch.device, model_path: str = "yolo12-pose.pt") -> None:
+        """
+        Initialize pose detector.
+
+        REQ-009: Initialize YOLOv12-pose model.
+
+        Args:
+            device: GPU device for model execution.
+            model_path: Path to YOLO pose model file.
+
+        Raises:
+            RuntimeError: If model cannot be loaded.
+        """
+        self.device: torch.device = device
+        try:
+            logger.info(f"REQ-009: Loading YOLOv12-pose model from {model_path}")
+            self.model: YOLO = YOLO(model_path)
+            logger.info("REQ-009: YOLOv12-pose model loaded successfully")
+        except Exception as e:
+            error_msg = f"REQ-009: Failed to load YOLOv12-pose model: {e}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
+
+    def detect_poses(self, image_path: Path) -> List[Dict[str, Any]]:
+        """
+        Detect human poses in an image.
+
+        REQ-009: Detect human poses using YOLOv12-pose.
+
+        Args:
+            image_path: Path to the image file.
+
+        Returns:
+            List of detected poses with keypoints.
+        """
+        try:
+            logger.debug(f"REQ-009: Detecting poses in {image_path}")
+            # REQ-009: Use YOLOv12-pose for pose detection
+            results = self.model(str(image_path), device=self.device)
+
+            poses: List[Dict[str, Any]] = []
+            for result in results:
+                boxes = result.boxes
+                keypoints = result.keypoints
+
+                for box, keypoint in zip(boxes, keypoints):
+                    confidence = float(box.conf.item())
+
+                    poses.append(
+                        {
+                            "confidence": confidence,
+                            "bbox": box.xyxy[0].cpu().numpy().tolist(),
+                            "keypoints": keypoint.xy[0].cpu().numpy().tolist(),
+                            "keypoints_conf": keypoint.conf[0].cpu().numpy().tolist(),
+                        }
+                    )
+
+            logger.debug(f"REQ-009: Detected {len(poses)} poses in {image_path}")
+            return poses
+
+        except Exception as e:
+            logger.warning(f"REQ-009: Pose detection failed for {image_path}: {e}")
+            return []
+
+
+def get_pose_detector(
+    device: torch.device, model_path: str = "yolo12-pose.pt"
+) -> PoseDetector:
+    """
+    Factory function to get pose detector instance.
+
+    REQ-009: Factory function for pose detection.
+
+    Args:
+        device: GPU device.
+        model_path: Path to YOLO pose model.
+
+    Returns:
+        PoseDetector: Configured pose detector.
+    """
+    return PoseDetector(device, model_path)
+
