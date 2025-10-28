@@ -1,0 +1,85 @@
+[DOCUMENT]
+MID: REQ-DOC-001
+TITLE: Media Indexer Requirements
+
+[REQUIREMENT]
+UID: REQ-001
+STATEMENT: All requirements documentation shall be written in StrictDoc (.sdoc) format and the grammar of the requirements document shall be validated by the strictdoc tool.
+
+[REQUIREMENT]
+UID: REQ-002
+STATEMENT: The tool shall analyze all images in the specified collection (2.2TB+) and generate sidecar files containing extracted metadata for each image.
+
+[REQUIREMENT]
+UID: REQ-003
+STATEMENT: EXIF data parsing shall be performed using the fast-exif-rs-py library for optimal performance.
+
+[REQUIREMENT]
+UID: REQ-004
+STATEMENT: Sidecar files shall be generated in binary format using the image-sidecar-rust library.
+
+[REQUIREMENT]
+UID: REQ-005
+STATEMENT: A complete pyproject.toml file shall be included with all necessary dependencies including fast-exif-rs-py, image-sidecar-rust, insightface, ultralytics, torch, and GPU acceleration libraries.
+
+[REQUIREMENT]
+UID: REQ-006
+STATEMENT: The tool shall operate exclusively on GPU hardware. CPU fallback shall be disabled and the tool shall fail if no GPU is available.
+
+[REQUIREMENT]
+UID: REQ-007
+STATEMENT: Face recognition shall be performed using both the insightface library and the yolov11-face model.
+
+[REQUIREMENT]
+UID: REQ-008
+STATEMENT: Object detection shall be performed using the YOLOv12x model downloaded from https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo12x.pt
+
+[REQUIREMENT]
+UID: REQ-009
+STATEMENT: Human pose detection shall be performed using the YOLOv12-pose model.
+
+[REQUIREMENT]
+UID: REQ-010
+STATEMENT: All code components shall be directly linked to specific requirements and labeled with the corresponding requirement ID (REQ-###).
+
+[REQUIREMENT]
+UID: REQ-011
+STATEMENT: The tool shall support checkpoint and resume functionality to allow processing to resume after interruption, tracking processed images to avoid reprocessing.
+
+[REQUIREMENT]
+UID: REQ-012
+STATEMENT: The tool shall provide real-time progress tracking with statistics including processing speed (images/sec, MB/sec), estimated time to completion (ETA), and a final summary report.
+
+[REQUIREMENT]
+UID: REQ-013
+STATEMENT: The tool shall implement idempotent processing by detecting and skipping already-processed images based on existing sidecar files, with options for selective reprocessing.
+
+[REQUIREMENT]
+UID: REQ-014
+STATEMENT: The tool shall support configurable batch processing with memory-aware batch sizing to balance processing speed and GPU memory constraints.
+
+[REQUIREMENT]
+UID: REQ-015
+STATEMENT: The tool shall implement robust error handling to gracefully handle corrupted or unreadable images, log errors, continue processing, and report error statistics at completion with optional retry mechanisms.
+
+[REQUIREMENT]
+UID: REQ-016
+STATEMENT: The tool shall implement multi-level verbosity logging with support for verbose flags (-v through -vvvv): -vvvv for DEBUG level (10), -vvv for TRACE level with TQDM progress bars (12), -vv for VERBOSE level with detailed processing info (15), -v for DETAILED file-by-file processing (17), and default INFO level (20). Structured logging shall be configured with file destination options.
+
+[REQUIREMENT]
+UID: REQ-017
+STATEMENT: The tool shall support configuration file (YAML/TOML) for batch processing settings with CLI argument override capability.
+
+[REQUIREMENT]
+UID: REQ-018
+STATEMENT: The tool shall support image format filtering to specify which image formats to process, defaulting to common formats (JPEG, PNG, TIFF, RAW).
+
+[REQUIREMENT]
+UID: REQ-019
+STATEMENT: The tool shall provide an optional SQLite database index for extracted metadata to enable querying by faces, objects, poses, and EXIF tags.
+
+[REQUIREMENT]
+UID: REQ-020
+STATEMENT: The tool shall implement performance optimization including multi-GPU support, async I/O, minimizing GPU idle time, and profiling capabilities.
+
+

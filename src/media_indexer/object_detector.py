@@ -1,0 +1,109 @@
+"""
+Object Detection Module
+
+REQ-008: Object detection using YOLOv12x model.
+REQ-010: All code components directly linked to requirements.
+"""
+
+import logging
+from pathlib import Path
+from typing import Any, Dict, List
+
+import torch
+from ultralytics import YOLO
+
+logger = logging.getLogger(__name__)
+
+
+class ObjectDetector:
+    """
+    Object detector using YOLOv12x.
+
+    REQ-008: Use YOLOv12x model for object detection.
+    """
+
+    def __init__(self, device: torch.device, model_path: str = "yolo12x.pt") -> None:
+        """
+        Initialize object detector.
+
+        REQ-008: Initialize YOLOv12x model.
+
+        Args:
+            device: GPU device for model execution.
+            model_path: Path to YOLO model file.
+
+        Raises:
+            RuntimeError: If model cannot be loaded.
+        """
+        self.device: torch.device = device
+        try:
+            logger.info(f"REQ-008: Loading YOLOv12x model from {model_path}")
+            self.model: YOLO = YOLO(model_path)
+            logger.info("REQ-008: YOLOv12x model loaded successfully")
+        except Exception as e:
+            error_msg = f"REQ-008: Failed to load YOLOv12x model: {e}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
+
+    def detect_objects(self, image_path: Path) -> List[Dict[str, Any]]:
+        """
+        Detect objects in an image.
+
+        REQ-008: Detect objects using YOLOv12x.
+
+        Args:
+            image_path: Path to the image file.
+
+        Returns:
+            List of detected objects with bounding boxes and class labels.
+        """
+        try:
+            logger.debug(f"REQ-008: Detecting objects in {image_path}")
+            # REQ-008: Use YOLOv12x for object detection
+            results = self.model(str(image_path), device=self.device)
+
+            objects: List[Dict[str, Any]] = []
+            for result in results:
+                boxes = result.boxes
+                for box in boxes:
+                    class_id = int(box.cls.item())
+                    confidence = float(box.conf.item())
+                    class_name = result.names[class_id]
+
+                    objects.append(
+                        {
+                            "class_id": class_id,
+                            "class_name": class_name,
+                            "confidence": confidence,
+                            "bbox": box.xyxy[0].cpu().numpy().tolist(),
+                        }
+                    )
+
+            logger.debug(
+                f"REQ-008: Detected {len(objects)} objects in {image_path}"
+            )
+            return objects
+
+        except Exception as e:
+            logger.warning(f"REQ-008: Object detection failed for {image_path}: {e}")
+            return []
+
+
+def get_object_detector(
+    device: torch.device, model_path: str = "yolo12x.pt"
+) -> ObjectDetector:
+    """
+    Factory function to get object detector instance.
+
+    REQ-008: Factory function for object detection.
+
+    Args:
+        device: GPU device.
+        model_path: Path to YOLO model.
+
+    Returns:
+        ObjectDetector: Configured object detector.
+    """
+    return ObjectDetector(device, model_path)
+
+
