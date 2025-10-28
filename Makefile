@@ -20,7 +20,6 @@ venv: ${VENV_PYTHON}
 ${VENV_PYTHON}:
 	${PYTHON} -m venv ${VENV_DIR}
 	${VENV_PIP} install uv
-	touch $@
 
 # Install dependencies
 install: ${VENV_UV}
