@@ -17,7 +17,7 @@ def download_models(args: argparse.Namespace) -> None:
     """
     Download models to central cache.
 
-    REQ-008, REQ-009: Download YOLO models.
+    REQ-007, REQ-008, REQ-009: Download YOLO models.
     REQ-007: Download InsightFace models.
     """
     cache = ModelCache(Path(args.cache_dir) if args.cache_dir else None)
@@ -37,12 +37,12 @@ def download_models(args: argparse.Namespace) -> None:
         return
 
     if args.download_yolo:
-        # REQ-008, REQ-009: Download YOLO models
+        # REQ-007, REQ-008, REQ-009: Download YOLO models
         logger.info("Downloading YOLO models...")
         try:
             from ultralytics import YOLO
 
-            models_to_download = ["yolo12x.pt", "yolo12-pose.pt"]
+            models_to_download = ["yolo12x.pt", "yolo12-pose.pt", "yolov8n-face.pt", "yolov11n-face.pt"]
             for model_name in models_to_download:
                 logger.info(f"Downloading {model_name}...")
                 model = YOLO(model_name)
@@ -70,7 +70,7 @@ def main() -> None:
     parser.add_argument("--cache-dir", help="Custom cache directory")
     parser.add_argument("--list", action="store_true", help="List cached models")
     parser.add_argument(
-        "--download-yolo", action="store_true", help="Download YOLO models (REQ-008, REQ-009)"
+        "--download-yolo", action="store_true", help="Download YOLO models (REQ-007, REQ-008, REQ-009)"
     )
     parser.add_argument(
         "--download-insightface", action="store_true", help="Download InsightFace models (REQ-007)"

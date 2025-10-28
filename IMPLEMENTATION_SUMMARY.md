@@ -28,7 +28,7 @@ This project implements a GPU-accelerated image analysis tool for processing lar
    - Extracts EXIF metadata from images
 
 5. **Face Detector** (REQ-007)
-   - Dual model approach: insightface + YOLOv11-face
+   - Multi-model approach: insightface + YOLOv8-face + YOLOv11-face
    - Detects faces with bounding boxes and embeddings
 
 6. **Object Detector** (REQ-008)

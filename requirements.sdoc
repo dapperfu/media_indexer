@@ -32,7 +32,7 @@ STATEMENT: There shall be no Python fallback for any external module which has b
 
 [REQUIREMENT]
 UID: REQ-007
-STATEMENT: Face recognition shall be performed using both the insightface library and the yolov11-face model.
+STATEMENT: Face recognition shall be performed using the insightface library, the yolov8-face model, and the yolov11-face model.
 
 [REQUIREMENT]
 UID: REQ-008
