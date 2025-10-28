@@ -121,6 +121,12 @@ make test
 
 # Run linters
 make lint
+
+# Format code
+make format
+
+# Run all checks (lint + test)
+make check
 ```
 
 ## Performance
