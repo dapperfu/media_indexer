@@ -152,12 +152,12 @@ media-indexer /path/to/images --config config.yaml
 
 ## Sidecar Files
 
-Each image gets a corresponding binary sidecar file:
+Each image gets a corresponding JSON sidecar file:
 
 ```
-image1.jpg          -> image1.jpg.sidecar
-image2.png          -> image2.png.sidecar
-photo.tiff          -> photo.tiff.sidecar
+image1.jpg          -> image1.jpg.json
+image2.png          -> image2.png.json
+photo.tiff          -> photo.tiff.json
 ```
 
 The sidecar contains:

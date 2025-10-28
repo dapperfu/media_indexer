@@ -1,21 +1,25 @@
 """
 Sidecar Generator Module
 
-REQ-004: Sidecar file generation.
+REQ-004: Sidecar file generation using image-sidecar-rust library.
 REQ-010: All code components directly linked to requirements.
 """
 
-import json
 import logging
 from pathlib import Path
 from typing import Any
+
+try:
+    import image_sidecar_rust
+except ImportError:
+    image_sidecar_rust = None  # type: ignore[assignment, misc]
 
 logger = logging.getLogger(__name__)
 
 
 class SidecarGenerator:
     """
-    Sidecar file generator.
+    Sidecar file generator using image-sidecar-rust library.
 
     REQ-004: Generate sidecar files containing extracted metadata.
     """
@@ -26,7 +30,14 @@ class SidecarGenerator:
 
         Args:
             output_dir: Directory where sidecar files should be saved.
+
+        Raises:
+            ImportError: If image-sidecar-rust is not available.
         """
+        if image_sidecar_rust is None:
+            raise ImportError(
+                "REQ-004: image-sidecar-rust is not available. Please install it."
+            )
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         logger.debug(f"REQ-004: Sidecar generator initialized with output_dir={output_dir}")
@@ -52,14 +63,11 @@ class SidecarGenerator:
         try:
             logger.debug(f"REQ-004: Generating sidecar for {image_path}")
 
-            # REQ-004: Determine sidecar filename in output directory
-            # Use the image filename to maintain structure
-            image_filename = image_path.name
-            sidecar_path: Path = self.output_dir / f"{image_filename}.sidecar"
-
-            # REQ-004: Write sidecar file
-            with open(sidecar_path, "w", encoding="utf-8") as f:
-                json.dump(metadata, f, indent=2)
+            # REQ-004: Use image-sidecar-rust to handle sidecar file creation
+            # The library determines the sidecar filename based on format
+            sidecar_path: Path = image_sidecar_rust.write_sidecar(  # type: ignore[misc, arg-type]
+                str(image_path), metadata, str(self.output_dir)
+            )
 
             logger.debug(f"REQ-004: Generated sidecar at {sidecar_path}")
             return sidecar_path
@@ -86,9 +94,10 @@ class SidecarGenerator:
         """
         try:
             logger.debug(f"REQ-004: Reading sidecar from {sidecar_path}")
-            # REQ-004: Read sidecar file
-            with open(sidecar_path, encoding="utf-8") as f:
-                metadata: dict[str, Any] = json.load(f)
+            # REQ-004: Read sidecar file using image-sidecar-rust
+            metadata: dict[str, Any] = image_sidecar_rust.read_sidecar(  # type: ignore[misc, arg-type]
+                str(sidecar_path)
+            )
 
             logger.debug(f"REQ-004: Read sidecar from {sidecar_path}")
             return metadata

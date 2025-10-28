@@ -9,7 +9,7 @@ GPU-accelerated image analysis tool for extracting metadata, faces, objects, and
 - **Face detection** - Dual model approach using insightface and YOLOv11-face
 - **Object detection** - YOLOv12x for comprehensive object detection
 - **Pose detection** - YOLOv12-pose for human pose estimation
-- **Sidecar files** - Binary format sidecar files using image-sidecar-rust
+- **Sidecar files** - JSON format sidecar files containing extracted metadata
 - **Checkpoint/Resume** - Resume interrupted processing
 - **Progress tracking** - Real-time progress with TQDM
 - **Multi-level verbosity** - Detailed logging control
