@@ -11,8 +11,6 @@ import logging
 import sys
 from pathlib import Path
 
-from media_indexer.processor import ImageProcessor
-
 
 def setup_logging(verbose: int) -> None:
     """
@@ -363,8 +361,10 @@ def process_extract_or_annotate(args: argparse.Namespace, verbose: int) -> int:
     logging.info(f"REQ-002: Processing images from {args.input_dir}")
     logging.info(f"REQ-016: Verbosity level: {verbose}")
 
-    # REQ-002: Initialize processor
+    # REQ-002: Initialize processor (lazy import)
     try:
+        from media_indexer.processor import ImageProcessor
+        
         processor = ImageProcessor(
             input_dir=args.input_dir,
             output_dir=args.output_dir,
