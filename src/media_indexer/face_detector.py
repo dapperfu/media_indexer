@@ -91,7 +91,8 @@ class FaceDetector:
         self.insight_model: Any | None = None
 
         # REQ-007: Initialize yolov8-face
-        if YOLO is not None:
+        # Skip YOLOv8-face due to compatibility issues - use v11 instead
+        if YOLO is not None and False:  # Disabled due to ultralytics.yolo module errors
             try:
                 logger.info(f"REQ-007: Loading YOLOv8 face model from {model_path}")
                 # Download if needed
