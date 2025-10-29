@@ -160,7 +160,7 @@ class FaceDetector:
             try:
                 # Use universal image source that handles RAW files
                 source_path = get_raw_image_source(image_path)
-                yolo_detections = self.yolo_model(source_path, device=self.device)
+                yolo_detections = self.yolo_model(source_path, device=self.device, verbose=False)
                 for detection in yolo_detections:
                     boxes = detection.boxes
                     # Get image dimensions for normalization
@@ -192,7 +192,7 @@ class FaceDetector:
             try:
                 # Use universal image source that handles RAW files
                 source_path = get_raw_image_source(image_path)
-                yolo_detections = self.yolo_model_v11(source_path, device=self.device)
+                yolo_detections = self.yolo_model_v11(source_path, device=self.device, verbose=False)
                 for detection in yolo_detections:
                     boxes = detection.boxes
                     # Get image dimensions for normalization

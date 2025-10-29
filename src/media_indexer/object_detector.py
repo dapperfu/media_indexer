@@ -106,7 +106,7 @@ class ObjectDetector:
             # REQ-040: Convert RAW images to usable format
             source_path = get_raw_image_source(image_path)
             # REQ-008: Use YOLOv12x for object detection
-            results = self.model(source_path, device=self.device)
+            results = self.model(source_path, device=self.device, verbose=False)
 
             objects: list[dict[str, Any]] = []
             for result in results:

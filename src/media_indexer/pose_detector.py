@@ -108,7 +108,7 @@ class PoseDetector:
             # REQ-040: Convert RAW images to usable format
             source_path = get_raw_image_source(image_path)
             # REQ-009: Use YOLOv11-pose for pose detection
-            results = self.model(source_path, device=self.device)
+            results = self.model(source_path, device=self.device, verbose=False)
 
             poses: list[dict[str, Any]] = []
             for result in results:
