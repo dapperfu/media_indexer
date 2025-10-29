@@ -31,9 +31,10 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
     """
     try:
         import rawpy
+        rawpy_available = True
     except ImportError:
-        logger.warning("REQ-040: rawpy not available, cannot convert RAW images")
-        return None, "unknown"
+        logger.warning("REQ-040: rawpy not available, will use PIL fallback for RAW images")
+        rawpy_available = False
 
     raw_extensions = {".cr2", ".cr3", ".nef", ".arw", ".dng", ".orf", ".rw2", ".pef"}
     
@@ -41,21 +42,44 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
         logger.debug(f"REQ-040: {image_path} is not a RAW file")
         return None, "unknown"
 
+    # Try rawpy first if available
+    if rawpy_available:
+        try:
+            logger.debug(f"REQ-040: Converting RAW file {image_path} to numpy array using rawpy")
+            
+            with rawpy.imread(str(image_path)) as raw:
+                rgb = raw.postprocess()
+            
+            # Convert to uint8 if needed
+            if rgb.dtype != np.uint8:
+                rgb = (rgb / 255.0 * 255).astype(np.uint8)
+            
+            logger.debug(f"REQ-040: Successfully converted RAW file {image_path} to array shape {rgb.shape}")
+            return rgb, "RGB"
+        
+        except Exception as e:
+            logger.debug(f"REQ-040: rawpy failed for {image_path}: {e}, trying PIL fallback")
+    
+    # Fall back to PIL (works for many CR2 files even when rawpy fails)
     try:
-        logger.debug(f"REQ-040: Converting RAW file {image_path} to numpy array")
+        logger.debug(f"REQ-040: Converting RAW file {image_path} to numpy array using PIL")
+        image = Image.open(str(image_path))
         
-        with rawpy.imread(str(image_path)) as raw:
-            rgb = raw.postprocess()
+        # Convert to RGB if needed
+        if image.mode != "RGB":
+            image = image.convert("RGB")
         
-        # Convert to uint8 if needed
-        if rgb.dtype != np.uint8:
-            rgb = (rgb / 255.0 * 255).astype(np.uint8)
+        rgb_array = np.array(image)
         
-        logger.debug(f"REQ-040: Successfully converted RAW file {image_path} to array shape {rgb.shape}")
-        return rgb, "RGB"
+        # Ensure uint8 dtype
+        if rgb_array.dtype != np.uint8:
+            rgb_array = rgb_array.astype(np.uint8)
+        
+        logger.debug(f"REQ-040: Successfully converted RAW file {image_path} to array shape {rgb_array.shape} using PIL")
+        return rgb_array, "RGB"
     
     except Exception as e:
-        logger.warning(f"REQ-040: Failed to convert RAW file {image_path}: {e}")
+        logger.warning(f"REQ-040: Failed to convert RAW file {image_path} with both rawpy and PIL: {e}")
         return None, "unknown"
 
 
