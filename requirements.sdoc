@@ -254,3 +254,7 @@ STATEMENT: Makefiles SHALL use full escape for all variables: ${VAR} not $VAR to
 UID: REQ-063
 STATEMENT: All makefiles SHALL use an actual file/folder where possible as a target. For example python -mvenv venv generates venv. Any target that depends on Python having the venv built shall use `venv` as a dependency so that the GNU make resolves everything correctly and in the right order.
 
+[REQUIREMENT]
+UID: REQ-064
+STATEMENT: The tool shall provide a CLI command to emit a default configuration file with all available options and their descriptions, enabling users to understand the syntax and use it as a template without creating configuration files from scratch.
+
