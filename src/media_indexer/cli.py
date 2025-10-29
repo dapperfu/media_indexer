@@ -10,7 +10,6 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Any
 
 from media_indexer.processor import ImageProcessor
 
@@ -34,8 +33,8 @@ def setup_logging(verbose: int) -> None:
         10: logging.DEBUG,  # -vvvv
         12: logging.DEBUG,  # -vvv (TRACE with TQDM)
         15: logging.DEBUG,  # -vv (VERBOSE)
-        17: logging.INFO,   # -v (DETAILED)
-        20: logging.INFO,   # default (INFO)
+        17: logging.INFO,  # -v (DETAILED)
+        20: logging.INFO,  # default (INFO)
     }
 
     log_level = level_map.get(verbose, logging.INFO)
@@ -50,7 +49,8 @@ def setup_logging(verbose: int) -> None:
     # REQ-016: Disable tqdm if not at TRACE level
     if verbose > 12:
         import tqdm
-        tqdm.tqdm.__init__ = lambda self, *args, **kwargs: None  # type: ignore[method-assign, assignment]
+
+        tqdm.tqdm.__init__ = lambda _self, *_args, **_kwargs: None  # type: ignore[method-assign, assignment]
 
 
 def add_common_args(parser: argparse.ArgumentParser) -> None:
@@ -66,7 +66,8 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     """
     # REQ-016: Multi-level verbosity
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="count",
         default=0,
         help="Increase verbosity (-v INFO, -vv DETAILED, -vvv VERBOSE, -vvvv TRACE with TQDM, -vvvvv DEBUG)",
@@ -130,20 +131,23 @@ def parse_args() -> argparse.Namespace:
         help="Input directory containing images to process",
     )
     extract_parser.add_argument(
-        "-o", "--output-dir",
+        "-o",
+        "--output-dir",
         type=Path,
         default=None,
         help="Output directory for sidecar files (defaults to input directory)",
     )
     add_common_args(extract_parser)
     extract_parser.add_argument(
-        "-c", "--checkpoint",
+        "-c",
+        "--checkpoint",
         type=Path,
         default=Path(".checkpoint.json"),
         help="Checkpoint file path for resume functionality (REQ-011)",
     )
     extract_parser.add_argument(
-        "-b", "--batch-size",
+        "-b",
+        "--batch-size",
         type=int,
         default=1,
         help="Batch size for parallel processing (default: 1 auto-scales to 4 for 12GB VRAM) (REQ-014, REQ-020)",
@@ -184,20 +188,23 @@ def parse_args() -> argparse.Namespace:
         help="Input directory containing images to process",
     )
     annotate_parser.add_argument(
-        "-o", "--output-dir",
+        "-o",
+        "--output-dir",
         type=Path,
         default=None,
         help="Output directory for sidecar files (defaults to input directory)",
     )
     add_common_args(annotate_parser)
     annotate_parser.add_argument(
-        "-c", "--checkpoint",
+        "-c",
+        "--checkpoint",
         type=Path,
         default=Path(".checkpoint.json"),
         help="Checkpoint file path for resume functionality (REQ-011)",
     )
     annotate_parser.add_argument(
-        "-b", "--batch-size",
+        "-b",
+        "--batch-size",
         type=int,
         default=1,
         help="Batch size for parallel processing (default: 1 auto-scales to 4 for 12GB VRAM) (REQ-014, REQ-020)",
@@ -247,7 +254,8 @@ def parse_args() -> argparse.Namespace:
         help="Conversion direction: 'to-db' (import sidecar to database) or 'to-sidecar' (export database to sidecar) (REQ-034)",
     )
     convert_parser.add_argument(
-        "-o", "--output-dir",
+        "-o",
+        "--output-dir",
         type=Path,
         default=None,
         help="Output directory for sidecar files (when direction=to-sidecar)",
@@ -262,11 +270,12 @@ def parse_args() -> argparse.Namespace:
         try:
             # Try to parse without subcommand
             import sys
+
             old_args = sys.argv[1:]
-            if old_args and not old_args[0] in ['extract', 'annotate', 'convert', '-h', '--help']:
+            if old_args and old_args[0] not in ["extract", "annotate", "convert", "-h", "--help"]:
                 # Insert 'extract' as the subcommand
-                args = parser.parse_args(['extract'] + old_args)
-        except:
+                args = parser.parse_args(["extract"] + old_args)
+        except Exception:
             # If parsing fails, show help
             parser.print_help()
             sys.exit(1)
@@ -353,6 +362,7 @@ def process_convert(args: argparse.Namespace, verbose: int) -> int:
         logging.info(f"REQ-032: Converting sidecar files to database from {args.input_dir}")
         try:
             from media_indexer.sidecar_converter import import_sidecars_to_database
+
             import_sidecars_to_database(
                 input_dir=args.input_dir,
                 database_path=args.db,
@@ -377,6 +387,7 @@ def process_convert(args: argparse.Namespace, verbose: int) -> int:
         logging.info(f"REQ-033: Converting database to sidecar files, output: {output_dir}")
         try:
             from media_indexer.sidecar_converter import export_database_to_sidecars
+
             export_database_to_sidecars(
                 database_path=args.db,
                 output_dir=output_dir,
@@ -426,4 +437,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

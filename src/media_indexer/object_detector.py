@@ -7,12 +7,10 @@ REQ-010: All code components directly linked to requirements.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import torch
 from ultralytics import YOLO
-
-from media_indexer.model_cache import setup_model_cache
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +37,13 @@ class ObjectDetector:
             RuntimeError: If model cannot be loaded.
         """
         self.device: torch.device = device
-        
+
         # Setup model cache for centralized storage
         from media_indexer.model_cache import ModelCache
+
         cache = ModelCache(cache_dir)
         cache.setup_environment()
-        
+
         try:
             logger.info(f"REQ-008: Loading YOLOv12x model from {model_path}")
             logger.debug(f"REQ-008: Model cache: {cache.yolo_cache}")
@@ -55,7 +54,7 @@ class ObjectDetector:
             logger.error(error_msg)
             raise RuntimeError(error_msg) from e
 
-    def detect_objects(self, image_path: Path) -> List[Dict[str, Any]]:
+    def detect_objects(self, image_path: Path) -> list[dict[str, Any]]:
         """
         Detect objects in an image.
 
@@ -72,7 +71,7 @@ class ObjectDetector:
             # REQ-008: Use YOLOv12x for object detection
             results = self.model(str(image_path), device=self.device)
 
-            objects: List[Dict[str, Any]] = []
+            objects: list[dict[str, Any]] = []
             for result in results:
                 boxes = result.boxes
                 for box in boxes:
@@ -89,9 +88,7 @@ class ObjectDetector:
                         }
                     )
 
-            logger.debug(
-                f"REQ-008: Detected {len(objects)} objects in {image_path}"
-            )
+            logger.debug(f"REQ-008: Detected {len(objects)} objects in {image_path}")
             return objects
 
         except Exception as e:
@@ -99,9 +96,7 @@ class ObjectDetector:
             return []
 
 
-def get_object_detector(
-    device: torch.device, model_path: str = "yolo12x.pt"
-) -> ObjectDetector:
+def get_object_detector(device: torch.device, model_path: str = "yolo12x.pt") -> ObjectDetector:
     """
     Factory function to get object detector instance.
 
@@ -115,5 +110,3 @@ def get_object_detector(
         ObjectDetector: Configured object detector.
     """
     return ObjectDetector(device, model_path)
-
-

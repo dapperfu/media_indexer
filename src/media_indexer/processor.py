@@ -16,24 +16,21 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
-from queue import Queue
 from threading import Lock
 from typing import Any
 
+import image_sidecar_rust
 import tqdm
 
+# REQ-022: Import database modules
+from media_indexer.db.connection import DatabaseConnection
+from media_indexer.db.hash_util import calculate_file_hash
 from media_indexer.exif_extractor import EXIFExtractor, get_exif_extractor
 from media_indexer.face_detector import FaceDetector, get_face_detector
 from media_indexer.gpu_validator import GPUValidator, get_gpu_validator
 from media_indexer.object_detector import ObjectDetector, get_object_detector
 from media_indexer.pose_detector import PoseDetector, get_pose_detector
 from media_indexer.sidecar_generator import SidecarGenerator, get_sidecar_generator
-
-import image_sidecar_rust
-
-# REQ-022: Import database modules
-from media_indexer.db.connection import DatabaseConnection
-from media_indexer.db.hash_util import calculate_file_hash
 
 logger = logging.getLogger(__name__)
 
@@ -158,9 +155,7 @@ class ImageProcessor:
                     data = json.load(f)
                     self.processed_files = set(data.get("processed_files", []))
                     self.stats.update(data.get("stats", {}))
-                    logger.info(
-                        f"REQ-011: Loaded {len(self.processed_files)} processed files from checkpoint"
-                    )
+                    logger.info(f"REQ-011: Loaded {len(self.processed_files)} processed files from checkpoint")
             except Exception as e:
                 logger.warning(f"REQ-011: Failed to load checkpoint: {e}")
 
@@ -237,7 +232,7 @@ class ImageProcessor:
 
         # REQ-038: Apply limit if specified
         if self.limit and len(images) > self.limit:
-            images = images[:self.limit]
+            images = images[: self.limit]
             logger.info(f"REQ-038: Limited to {self.limit} images from {len(images)} total")
 
         return images
@@ -259,13 +254,14 @@ class ImageProcessor:
             return True
 
         try:
-            from media_indexer.db.image import Image as DBImage
+            from pony.orm import db_session
+
+            from media_indexer.db.exif import EXIFData as DBEXIFData
             from media_indexer.db.face import Face as DBFace
+            from media_indexer.db.hash_util import get_file_size
+            from media_indexer.db.image import Image as DBImage
             from media_indexer.db.object import Object as DBObject
             from media_indexer.db.pose import Pose as DBPose
-            from media_indexer.db.exif import EXIFData as DBEXIFData
-            from pony.orm import db_session
-            from media_indexer.db.hash_util import get_file_size
 
             with db_session:
                 # REQ-028: Calculate file hash for deduplication
@@ -280,6 +276,7 @@ class ImageProcessor:
 
                 # REQ-024: Create Image entity
                 from datetime import datetime
+
                 db_image = DBImage(
                     path=str(image_path),
                     file_hash=file_hash,
@@ -349,8 +346,9 @@ class ImageProcessor:
         # REQ-025: Check database if using database storage
         if self.database_connection:
             try:
-                from media_indexer.db.image import Image as DBImage
                 from pony.orm import db_session
+
+                from media_indexer.db.image import Image as DBImage
 
                 with db_session:
                     existing_image = DBImage.get_by_path(str(image_path))
@@ -365,7 +363,7 @@ class ImageProcessor:
         # The library determines the sidecar filename based on format
         sidecar_filename = image_sidecar_rust.get_sidecar_filename(str(image_path))  # type: ignore[misc, arg-type]
         sidecar_path = self.output_dir / sidecar_filename
-        
+
         if sidecar_path.exists():
             logger.debug(f"REQ-013: Skipping already processed {image_path}")
             self.stats["skipped_images"] += 1
@@ -450,34 +448,25 @@ class ImageProcessor:
         logger.info(f"REQ-002: Found {len(images)} images to process")
 
         # Filter out already processed images
-        images_to_process = [
-            img for img in images 
-            if str(img) not in self.processed_files
-        ]
+        images_to_process = [img for img in images if str(img) not in self.processed_files]
 
         if not images_to_process:
             logger.info("REQ-013: All images already processed")
             return self.stats
 
         # REQ-012: Progress tracking with TQDM if verbose level <= 12
-        if self.verbose <= 12:
-            progress_bar = tqdm.tqdm(total=len(images_to_process), desc="Processing images")
-        else:
-            progress_bar = None
+        progress_bar = tqdm.tqdm(total=len(images_to_process), desc="Processing images") if self.verbose <= 12 else None
 
         # REQ-020: Process images in batches with threading for I/O
         try:
             # Process in batches
             for i in range(0, len(images_to_process), self.batch_size):
-                batch = images_to_process[i:i + self.batch_size]
-                
+                batch = images_to_process[i : i + self.batch_size]
+
                 # REQ-015: Robust error handling with thread pool
                 with ThreadPoolExecutor(max_workers=self.batch_size) as executor:
-                    futures = {
-                        executor.submit(self._process_single_image, img): img 
-                        for img in batch
-                    }
-                    
+                    futures = {executor.submit(self._process_single_image, img): img for img in batch}
+
                     for future in as_completed(futures):
                         image_path = futures[future]
                         try:
@@ -489,7 +478,7 @@ class ImageProcessor:
                         except Exception as e:
                             logger.error(f"REQ-015: Error processing {image_path}: {e}")
                             self._update_stats_increment("error_images")
-                        
+
                         # Update progress bar
                         if progress_bar:
                             progress_bar.update(1)
@@ -513,11 +502,11 @@ class ImageProcessor:
             self.database_connection.close()
 
         return self.stats
-    
+
     def _update_stats_increment(self, key: str) -> None:
         """
         Thread-safe stats update.
-        
+
         Args:
             key: Stat key to increment.
         """
@@ -535,4 +524,3 @@ class ImageProcessor:
         logger.info(f"  Errors: {self.stats['error_images']}")
         logger.info(f"  Start time: {self.stats['start_time']}")
         logger.info(f"  End time: {self.stats['end_time']}")
-

@@ -7,12 +7,10 @@ REQ-010: All code components directly linked to requirements.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import cv2
-import numpy as np
 import torch
-from PIL import Image
 
 try:
     from ultralytics import YOLO
@@ -80,9 +78,7 @@ class FaceDetector:
         if insightface is not None:
             try:
                 logger.info("REQ-007: Loading insightface model")
-                self.insight_model = insightface.app.FaceAnalysis(
-                    providers=["CUDAExecutionProvider"]
-                )
+                self.insight_model = insightface.app.FaceAnalysis(providers=["CUDAExecutionProvider"])
                 logger.info("REQ-007: insightface model loaded successfully")
             except Exception as e:
                 logger.warning(f"REQ-007: Failed to load insightface model: {e}")
@@ -90,7 +86,7 @@ class FaceDetector:
         if self.yolo_model is None and self.yolo_model_v11 is None and self.insight_model is None:
             raise RuntimeError("REQ-007: Failed to load any face detection model")
 
-    def detect_faces(self, image_path: Path) -> List[Dict[str, Any]]:
+    def detect_faces(self, image_path: Path) -> list[dict[str, Any]]:
         """
         Detect faces in an image using multiple models.
 
@@ -102,7 +98,7 @@ class FaceDetector:
         Returns:
             List of face detections with bounding boxes and embeddings.
         """
-        faces: List[Dict[str, Any]] = []
+        faces: list[dict[str, Any]] = []
         logger.debug(f"REQ-007: Detecting faces in {image_path}")
 
         # Load image
@@ -119,7 +115,7 @@ class FaceDetector:
             return faces
 
         # REQ-007: Detect with YOLOv8
-        yolo_v8_results: List[Dict[str, Any]] = []
+        yolo_v8_results: list[dict[str, Any]] = []
         if self.yolo_model is not None:
             try:
                 yolo_detections = self.yolo_model(str(image_path), device=self.device)
@@ -137,7 +133,7 @@ class FaceDetector:
                 logger.warning(f"REQ-007: YOLOv8 detection failed: {e}")
 
         # REQ-007: Detect with YOLOv11
-        yolo_v11_results: List[Dict[str, Any]] = []
+        yolo_v11_results: list[dict[str, Any]] = []
         if self.yolo_model_v11 is not None:
             try:
                 yolo_detections = self.yolo_model_v11(str(image_path), device=self.device)
@@ -155,7 +151,7 @@ class FaceDetector:
                 logger.warning(f"REQ-007: YOLOv11 detection failed: {e}")
 
         # REQ-007: Detect with insightface
-        insight_results: List[Dict[str, Any]] = []
+        insight_results: list[dict[str, Any]] = []
         if self.insight_model is not None:
             try:
                 insight_faces = self.insight_model.get(image_rgb)
@@ -199,5 +195,3 @@ def get_face_detector(
         FaceDetector: Configured face detector.
     """
     return FaceDetector(device, model_path, model_path_v11)
-
-

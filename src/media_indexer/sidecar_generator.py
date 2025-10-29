@@ -32,9 +32,7 @@ class SidecarGenerator:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         logger.debug(f"REQ-004: Sidecar generator initialized with output_dir={output_dir}")
 
-    def generate_sidecar(
-        self, image_path: Path, metadata: dict[str, Any]
-    ) -> Path:
+    def generate_sidecar(self, image_path: Path, metadata: dict[str, Any]) -> Path:
         """
         Generate sidecar file for an image.
 
@@ -99,4 +97,3 @@ def get_sidecar_generator(output_dir: Path) -> SidecarGenerator:
         SidecarGenerator: Configured sidecar generator.
     """
     return SidecarGenerator(output_dir)
-

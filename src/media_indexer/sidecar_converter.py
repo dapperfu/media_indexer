@@ -5,7 +5,6 @@ REQ-032, REQ-033, REQ-034: Convert between sidecar and database formats.
 REQ-010: All code components directly linked to requirements.
 """
 
-import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -28,16 +27,16 @@ def import_sidecars_to_database(
         database_path: Path to SQLite database.
         verbose: Verbosity level.
     """
+    import image_sidecar_rust
+    from pony.orm import db_session
+
     from media_indexer.db.connection import DatabaseConnection
-    from media_indexer.db.image import Image
+    from media_indexer.db.exif import EXIFData
     from media_indexer.db.face import Face
+    from media_indexer.db.hash_util import calculate_file_hash, get_file_size
+    from media_indexer.db.image import Image
     from media_indexer.db.object import Object
     from media_indexer.db.pose import Pose
-    from media_indexer.db.exif import EXIFData
-    from media_indexer.db.hash_util import calculate_file_hash, get_file_size
-    from media_indexer.sidecar_generator import SidecarGenerator
-    from pony.orm import db_session
-    import image_sidecar_rust
 
     logger.info("REQ-032: Initializing database connection")
     db_conn = DatabaseConnection(database_path)
@@ -84,6 +83,7 @@ def import_sidecars_to_database(
 
                             # Create Image entity
                             from datetime import datetime
+
                             db_image = Image(
                                 path=str(image_file),
                                 file_hash=file_hash,
@@ -164,11 +164,11 @@ def export_database_to_sidecars(
         output_dir: Directory for output sidecar files.
         verbose: Verbosity level.
     """
+    from pony.orm import db_session
+
     from media_indexer.db.connection import DatabaseConnection
     from media_indexer.db.image import Image
     from media_indexer.sidecar_generator import SidecarGenerator
-    from pony.orm import db_session
-    import image_sidecar_rust
 
     logger.info("REQ-033: Initializing database connection")
     db_conn = DatabaseConnection(database_path)
@@ -199,30 +199,36 @@ def export_database_to_sidecars(
 
                     # Add faces
                     for face in db_image.faces:
-                        metadata["faces"].append({
-                            "confidence": face.confidence,
-                            "bbox": face.bbox,
-                            "embedding": face.embedding,
-                            "model": face.model,
-                        })
+                        metadata["faces"].append(
+                            {
+                                "confidence": face.confidence,
+                                "bbox": face.bbox,
+                                "embedding": face.embedding,
+                                "model": face.model,
+                            }
+                        )
 
                     # Add objects
                     for obj in db_image.objects:
-                        metadata["objects"].append({
-                            "class_id": obj.class_id,
-                            "class_name": obj.class_name,
-                            "confidence": obj.confidence,
-                            "bbox": obj.bbox,
-                        })
+                        metadata["objects"].append(
+                            {
+                                "class_id": obj.class_id,
+                                "class_name": obj.class_name,
+                                "confidence": obj.confidence,
+                                "bbox": obj.bbox,
+                            }
+                        )
 
                     # Add poses
                     for pose in db_image.poses:
-                        metadata["poses"].append({
-                            "confidence": pose.confidence,
-                            "keypoints": pose.keypoints,
-                            "bbox": pose.bbox,
-                            "keypoints_conf": pose.keypoints_conf,
-                        })
+                        metadata["poses"].append(
+                            {
+                                "confidence": pose.confidence,
+                                "keypoints": pose.keypoints,
+                                "bbox": pose.bbox,
+                                "keypoints_conf": pose.keypoints_conf,
+                            }
+                        )
 
                     # Add EXIF data
                     if db_image.exif_data:
@@ -243,4 +249,3 @@ def export_database_to_sidecars(
 
     finally:
         db_conn.close()
-

@@ -7,7 +7,6 @@ Central location for model weight storage and management.
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +18,7 @@ class ModelCache:
     Stores models in a central location to avoid re-downloading on every install.
     """
 
-    def __init__(self, cache_dir: Optional[Path] = None) -> None:
+    def __init__(self, cache_dir: Path | None = None) -> None:
         """
         Initialize model cache.
 
@@ -102,7 +101,7 @@ class ModelCache:
         return Path.home() / ".media_indexer" / "models"
 
 
-def setup_model_cache(cache_dir: Optional[Path] = None) -> ModelCache:
+def setup_model_cache(cache_dir: Path | None = None) -> ModelCache:
     """
     Setup and configure model cache.
 
@@ -121,4 +120,3 @@ def setup_model_cache(cache_dir: Optional[Path] = None) -> ModelCache:
 
 # Initialize global cache on import
 DEFAULT_CACHE: ModelCache = setup_model_cache()
-

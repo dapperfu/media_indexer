@@ -7,7 +7,7 @@ REQ-010: All code components directly linked to requirements.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 try:
     import fast_exif_rs
@@ -33,12 +33,10 @@ class EXIFExtractor:
             ImportError: If fast-exif-rs-py is not available.
         """
         if fast_exif_rs is None:
-            raise ImportError(
-                "REQ-003: fast-exif-rs-py is not available. Please install it."
-            )
+            raise ImportError("REQ-003: fast-exif-rs-py is not available. Please install it.")
         logger.debug("REQ-003: EXIF extractor initialized with fast-exif-rs-py")
 
-    def extract_from_path(self, image_path: Path) -> Dict[str, Any]:
+    def extract_from_path(self, image_path: Path) -> dict[str, Any]:
         """
         Extract EXIF data from an image file.
 
@@ -57,20 +55,16 @@ class EXIFExtractor:
         try:
             logger.debug(f"REQ-003: Extracting EXIF from {image_path}")
             # REQ-003: Use fast-exif-rs-py for extraction
-            exif_data: Dict[str, Any] = fast_exif_rs.get_exif(
-                str(image_path)
-            )  # type: ignore[arg-type]
+            exif_data: dict[str, Any] = fast_exif_rs.get_exif(str(image_path))  # type: ignore[arg-type]
 
             logger.debug(f"REQ-003: Successfully extracted EXIF from {image_path}")
             return exif_data
 
         except Exception as e:
-            logger.warning(
-                f"REQ-003: Failed to extract EXIF from {image_path}: {e}"
-            )
+            logger.warning(f"REQ-003: Failed to extract EXIF from {image_path}: {e}")
             return {}
 
-    def extract_from_bytes(self, image_bytes: bytes) -> Dict[str, Any]:
+    def extract_from_bytes(self, image_bytes: bytes) -> dict[str, Any]:
         """
         Extract EXIF data from image bytes.
 
@@ -88,9 +82,7 @@ class EXIFExtractor:
         try:
             logger.debug("REQ-003: Extracting EXIF from bytes")
             # REQ-003: Use fast-exif-rs-py for extraction
-            exif_data: Dict[str, Any] = fast_exif_rs.get_exif_bytes(
-                image_bytes
-            )  # type: ignore[arg-type]
+            exif_data: dict[str, Any] = fast_exif_rs.get_exif_bytes(image_bytes)  # type: ignore[arg-type]
 
             logger.debug("REQ-003: Successfully extracted EXIF from bytes")
             return exif_data
@@ -110,5 +102,3 @@ def get_exif_extractor() -> EXIFExtractor:
         EXIFExtractor: Configured EXIF extractor.
     """
     return EXIFExtractor()
-
-

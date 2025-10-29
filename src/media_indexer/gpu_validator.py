@@ -6,7 +6,6 @@ REQ-010: All code components directly linked to requirements.
 """
 
 import logging
-from typing import Optional
 
 import torch
 
@@ -95,7 +94,7 @@ class GPUValidator:
         logger.info(f"REQ-006: Set active GPU to device {device_id}")
 
 
-def get_gpu_validator() -> Optional[GPUValidator]:
+def get_gpu_validator() -> GPUValidator | None:
     """
     Get or create GPU validator instance.
 
@@ -109,5 +108,3 @@ def get_gpu_validator() -> Optional[GPUValidator]:
     except RuntimeError as e:
         logger.error(f"REQ-006: GPU validation failed: {e}")
         raise
-
-

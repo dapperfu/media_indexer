@@ -7,7 +7,7 @@ REQ-010: All code components directly linked to requirements.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import torch
 from ultralytics import YOLO
@@ -22,7 +22,9 @@ class PoseDetector:
     REQ-009: Use YOLOv11-pose model for human pose detection.
     """
 
-    def __init__(self, device: torch.device, model_path: str = "yolo11x-pose.pt", cache_dir: Path | None = None) -> None:
+    def __init__(
+        self, device: torch.device, model_path: str = "yolo11x-pose.pt", cache_dir: Path | None = None
+    ) -> None:
         """
         Initialize pose detector.
 
@@ -37,12 +39,13 @@ class PoseDetector:
             RuntimeError: If model cannot be loaded.
         """
         self.device: torch.device = device
-        
+
         # Setup model cache for centralized storage
         from media_indexer.model_cache import ModelCache
+
         cache = ModelCache(cache_dir)
         cache.setup_environment()
-        
+
         try:
             logger.info(f"REQ-009: Loading YOLOv11-pose model from {model_path}")
             logger.debug(f"REQ-009: Model cache: {cache.yolo_cache}")
@@ -53,7 +56,7 @@ class PoseDetector:
             logger.error(error_msg)
             raise RuntimeError(error_msg) from e
 
-    def detect_poses(self, image_path: Path) -> List[Dict[str, Any]]:
+    def detect_poses(self, image_path: Path) -> list[dict[str, Any]]:
         """
         Detect human poses in an image.
 
@@ -70,12 +73,12 @@ class PoseDetector:
             # REQ-009: Use YOLOv11-pose for pose detection
             results = self.model(str(image_path), device=self.device)
 
-            poses: List[Dict[str, Any]] = []
+            poses: list[dict[str, Any]] = []
             for result in results:
                 boxes = result.boxes
                 keypoints = result.keypoints
 
-                for box, keypoint in zip(boxes, keypoints):
+                for box, keypoint in zip(boxes, keypoints, strict=True):
                     confidence = float(box.conf.item())
 
                     poses.append(
@@ -95,9 +98,7 @@ class PoseDetector:
             return []
 
 
-def get_pose_detector(
-    device: torch.device, model_path: str = "yolo11x-pose.pt"
-) -> PoseDetector:
+def get_pose_detector(device: torch.device, model_path: str = "yolo11x-pose.pt") -> PoseDetector:
     """
     Factory function to get pose detector instance.
 
@@ -111,4 +112,3 @@ def get_pose_detector(
         PoseDetector: Configured pose detector.
     """
     return PoseDetector(device, model_path)
-

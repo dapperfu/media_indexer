@@ -45,7 +45,7 @@ def download_models(args: argparse.Namespace) -> None:
             models_to_download = ["yolo12x.pt", "yolo11x-pose.pt", "yolov8n-face.pt", "yolov11n-face.pt"]
             for model_name in models_to_download:
                 logger.info(f"Downloading {model_name}...")
-                model = YOLO(model_name)
+                YOLO(model_name)
                 logger.info(f"{model_name} downloaded to {cache.yolo_cache}")
         except Exception as e:
             logger.error(f"Failed to download YOLO models: {e}")
@@ -57,7 +57,7 @@ def download_models(args: argparse.Namespace) -> None:
         try:
             import insightface
 
-            app = insightface.app.FaceAnalysis(providers=["CUDAExecutionProvider"])
+            insightface.app.FaceAnalysis(providers=["CUDAExecutionProvider"])
             logger.info(f"InsightFace models downloaded to {cache.insightface_cache}")
         except Exception as e:
             logger.error(f"Failed to download InsightFace models: {e}")
@@ -69,12 +69,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Download models to central cache")
     parser.add_argument("--cache-dir", help="Custom cache directory")
     parser.add_argument("--list", action="store_true", help="List cached models")
-    parser.add_argument(
-        "--download-yolo", action="store_true", help="Download YOLO models (REQ-007, REQ-008, REQ-009)"
-    )
-    parser.add_argument(
-        "--download-insightface", action="store_true", help="Download InsightFace models (REQ-007)"
-    )
+    parser.add_argument("--download-yolo", action="store_true", help="Download YOLO models (REQ-007, REQ-008, REQ-009)")
+    parser.add_argument("--download-insightface", action="store_true", help="Download InsightFace models (REQ-007)")
 
     args = parser.parse_args()
 
@@ -87,4 +83,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
