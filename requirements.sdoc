@@ -266,3 +266,7 @@ STATEMENT: The tool shall provide a CLI command to emit a default configuration 
 UID: REQ-065
 STATEMENT: When determining the model version for commit attribution, the system SHALL use the most specific available model identifier. If an exact version identifier is available (e.g., from CURSOR_MODEL environment variable or system information), that specific version SHALL be used. Otherwise, the best available approximation SHALL be used, but MUST distinguish between different model families (e.g., Claude Sonnet 3.5, ChatGPT-5, GPT-4, etc.).
 
+[REQUIREMENT]
+UID: REQ-066
+STATEMENT: When database storage is enabled with the --db flag, the database SHALL be properly initialized with all required tables (Image, Face, Object, Pose, EXIFData) before any metadata storage operations are performed. If database initialization fails or tables are not created, the tool SHALL raise an error and NOT proceed with processing.
+

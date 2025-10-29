@@ -87,7 +87,21 @@ class DatabaseConnection:
 
             # REQ-024: Generate database schema
             db.generate_mapping(create_tables=True)
-            logger.info("REQ-024: Database schema created successfully")
+            logger.info("REQ-024: Database schema generated")
+
+            # REQ-066: Verify tables were created by making a test connection
+            from pony.orm import db_session
+            from media_indexer.db.image import Image as ImageEntity
+            
+            with db_session:
+                try:
+                    # Try to count images to verify the Image table exists
+                    count = ImageEntity.select().count()
+                    logger.info(f"REQ-066: Database verified - Image table exists with {count} records")
+                except Exception as e:
+                    error_msg = f"REQ-066: Database verification failed - tables not created: {e}"
+                    logger.error(error_msg)
+                    raise RuntimeError(error_msg) from e
 
             return db
 
