@@ -31,17 +31,17 @@ install-dev: ${VENV_UV}
 	${VENV_UV} pip install -e ".[dev]"
 
 # Target files for dev tools - ensures they're installed
-${RUFF}: ${VENV_PYTHON}
-	touch $@
+${RUFF}: ${VENV_UV}
+	${VENV_UV} pip install ruff
 
-${PYTEST}: ${VENV_PYTHON}
-	touch $@
+${PYTEST}: ${VENV_UV}
+	${VENV_UV} pip install pytest
 
-${PYDOCSTYLE}: ${VENV_PYTHON}
-	touch $@
+${PYDOCSTYLE}: ${VENV_UV}
+	${VENV_UV} pip install pydocstyle
 
-${STRICTDOC}: ${VENV_PYTHON}
-	touch $@
+${STRICTDOC}: ${VENV_UV}
+	${VENV_UV} pip install strictdoc
 
 # Run tests
 test: ${PYTEST}
