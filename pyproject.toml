@@ -33,6 +33,7 @@ dependencies = [
     "tqdm>=4.66.0",
     "pyyaml>=6.0",
     "insightface>=0.7.3",
+    "onnxruntime-gpu>=1.20.0",
     "ultralytics>=8.3.0",
     "image-sidecar-rust @ git+https://github.com/dapperfu/image-sidecar-rust.git",
     "fast-exif-rs-py @ git+https://github.com/dapperfu/fast-exif-rs-py.git",
