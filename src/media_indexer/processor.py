@@ -227,8 +227,8 @@ class ImageProcessor:
         images: list[Path] = []
 
         for ext in extensions:
-            images.extend(self.input_dir.glob(f"*{ext}"))
-            images.extend(self.input_dir.glob(f"*{ext.upper()}"))
+            images.extend(self.input_dir.rglob(f"*{ext}"))
+            images.extend(self.input_dir.rglob(f"*{ext.upper()}"))
 
         # REQ-038: Apply limit if specified
         if self.limit and len(images) > self.limit:
