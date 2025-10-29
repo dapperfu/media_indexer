@@ -7,7 +7,8 @@ REQ-024: Object entity linked to Image.
 
 import logging
 
-from pony.orm import JSON, Required
+from pony.orm import Required
+from pony.orm import db_json
 
 from media_indexer.db.connection import db
 from media_indexer.db.image import Image
@@ -31,7 +32,7 @@ class Object(db.Entity):
     class_id: int = Required(int, index=True)  # Object class ID
     class_name: str = Required(str, index=True)  # Object class name
     confidence: float = Required(float, index=True)
-    bbox: list[float] = Required(JSON)  # Bounding box [x1, y1, x2, y2]
+    bbox: list[float] = Required(db_json)  # Bounding box [x1, y1, x2, y2]
 
     # Timestamp
     detected_at: float | None = None  # Detection timestamp

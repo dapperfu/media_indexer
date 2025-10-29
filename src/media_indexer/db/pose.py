@@ -7,8 +7,9 @@ REQ-024: Pose entity linked to Image.
 
 import logging
 
-from pony.orm import JSON, Required
+from pony.orm import Required
 from pony.orm import Optional as PonyOptional
+from pony.orm import db_json
 
 from media_indexer.db.connection import db
 from media_indexer.db.image import Image
@@ -30,8 +31,8 @@ class Pose(db.Entity):
 
     # Pose detection metadata
     confidence: float = Required(float, index=True)
-    bbox: list[float] = Required(JSON)  # Bounding box [x1, y1, x2, y2]
-    keypoints: list[list[float]] = Required(JSON)  # Keypoint coordinates [[x, y], ...]
+    bbox: list[float] = Required(db_json)  # Bounding box [x1, y1, x2, y2]
+    keypoints: list[list[float]] = Required(db_json)  # Keypoint coordinates [[x, y], ...]
     keypoints_conf: PonyOptional[list[float]] = None  # Keypoint confidence scores
 
     # Timestamp
