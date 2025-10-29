@@ -54,7 +54,8 @@ class SidecarGenerator:
         # Use the correct API: save_data with operation type
         sidecar = image_sidecar_rust.ImageSidecar()
         try:
-            info = sidecar.save_data(str(image_path), "extract", metadata)
+            # Use UNIFIED operation type to store all metadata types together
+            info = sidecar.save_data(str(image_path), image_sidecar_rust.OperationType.UNIFIED, metadata)
             logger.debug(f"REQ-004: Generated sidecar info: {info}")
             return Path(info.get('sidecar_path', str(image_path) + '.json'))
         except Exception as e:
