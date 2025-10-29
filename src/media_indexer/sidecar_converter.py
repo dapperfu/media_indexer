@@ -53,13 +53,16 @@ def import_sidecars_to_database(
         for image_file in input_dir.rglob("*"):
             if image_file.suffix.lower() in image_extensions:
                 # REQ-032: Check for corresponding sidecar file
-                sidecar_path = image_sidecar_rust.get_sidecar_path(str(image_file))  # type: ignore[misc, arg-type]
-
-                if sidecar_path and Path(sidecar_path).exists():
+                # Check for sidecar with .json extension
+                sidecar_path = image_file.with_suffix('.json')
+                
+                if sidecar_path.exists():
                     try:
                         # REQ-032: Read sidecar file
                         logger.debug(f"REQ-032: Reading sidecar from {sidecar_path}")
-                        metadata = image_sidecar_rust.read_sidecar(str(sidecar_path))  # type: ignore[misc, arg-type]
+                        import json
+                        with open(sidecar_path) as f:
+                            metadata = json.load(f)
 
                         # REQ-032: Import to database
                         with db_session:

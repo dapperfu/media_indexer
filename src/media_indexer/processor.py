@@ -359,10 +359,8 @@ class ImageProcessor:
             except Exception as e:
                 logger.warning(f"REQ-025: Database check failed: {e}")
 
-        # Check for sidecar in output directory using image-sidecar-rust's naming
-        # The library determines the sidecar filename based on format
-        sidecar_filename = image_sidecar_rust.get_sidecar_filename(str(image_path))  # type: ignore[misc, arg-type]
-        sidecar_path = self.output_dir / sidecar_filename
+        # Check for sidecar in output directory - image-sidecar-rust uses .json extension
+        sidecar_path = self.output_dir / (image_path.name + '.json')
 
         if sidecar_path.exists():
             logger.debug(f"REQ-013: Skipping already processed {image_path}")

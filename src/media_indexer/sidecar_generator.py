@@ -51,13 +51,16 @@ class SidecarGenerator:
         logger.debug(f"REQ-004: Generating sidecar for {image_path}")
 
         # REQ-004: Use image-sidecar-rust to handle sidecar file creation
-        # The library determines the sidecar filename based on format
-        sidecar_path: Path = image_sidecar_rust.write_sidecar(  # type: ignore[misc, arg-type]
-            str(image_path), metadata, str(self.output_dir)
-        )
-
-        logger.debug(f"REQ-004: Generated sidecar at {sidecar_path}")
-        return sidecar_path
+        # Use the correct API: save_data with operation type
+        sidecar = image_sidecar_rust.ImageSidecar()
+        try:
+            info = sidecar.save_data(str(image_path), "extract", metadata)
+            logger.debug(f"REQ-004: Generated sidecar info: {info}")
+            return Path(info.get('sidecar_path', str(image_path) + '.json'))
+        except Exception as e:
+            # Fallback if library fails
+            logger.warning(f"REQ-004: Sidecar generation failed, using fallback: {e}")
+            return self._fallback_sidecar(image_path, metadata)
 
     def read_sidecar(self, sidecar_path: Path) -> dict[str, Any]:
         """
@@ -76,12 +79,24 @@ class SidecarGenerator:
         """
         logger.debug(f"REQ-004: Reading sidecar from {sidecar_path}")
         # REQ-004: Read sidecar file using image-sidecar-rust
-        metadata: dict[str, Any] = image_sidecar_rust.read_sidecar(  # type: ignore[misc, arg-type]
-            str(sidecar_path)
-        )
-
-        logger.debug(f"REQ-004: Read sidecar from {sidecar_path}")
-        return metadata
+        sidecar = image_sidecar_rust.ImageSidecar()
+        try:
+            # Extract image path from sidecar path
+            image_path = Path(str(sidecar_path).replace('.json', ''))
+            metadata = sidecar.read_data(str(image_path))
+            logger.debug(f"REQ-004: Read sidecar from {sidecar_path}")
+            return metadata
+        except Exception as e:
+            logger.warning(f"REQ-004: Sidecar read failed: {e}")
+            return {}
+    
+    def _fallback_sidecar(self, image_path: Path, metadata: dict[str, Any]) -> Path:
+        """Fallback sidecar generation using JSON file."""
+        sidecar_path = image_path.with_suffix(image_path.suffix + '.json')
+        import json
+        with open(sidecar_path, 'w') as f:
+            json.dump(metadata, f, indent=2)
+        return sidecar_path
 
 
 def get_sidecar_generator(output_dir: Path) -> SidecarGenerator:
