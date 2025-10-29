@@ -32,16 +32,16 @@ install-dev: ${VENV_UV}
 
 # Target files for dev tools - ensures they're installed
 ${RUFF}: ${VENV_PYTHON}
-	@# ruff installed via venv
+	touch $@
 
 ${PYTEST}: ${VENV_PYTHON}
-	@# pytest installed via venv
+	touch $@
 
 ${PYDOCSTYLE}: ${VENV_PYTHON}
-	@# pydocstyle installed via venv
+	touch $@
 
 ${STRICTDOC}: ${VENV_PYTHON}
-	@# strictdoc installed via venv
+	touch $@
 
 # Run tests
 test: ${PYTEST}
