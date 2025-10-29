@@ -160,10 +160,14 @@ STATEMENT: The tool shall support a --limit flag to process only a specified num
 
 [REQUIREMENT]
 UID: REQ-040
-STATEMENT: All StrictDoc (.sdoc) documents SHALL follow the StrictDoc grammar rules as defined at https://github.com/strictdoc-project/strictdoc/blob/main/strictdoc/backend/sdoc/grammar/grammar.py
+STATEMENT: The tool shall support RAW image formats (CR2, NEF, ARW, DNG, etc.) by converting them to temporary JPEG files in memory for YOLO processing using the rawpy library.
 
 [REQUIREMENT]
 UID: REQ-041
+STATEMENT: All StrictDoc (.sdoc) documents SHALL follow the StrictDoc grammar rules as defined at https://github.com/strictdoc-project/strictdoc/blob/main/strictdoc/backend/sdoc/grammar/grammar.py
+
+[REQUIREMENT]
+UID: REQ-042
 STATEMENT: All StrictDoc (.sdoc) documents SHALL not have C-style comments at the top of the file.
 
 [REQUIREMENT]
