@@ -30,6 +30,19 @@ install: ${VENV_UV}
 install-dev: ${VENV_UV}
 	${VENV_UV} pip install -e ".[dev]"
 
+# Target files for dev tools - ensures they're installed
+${RUFF}: ${VENV_PYTHON}
+	@# ruff installed via venv
+
+${PYTEST}: ${VENV_PYTHON}
+	@# pytest installed via venv
+
+${PYDOCSTYLE}: ${VENV_PYTHON}
+	@# pydocstyle installed via venv
+
+${STRICTDOC}: ${VENV_PYTHON}
+	@# strictdoc installed via venv
+
 # Run tests
 test: ${PYTEST}
 	${PYTEST} tests/
