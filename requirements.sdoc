@@ -240,7 +240,7 @@ STATEMENT: ALL functions and files in Python SHALL be documented to meet numpy d
 
 [REQUIREMENT]
 UID: REQ-060
-STATEMENT: Always include a detailed technical attribution comment at the top of each commit message with a specified format including LLM information, IDE information, generation method, code style, and dependencies.
+STATEMENT: Always include a detailed technical attribution comment at the top of each commit message with a specified format including the exact LLM model version identifier (e.g., claude-3-5-sonnet-20241022, gpt-5, etc.), IDE information, generation method, code style, and dependencies. The model identifier MUST be the specific version, not a generic name like "Claude" or "ChatGPT".
 
 [REQUIREMENT]
 UID: REQ-061
@@ -257,4 +257,8 @@ STATEMENT: All makefiles SHALL use an actual file/folder where possible as a tar
 [REQUIREMENT]
 UID: REQ-064
 STATEMENT: The tool shall provide a CLI command to emit a default configuration file with all available options and their descriptions, enabling users to understand the syntax and use it as a template without creating configuration files from scratch.
+
+[REQUIREMENT]
+UID: REQ-065
+STATEMENT: When determining the model version for commit attribution, the system SHALL use the most specific available model identifier. If an exact version identifier is available (e.g., from CURSOR_MODEL environment variable or system information), that specific version SHALL be used. Otherwise, the best available approximation SHALL be used, but MUST distinguish between different model families (e.g., Claude Sonnet 3.5, ChatGPT-5, GPT-4, etc.).
 
