@@ -30,6 +30,7 @@ from media_indexer.face_detector import FaceDetector, get_face_detector
 from media_indexer.gpu_validator import GPUValidator, get_gpu_validator
 from media_indexer.object_detector import ObjectDetector, get_object_detector
 from media_indexer.pose_detector import PoseDetector, get_pose_detector
+from media_indexer.raw_converter import cleanup_temp_files
 from media_indexer.sidecar_generator import SidecarGenerator, get_sidecar_generator
 
 logger = logging.getLogger(__name__)
@@ -494,6 +495,9 @@ class ImageProcessor:
         # REQ-012: Final statistics
         self.stats["end_time"] = datetime.now().isoformat()
         self._print_statistics()
+
+        # REQ-040: Clean up temporary RAW conversion files
+        cleanup_temp_files()
 
         # REQ-022: Close database connection
         if self.database_connection:

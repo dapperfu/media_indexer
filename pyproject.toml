@@ -38,6 +38,7 @@ dependencies = [
     "fast-exif-rs-py @ git+https://github.com/dapperfu/fast-exif-rs-py.git",
     "pony>=0.7.17",
     "xxhash>=3.0.0",
+    "rawpy>=0.21.0",
 ]
 
 [project.optional-dependencies]

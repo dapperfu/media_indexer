@@ -12,6 +12,8 @@ from typing import Any
 import torch
 from ultralytics import YOLO
 
+from media_indexer.raw_converter import get_raw_image_source
+
 logger = logging.getLogger(__name__)
 
 
@@ -61,6 +63,7 @@ class PoseDetector:
         Detect human poses in an image.
 
         REQ-009: Detect human poses using YOLOv11-pose.
+        REQ-040: Support RAW image files via in-memory conversion.
 
         Args:
             image_path: Path to the image file.
@@ -70,8 +73,10 @@ class PoseDetector:
         """
         try:
             logger.debug(f"REQ-009: Detecting poses in {image_path}")
+            # REQ-040: Convert RAW images to usable format
+            source_path = get_raw_image_source(image_path)
             # REQ-009: Use YOLOv11-pose for pose detection
-            results = self.model(str(image_path), device=self.device)
+            results = self.model(source_path, device=self.device)
 
             poses: list[dict[str, Any]] = []
             for result in results:

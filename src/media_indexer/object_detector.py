@@ -12,6 +12,8 @@ from typing import Any
 import torch
 from ultralytics import YOLO
 
+from media_indexer.raw_converter import get_raw_image_source
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,6 +61,7 @@ class ObjectDetector:
         Detect objects in an image.
 
         REQ-008: Detect objects using YOLOv12x.
+        REQ-040: Support RAW image files via in-memory conversion.
 
         Args:
             image_path: Path to the image file.
@@ -68,8 +71,10 @@ class ObjectDetector:
         """
         try:
             logger.debug(f"REQ-008: Detecting objects in {image_path}")
+            # REQ-040: Convert RAW images to usable format
+            source_path = get_raw_image_source(image_path)
             # REQ-008: Use YOLOv12x for object detection
-            results = self.model(str(image_path), device=self.device)
+            results = self.model(source_path, device=self.device)
 
             objects: list[dict[str, Any]] = []
             for result in results:
