@@ -348,7 +348,7 @@ class ImageProcessor:
             logger.error(f"REQ-025: Failed to store to database: {e}")
             return False
 
-    def _process_single_image(self, image_path: Path) -> bool:
+    def _process_single_image(self, image_path: Path) -> tuple[bool, dict[str, Any]]:
         """
         Process a single image (REQ-002, REQ-015).
 
@@ -356,7 +356,7 @@ class ImageProcessor:
             image_path: Path to image file.
 
         Returns:
-            True if successful, False otherwise.
+            Tuple of (success, detection_results). detection_results contains counts of faces, objects, poses.
         """
         # REQ-013: Check if already processed (idempotent)
         # REQ-025: Check database if using database storage
@@ -371,7 +371,7 @@ class ImageProcessor:
                     if existing_image:
                         logger.debug(f"REQ-013: Image {image_path} already exists in database, skipping")
                         self.stats["skipped_images"] += 1
-                        return True
+                        return True, {}
             except Exception as e:
                 logger.warning(f"REQ-025: Database check failed: {e}")
 
@@ -381,10 +381,11 @@ class ImageProcessor:
         if sidecar_path.exists():
             logger.debug(f"REQ-013: Skipping already processed {image_path}")
             self.stats["skipped_images"] += 1
-            return True
+            return True, {}
 
         try:
             metadata: dict[str, Any] = {"image_path": str(image_path)}
+            detection_results: dict[str, Any] = {}
 
             # REQ-003: Extract EXIF
             if self.exif_extractor is not None:
@@ -396,23 +397,32 @@ class ImageProcessor:
             # REQ-007: Detect faces
             if self.face_detector is not None:
                 try:
-                    metadata["faces"] = self.face_detector.detect_faces(image_path)
+                    faces = self.face_detector.detect_faces(image_path)
+                    metadata["faces"] = faces
+                    detection_results["faces"] = len(faces)
                 except Exception as e:
                     logger.debug(f"REQ-007: Face detection failed: {e}")
+                    detection_results["faces"] = 0
 
             # REQ-008: Detect objects
             if self.object_detector is not None:
                 try:
-                    metadata["objects"] = self.object_detector.detect_objects(image_path)
+                    objects = self.object_detector.detect_objects(image_path)
+                    metadata["objects"] = objects
+                    detection_results["objects"] = len(objects)
                 except Exception as e:
                     logger.debug(f"REQ-008: Object detection failed: {e}")
+                    detection_results["objects"] = 0
 
             # REQ-009: Detect poses
             if self.pose_detector is not None:
                 try:
-                    metadata["poses"] = self.pose_detector.detect_poses(image_path)
+                    poses = self.pose_detector.detect_poses(image_path)
+                    metadata["poses"] = poses
+                    detection_results["poses"] = len(poses)
                 except Exception as e:
                     logger.debug(f"REQ-009: Pose detection failed: {e}")
+                    detection_results["poses"] = 0
 
             # REQ-025: Store to database
             if self.database_connection:
@@ -430,19 +440,19 @@ class ImageProcessor:
                     if self.database_connection:
                         # If using database, sidecar failure is not fatal
                         self.processed_files.add(str(image_path))
-                        return True
+                        return True, detection_results
                     else:
-                        return False
+                        return False, {}
             elif self.disable_sidecar:
                 logger.debug(f"REQ-026: Skipping sidecar generation for {image_path}")
 
             self.processed_files.add(str(image_path))
-            return True
+            return True, detection_results
 
         except Exception as e:
             # REQ-015: Robust error handling
             logger.error(f"REQ-015: Error processing {image_path}: {e}")
-            return False
+            return False, {}
 
     def process(self) -> dict[str, Any]:
         """
@@ -469,7 +479,58 @@ class ImageProcessor:
             return self.stats
 
         # REQ-012: Progress tracking with TQDM if verbose level <= 12
-        progress_bar = tqdm.tqdm(total=len(images_to_process), desc="Processing images") if self.verbose <= 12 else None
+        # Use a custom class to display bi-line info
+        class BiLineTQDM:
+            """Custom tqdm wrapper for bi-line display."""
+            def __init__(self, total: int):
+                self.pbar = tqdm.tqdm(
+                    total=total,
+                    desc="Processing images",
+                    bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]',
+                    ncols=100
+                )
+                self.current_image = "Starting..."
+                self.detections = ""
+                
+            def update_with_detections(self, image_path: Path, detections: dict[str, Any]) -> None:
+                """Update progress bar with image and detection info."""
+                # Format image name (shorten if too long)
+                img_name = image_path.name
+                if len(img_name) > 50:
+                    img_name = "..." + img_name[-47:]
+                
+                # Format detections
+                parts = []
+                if detections.get("faces", 0) > 0:
+                    parts.append(f"{detections['faces']} face{'s' if detections['faces'] != 1 else ''}")
+                if detections.get("objects", 0) > 0:
+                    parts.append(f"{detections['objects']} object{'s' if detections['objects'] != 1 else ''}")
+                if detections.get("poses", 0) > 0:
+                    parts.append(f"{detections['poses']} pose{'s' if detections['poses'] != 1 else ''}")
+                
+                detection_str = ", ".join(parts) if parts else "no detections"
+                
+                # Set postfix for second line
+                self.pbar.set_postfix_str(f"Image: {img_name}")
+                
+                # Write second line manually (tqdm doesn't natively support this)
+                # We'll use the description for the second line
+                second_line = f"└─ Detected: {detection_str}"
+                if hasattr(self, '_second_line_written'):
+                    # Move up one line and clear previous second line
+                    print('\r\033[1A\033[K', end='', flush=True)
+                print(second_line, flush=True)
+                self._second_line_written = True
+            
+            def update(self, n: int = 1) -> None:
+                """Update progress."""
+                self.pbar.update(n)
+            
+            def close(self) -> None:
+                """Close progress bar."""
+                self.pbar.close()
+        
+        progress_bar = BiLineTQDM(total=len(images_to_process)) if self.verbose <= 12 else None
 
         # REQ-020: Process images in batches with threading for I/O
         try:
@@ -484,18 +545,22 @@ class ImageProcessor:
                     for future in as_completed(futures):
                         image_path = futures[future]
                         try:
-                            success = future.result()
+                            success, detections = future.result()
                             if success:
                                 self._update_stats_increment("processed_images")
+                                # Update progress bar with detection results
+                                if progress_bar:
+                                    progress_bar.update_with_detections(image_path, detections)
+                                    progress_bar.update(1)
                             else:
                                 self._update_stats_increment("error_images")
+                                if progress_bar:
+                                    progress_bar.update(1)
                         except Exception as e:
                             logger.error(f"REQ-015: Error processing {image_path}: {e}")
                             self._update_stats_increment("error_images")
-
-                        # Update progress bar
-                        if progress_bar:
-                            progress_bar.update(1)
+                            if progress_bar:
+                                progress_bar.update(1)
 
                 # REQ-011: Save checkpoint periodically
                 if self.stats["processed_images"] % 100 == 0:
