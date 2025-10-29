@@ -40,14 +40,17 @@ class DatabaseManager:
         from pony.orm import db_session
         
         from media_indexer.db.connection import DatabaseConnection
+        
+        # Connect to database first
+        db_conn = DatabaseConnection(self.database_path)
+        db_conn.connect()
+        
+        # Import models after connection is established
         from media_indexer.db.image import Image
         from media_indexer.db.exif import EXIFData
         from media_indexer.db.face import Face
         from media_indexer.db.object import Object
         from media_indexer.db.pose import Pose
-        
-        db_conn = DatabaseConnection(self.database_path)
-        db_conn.connect()
         
         stats = {
             "total_images": 0,
@@ -137,10 +140,13 @@ class DatabaseManager:
         from pony.orm import db_session
         
         from media_indexer.db.connection import DatabaseConnection
-        from media_indexer.db.image import Image
         
+        # Connect to database first
         db_conn = DatabaseConnection(self.database_path)
         db_conn.connect()
+        
+        # Import models after connection
+        from media_indexer.db.image import Image
         
         try:
             with db_session:
@@ -178,10 +184,13 @@ class DatabaseManager:
         from pony.orm import db_session
         
         from media_indexer.db.connection import DatabaseConnection
-        from media_indexer.db.image import Image
         
+        # Connect to database first
         db_conn = DatabaseConnection(self.database_path)
         db_conn.connect()
+        
+        # Import models after connection
+        from media_indexer.db.image import Image
         
         stats = {
             "images_checked": 0,
