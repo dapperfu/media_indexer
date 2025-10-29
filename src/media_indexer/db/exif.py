@@ -8,8 +8,7 @@ REQ-024: EXIF entity linked to Image.
 import logging
 from typing import Any, Optional
 
-from pony.orm import Required, Json
-from pony.orm import Optional as PonyOptional
+from pony.orm import Optional, Required, Json
 
 from media_indexer.db.connection import db
 from media_indexer.db.image import Image
@@ -23,24 +22,21 @@ class EXIFData(db.Entity):
     REQ-024: Store EXIF metadata with relationship to Image.
     """
 
-    # Primary key
-    id: int = Required(int, auto=True)
-
     # REQ-024: Foreign key to Image (one-to-one)
-    image: Image = Required(Image, unique=True, index=True)
+    image = Required(Image, unique=True, index=True)
 
     # EXIF data as JSON blob
-    data: dict[str, Any] = Required(Json)
+    data = Required(Json)
 
     # Timestamp
-    extracted_at: PonyOptional[float] = None  # Extraction timestamp
+    extracted_at = Optional(float)  # Extraction timestamp
 
     def __repr__(self) -> str:
         """Return string representation."""
         return f"EXIFData(id={self.id}, image_id={self.image.id})"
 
     @staticmethod
-    def get_by_image(image: Image) -> Optional["EXIFData"]:
+    def get_by_image(image: Image):
         """Get EXIF data for an image.
 
         REQ-024: Query EXIF data by image.
@@ -54,7 +50,7 @@ class EXIFData(db.Entity):
         return image.exif_data
 
     @staticmethod
-    def get_by_tag(tag_name: str, tag_value: Any) -> list["EXIFData"]:
+    def get_by_tag(tag_name: str, tag_value: Any):
         """Get EXIF data by tag value.
 
         REQ-028: Query EXIF data by specific tag.

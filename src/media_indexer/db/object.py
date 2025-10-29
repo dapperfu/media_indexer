@@ -7,7 +7,7 @@ REQ-024: Object entity linked to Image.
 
 import logging
 
-from pony.orm import Required, Json
+from pony.orm import Optional, Required, Json
 
 from media_indexer.db.connection import db
 from media_indexer.db.image import Image
@@ -21,20 +21,17 @@ class Object(db.Entity):
     REQ-024: Store object detection results with relationship to Image.
     """
 
-    # Primary key
-    id: int = Required(int, auto=True)
-
     # REQ-024: Foreign key to Image
-    image: Image = Required(Image, index=True)
+    image = Required(Image, index=True)
 
     # Object detection metadata
-    class_id: int = Required(int, index=True)  # Object class ID
-    class_name: str = Required(str, index=True)  # Object class name
-    confidence: float = Required(float, index=True)
-    bbox: list[float] = Required(Json)  # Bounding box [x1, y1, x2, y2]
+    class_id = Required(int, index=True)  # Object class ID
+    class_name = Required(str, index=True)  # Object class name
+    confidence = Required(float, index=True)
+    bbox = Required(Json)  # Bounding box [x1, y1, x2, y2]
 
     # Timestamp
-    detected_at: float | None = None  # Detection timestamp
+    detected_at = Optional(float)  # Detection timestamp
 
     def __repr__(self) -> str:
         """Return string representation."""

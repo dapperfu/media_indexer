@@ -7,10 +7,9 @@ REQ-024: Image entity with relationships to faces, objects, poses, EXIF.
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
-from pony.orm import Optional as PonyOptional
-from pony.orm import Required, Set
+from pony.orm import Optional, Required, Set
 
 from media_indexer.db.connection import db
 
@@ -29,34 +28,31 @@ class Image(db.Entity):
     REQ-024: Store image metadata with relationships.
     """
 
-    # Primary key
-    id: int = Required(int, auto=True)
-
     # Image file information
-    path: str = Required(str, unique=True, index=True)
-    file_hash: str = Required(str, index=True)  # Content hash for deduplication
-    file_size: int = Required(int)  # File size in bytes
-    width: PonyOptional[int] = None  # Image width
-    height: PonyOptional[int] = None  # Image height
+    path = Required(str, unique=True, index=True)
+    file_hash = Required(str, index=True)  # Content hash for deduplication
+    file_size = Required(int)  # File size in bytes
+    width = Optional(int)
+    height = Optional(int)
 
     # Timestamps
-    created_at: datetime = Required(datetime, default=datetime.now)
-    updated_at: datetime = Required(datetime, default=datetime.now)
+    created_at = Required(datetime, default=lambda: datetime.now())
+    updated_at = Required(datetime, default=lambda: datetime.now())
 
     # REQ-024: One-to-many relationships
-    faces: Set["Face"] = Set("Face", cascade_delete=True)
-    objects: Set["Object"] = Set("Object", cascade_delete=True)
-    poses: Set["Pose"] = Set("Pose", cascade_delete=True)
+    faces = Set("Face", cascade_delete=True)
+    objects = Set("Object", cascade_delete=True)
+    poses = Set("Pose", cascade_delete=True)
 
     # REQ-024: One-to-one relationships
-    exif_data: PonyOptional["EXIFData"] = PonyOptional("EXIFData", cascade_delete=True)
+    exif_data = Optional("EXIFData", cascade_delete=True)
 
     def __repr__(self) -> str:
         """Return string representation."""
         return f"Image(id={self.id}, path='{self.path}')"
 
     @staticmethod
-    def get_by_path(path: str) -> Optional["Image"]:
+    def get_by_path(path: str):
         """Get image by file path.
 
         REQ-024: Query image by path.

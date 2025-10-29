@@ -7,8 +7,7 @@ REQ-024: Pose entity linked to Image.
 
 import logging
 
-from pony.orm import Required, Json
-from pony.orm import Optional as PonyOptional
+from pony.orm import Optional, Required, Json
 
 from media_indexer.db.connection import db
 from media_indexer.db.image import Image
@@ -22,20 +21,17 @@ class Pose(db.Entity):
     REQ-024: Store pose detection results with relationship to Image.
     """
 
-    # Primary key
-    id: int = Required(int, auto=True)
-
     # REQ-024: Foreign key to Image
-    image: Image = Required(Image, index=True)
+    image = Required(Image, index=True)
 
     # Pose detection metadata
-    confidence: float = Required(float, index=True)
-    bbox: list[float] = Required(Json)  # Bounding box [x1, y1, x2, y2]
-    keypoints: list[list[float]] = Required(Json)  # Keypoint coordinates [[x, y], ...]
-    keypoints_conf: PonyOptional[list[float]] = None  # Keypoint confidence scores
+    confidence = Required(float, index=True)
+    bbox = Required(Json)  # Bounding box [x1, y1, x2, y2]
+    keypoints = Required(Json)  # Keypoint coordinates [[x, y], ...]
+    keypoints_conf = Optional(Json)  # Keypoint confidence scores
 
     # Timestamp
-    detected_at: PonyOptional[float] = None  # Detection timestamp
+    detected_at = Optional(float)  # Detection timestamp
 
     def __repr__(self) -> str:
         """Return string representation."""
