@@ -122,6 +122,7 @@ def parse_args() -> argparse.Namespace:
     # REQ-030: Extract subcommand
     extract_parser = subparsers.add_parser(
         "extract",
+        aliases=["analyze"],
         help="Extract features from images (REQ-030)",
         description="Extract features (faces, objects, poses, EXIF) from images.",
     )
@@ -425,7 +426,7 @@ def main() -> None:
     setup_logging(verbose)
 
     # REQ-029: Route to appropriate subcommand handler
-    if args.command in ["extract", "annotate"]:
+    if args.command in ["extract", "annotate", "analyze"]:
         sys.exit(process_extract_or_annotate(args, verbose))
     elif args.command == "convert":
         sys.exit(process_convert(args, verbose))
