@@ -228,31 +228,40 @@ class FaceDetector:
         insight_results: list[dict[str, Any]] = []
         if self.insight_model is not None:
             try:
-                insight_faces = self.insight_model.get(image_rgb)
-                # Get image dimensions for normalization
-                img_height, img_width = image_rgb.shape[:2]
-                
-                for face in insight_faces:
-                    # Normalize bbox to percentages (0.0-1.0)
-                    # insightface bbox format is [x1, y1, x2, y2]
-                    bbox_absolute = face.bbox.tolist()
-                    bbox_normalized = [
-                        bbox_absolute[0] / img_width,   # x1
-                        bbox_absolute[1] / img_height,  # y1
-                        bbox_absolute[2] / img_width,  # x2
-                        bbox_absolute[3] / img_height, # y2
-                    ]
+                # Load image for insightface
+                image = cv2.imread(str(image_path))
+                if image is None:
+                    logger.warning(f"REQ-007: Could not load image {image_path} for insightface")
+                else:
+                    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                    insight_faces = self.insight_model.get(image_rgb)
                     
-                    insight_results.append(
-                        {
-                            "confidence": float(face.det_score),
-                            "bbox": bbox_normalized,
-                            "embedding": face.embedding.tolist(),
-                            "model": "insightface",
-                        }
-                    )
+                    # Get image dimensions for normalization
+                    img_height, img_width = image_rgb.shape[:2]
+                    
+                    for face in insight_faces:
+                        # Normalize bbox to percentages (0.0-1.0)
+                        # insightface bbox format is [x1, y1, x2, y2]
+                        bbox_absolute = face.bbox.tolist()
+                        bbox_normalized = [
+                            bbox_absolute[0] / img_width,   # x1
+                            bbox_absolute[1] / img_height,  # y1
+                            bbox_absolute[2] / img_width,  # x2
+                            bbox_absolute[3] / img_height, # y2
+                        ]
+                        
+                        insight_results.append(
+                            {
+                                "confidence": float(face.det_score),
+                                "bbox": bbox_normalized,
+                                "embedding": face.embedding.tolist() if hasattr(face, 'embedding') else None,
+                                "model": "insightface",
+                            }
+                        )
             except Exception as e:
+                import traceback
                 logger.warning(f"REQ-007: insightface detection failed: {e}")
+                logger.debug(f"REQ-007: insightface traceback: {traceback.format_exc()}")
 
         # Combine results
         faces.extend(yolo_v8_results)
