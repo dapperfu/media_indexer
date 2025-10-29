@@ -111,17 +111,29 @@ class ObjectDetector:
             objects: list[dict[str, Any]] = []
             for result in results:
                 boxes = result.boxes
+                # Get image dimensions for normalization
+                img_height, img_width = result.orig_shape
+                
                 for box in boxes:
                     class_id = int(box.cls.item())
                     confidence = float(box.conf.item())
                     class_name = result.names[class_id]
+                    
+                    # Normalize bbox to percentages (0.0-1.0)
+                    bbox_absolute = box.xyxy[0].cpu().numpy().tolist()
+                    bbox_normalized = [
+                        bbox_absolute[0] / img_width,   # x1
+                        bbox_absolute[1] / img_height,  # y1
+                        bbox_absolute[2] / img_width,  # x2
+                        bbox_absolute[3] / img_height, # y2
+                    ]
 
                     objects.append(
                         {
                             "class_id": class_id,
                             "class_name": class_name,
                             "confidence": confidence,
-                            "bbox": box.xyxy[0].cpu().numpy().tolist(),
+                            "bbox": bbox_normalized,
                         }
                     )
 

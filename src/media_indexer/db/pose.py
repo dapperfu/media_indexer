@@ -26,8 +26,8 @@ class Pose(db.Entity):
 
     # Pose detection metadata
     confidence = Required(float, index=True)
-    bbox = Required(Json)  # Bounding box [x1, y1, x2, y2]
-    keypoints = Required(Json)  # Keypoint coordinates [[x, y], ...]
+    bbox = Required(Json)  # Bounding box [x1, y1, x2, y2] normalized (0.0-1.0)
+    keypoints = Required(Json)  # Keypoint coordinates [[x, y], ...] normalized (0.0-1.0)
     keypoints_conf = Optional(Json)  # Keypoint confidence scores
 
     # Timestamp

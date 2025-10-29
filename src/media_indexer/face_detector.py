@@ -163,11 +163,23 @@ class FaceDetector:
                 yolo_detections = self.yolo_model(source_path, device=self.device)
                 for detection in yolo_detections:
                     boxes = detection.boxes
+                    # Get image dimensions for normalization
+                    img_height, img_width = detection.orig_shape
+                    
                     for box in boxes:
+                        # Normalize bbox to percentages (0.0-1.0)
+                        bbox_absolute = box.xyxy[0].cpu().numpy().tolist()
+                        bbox_normalized = [
+                            bbox_absolute[0] / img_width,   # x1
+                            bbox_absolute[1] / img_height,  # y1
+                            bbox_absolute[2] / img_width,  # x2
+                            bbox_absolute[3] / img_height, # y2
+                        ]
+                        
                         yolo_v8_results.append(
                             {
                                 "confidence": float(box.conf.item()),
-                                "bbox": box.xyxy[0].cpu().numpy().tolist(),
+                                "bbox": bbox_normalized,
                                 "model": "yolov8-face",
                             }
                         )
@@ -183,11 +195,23 @@ class FaceDetector:
                 yolo_detections = self.yolo_model_v11(source_path, device=self.device)
                 for detection in yolo_detections:
                     boxes = detection.boxes
+                    # Get image dimensions for normalization
+                    img_height, img_width = detection.orig_shape
+                    
                     for box in boxes:
+                        # Normalize bbox to percentages (0.0-1.0)
+                        bbox_absolute = box.xyxy[0].cpu().numpy().tolist()
+                        bbox_normalized = [
+                            bbox_absolute[0] / img_width,   # x1
+                            bbox_absolute[1] / img_height,  # y1
+                            bbox_absolute[2] / img_width,  # x2
+                            bbox_absolute[3] / img_height, # y2
+                        ]
+                        
                         yolo_v11_results.append(
                             {
                                 "confidence": float(box.conf.item()),
-                                "bbox": box.xyxy[0].cpu().numpy().tolist(),
+                                "bbox": bbox_normalized,
                                 "model": "yolov11-face",
                             }
                         )
@@ -199,11 +223,24 @@ class FaceDetector:
         if self.insight_model is not None:
             try:
                 insight_faces = self.insight_model.get(image_rgb)
+                # Get image dimensions for normalization
+                img_height, img_width = image_rgb.shape[:2]
+                
                 for face in insight_faces:
+                    # Normalize bbox to percentages (0.0-1.0)
+                    # insightface bbox format is [x1, y1, x2, y2]
+                    bbox_absolute = face.bbox.tolist()
+                    bbox_normalized = [
+                        bbox_absolute[0] / img_width,   # x1
+                        bbox_absolute[1] / img_height,  # y1
+                        bbox_absolute[2] / img_width,  # x2
+                        bbox_absolute[3] / img_height, # y2
+                    ]
+                    
                     insight_results.append(
                         {
                             "confidence": float(face.det_score),
-                            "bbox": face.bbox.tolist(),
+                            "bbox": bbox_normalized,
                             "embedding": face.embedding.tolist(),
                             "model": "insightface",
                         }

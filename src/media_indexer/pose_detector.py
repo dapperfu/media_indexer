@@ -114,15 +114,30 @@ class PoseDetector:
             for result in results:
                 boxes = result.boxes
                 keypoints = result.keypoints
+                # Get image dimensions for normalization
+                img_height, img_width = result.orig_shape
 
                 for box, keypoint in zip(boxes, keypoints, strict=True):
                     confidence = float(box.conf.item())
+                    
+                    # Normalize bbox to percentages (0.0-1.0)
+                    bbox_absolute = box.xyxy[0].cpu().numpy().tolist()
+                    bbox_normalized = [
+                        bbox_absolute[0] / img_width,   # x1
+                        bbox_absolute[1] / img_height,  # y1
+                        bbox_absolute[2] / img_width,  # x2
+                        bbox_absolute[3] / img_height, # y2
+                    ]
+                    
+                    # Normalize keypoints to percentages (0.0-1.0)
+                    keypoints_absolute = keypoint.xy[0].cpu().numpy().tolist()
+                    keypoints_normalized = [[kp[0] / img_width, kp[1] / img_height] for kp in keypoints_absolute]
 
                     poses.append(
                         {
                             "confidence": confidence,
-                            "bbox": box.xyxy[0].cpu().numpy().tolist(),
-                            "keypoints": keypoint.xy[0].cpu().numpy().tolist(),
+                            "bbox": bbox_normalized,
+                            "keypoints": keypoints_normalized,
                             "keypoints_conf": keypoint.conf[0].cpu().numpy().tolist(),
                         }
                     )

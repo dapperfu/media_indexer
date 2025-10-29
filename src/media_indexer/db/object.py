@@ -28,7 +28,7 @@ class Object(db.Entity):
     class_id = Required(int, index=True)  # Object class ID
     class_name = Required(str, index=True)  # Object class name
     confidence = Required(float, index=True)
-    bbox = Required(Json)  # Bounding box [x1, y1, x2, y2]
+    bbox = Required(Json)  # Bounding box [x1, y1, x2, y2] normalized (0.0-1.0)
 
     # Timestamp
     detected_at = Optional(float)  # Detection timestamp

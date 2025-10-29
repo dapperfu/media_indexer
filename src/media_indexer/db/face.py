@@ -26,7 +26,7 @@ class Face(db.Entity):
 
     # Face detection metadata
     confidence = Required(float, index=True)
-    bbox = Required(Json)  # Bounding box [x1, y1, x2, y2]
+    bbox = Required(Json)  # Bounding box [x1, y1, x2, y2] normalized (0.0-1.0)
     embedding = Optional(Json)  # Face embedding vector
     model = Required(str, index=True)  # Detection model name
 
