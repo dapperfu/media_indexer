@@ -9,11 +9,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-try:
-    import fast_exif_rs
-except ImportError:
-    # Fallback for development/testing without the library
-    fast_exif_rs = None  # type: ignore[assignment]
+import fast_exif_rs_py
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +26,8 @@ class EXIFExtractor:
         Initialize EXIF extractor.
 
         Raises:
-            ImportError: If fast-exif-rs-py is not available.
+            RuntimeError: If fast-exif-rs-py is not available (REQ-021).
         """
-        if fast_exif_rs is None:
-            raise ImportError("REQ-003: fast-exif-rs-py is not available. Please install it.")
         logger.debug("REQ-003: EXIF extractor initialized with fast-exif-rs-py")
 
     def extract_from_path(self, image_path: Path) -> dict[str, Any]:
@@ -49,20 +43,15 @@ class EXIFExtractor:
             Dict containing EXIF data.
 
         Raises:
-            IOError: If image cannot be read.
-            ValueError: If EXIF data cannot be parsed.
+            RuntimeError: If extraction fails (REQ-021).
         """
-        try:
-            logger.debug(f"REQ-003: Extracting EXIF from {image_path}")
-            # REQ-003: Use fast-exif-rs-py for extraction
-            exif_data: dict[str, Any] = fast_exif_rs.get_exif(str(image_path))  # type: ignore[arg-type]
-
-            logger.debug(f"REQ-003: Successfully extracted EXIF from {image_path}")
-            return exif_data
-
-        except Exception as e:
-            logger.warning(f"REQ-003: Failed to extract EXIF from {image_path}: {e}")
-            return {}
+        logger.debug(f"REQ-003: Extracting EXIF from {image_path}")
+        # REQ-003: Use fast-exif-rs-py for extraction
+        reader = fast_exif_rs_py.PyFastExifReader()
+        exif_data: dict[str, Any] = reader.read_file(str(image_path))
+        
+        logger.debug(f"REQ-003: Successfully extracted EXIF from {image_path}")
+        return exif_data
 
     def extract_from_bytes(self, image_bytes: bytes) -> dict[str, Any]:
         """
@@ -77,19 +66,15 @@ class EXIFExtractor:
             Dict containing EXIF data.
 
         Raises:
-            ValueError: If EXIF data cannot be parsed.
+            RuntimeError: If extraction fails (REQ-021).
         """
-        try:
-            logger.debug("REQ-003: Extracting EXIF from bytes")
-            # REQ-003: Use fast-exif-rs-py for extraction
-            exif_data: dict[str, Any] = fast_exif_rs.get_exif_bytes(image_bytes)  # type: ignore[arg-type]
-
-            logger.debug("REQ-003: Successfully extracted EXIF from bytes")
-            return exif_data
-
-        except Exception as e:
-            logger.warning(f"REQ-003: Failed to extract EXIF from bytes: {e}")
-            return {}
+        logger.debug("REQ-003: Extracting EXIF from bytes")
+        # REQ-003: Use fast-exif-rs-py for extraction
+        reader = fast_exif_rs_py.PyFastExifReader()
+        exif_data: dict[str, Any] = reader.read_bytes(image_bytes)
+        
+        logger.debug("REQ-003: Successfully extracted EXIF from bytes")
+        return exif_data
 
 
 def get_exif_extractor() -> EXIFExtractor:

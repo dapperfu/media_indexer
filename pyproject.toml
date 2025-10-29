@@ -35,9 +35,9 @@ dependencies = [
     "insightface>=0.7.3",
     "ultralytics>=8.3.0",
     "image-sidecar-rust @ git+https://github.com/dapperfu/image-sidecar-rust.git",
+    "fast-exif-rs-py @ git+https://github.com/dapperfu/fast-exif-rs-py.git",
     "pony>=0.7.17",
     "xxhash>=3.0.0",
-    # fast-exif-rs-py not on PyPI - optional dependency
 ]
 
 [project.optional-dependencies]
