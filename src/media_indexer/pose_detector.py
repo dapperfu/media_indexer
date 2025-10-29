@@ -107,6 +107,9 @@ class PoseDetector:
             logger.debug(f"REQ-009: Detecting poses in {image_path}")
             # REQ-040: Convert RAW images to usable format
             source_path = get_raw_image_source(image_path)
+            if source_path is None:
+                logger.debug(f"REQ-009: Skipping {image_path} - no valid source")
+                return []
             # REQ-009: Use YOLOv11-pose for pose detection
             results = self.model(source_path, device=self.device, verbose=False)
 

@@ -160,29 +160,32 @@ class FaceDetector:
             try:
                 # Use universal image source that handles RAW files
                 source_path = get_raw_image_source(image_path)
-                yolo_detections = self.yolo_model(source_path, device=self.device, verbose=False)
-                for detection in yolo_detections:
-                    boxes = detection.boxes
-                    # Get image dimensions for normalization
-                    img_height, img_width = detection.orig_shape
-                    
-                    for box in boxes:
-                        # Normalize bbox to percentages (0.0-1.0)
-                        bbox_absolute = box.xyxy[0].cpu().numpy().tolist()
-                        bbox_normalized = [
-                            bbox_absolute[0] / img_width,   # x1
-                            bbox_absolute[1] / img_height,  # y1
-                            bbox_absolute[2] / img_width,  # x2
-                            bbox_absolute[3] / img_height, # y2
-                        ]
+                if source_path is None:
+                    logger.debug(f"REQ-007: YOLOv8 - Skipping {image_path} - no valid source")
+                else:
+                    yolo_detections = self.yolo_model(source_path, device=self.device, verbose=False)
+                    for detection in yolo_detections:
+                        boxes = detection.boxes
+                        # Get image dimensions for normalization
+                        img_height, img_width = detection.orig_shape
                         
-                        yolo_v8_results.append(
-                            {
-                                "confidence": float(box.conf.item()),
-                                "bbox": bbox_normalized,
-                                "model": "yolov8-face",
-                            }
-                        )
+                        for box in boxes:
+                            # Normalize bbox to percentages (0.0-1.0)
+                            bbox_absolute = box.xyxy[0].cpu().numpy().tolist()
+                            bbox_normalized = [
+                                bbox_absolute[0] / img_width,   # x1
+                                bbox_absolute[1] / img_height,  # y1
+                                bbox_absolute[2] / img_width,  # x2
+                                bbox_absolute[3] / img_height, # y2
+                            ]
+                            
+                            yolo_v8_results.append(
+                                {
+                                    "confidence": float(box.conf.item()),
+                                    "bbox": bbox_normalized,
+                                    "model": "yolov8-face",
+                                }
+                            )
             except Exception as e:
                 logger.warning(f"REQ-007: YOLOv8 detection failed: {e}")
 
@@ -192,29 +195,32 @@ class FaceDetector:
             try:
                 # Use universal image source that handles RAW files
                 source_path = get_raw_image_source(image_path)
-                yolo_detections = self.yolo_model_v11(source_path, device=self.device, verbose=False)
-                for detection in yolo_detections:
-                    boxes = detection.boxes
-                    # Get image dimensions for normalization
-                    img_height, img_width = detection.orig_shape
-                    
-                    for box in boxes:
-                        # Normalize bbox to percentages (0.0-1.0)
-                        bbox_absolute = box.xyxy[0].cpu().numpy().tolist()
-                        bbox_normalized = [
-                            bbox_absolute[0] / img_width,   # x1
-                            bbox_absolute[1] / img_height,  # y1
-                            bbox_absolute[2] / img_width,  # x2
-                            bbox_absolute[3] / img_height, # y2
-                        ]
+                if source_path is None:
+                    logger.debug(f"REQ-007: YOLOv11 - Skipping {image_path} - no valid source")
+                else:
+                    yolo_detections = self.yolo_model_v11(source_path, device=self.device, verbose=False)
+                    for detection in yolo_detections:
+                        boxes = detection.boxes
+                        # Get image dimensions for normalization
+                        img_height, img_width = detection.orig_shape
                         
-                        yolo_v11_results.append(
-                            {
-                                "confidence": float(box.conf.item()),
-                                "bbox": bbox_normalized,
-                                "model": "yolov11-face",
-                            }
-                        )
+                        for box in boxes:
+                            # Normalize bbox to percentages (0.0-1.0)
+                            bbox_absolute = box.xyxy[0].cpu().numpy().tolist()
+                            bbox_normalized = [
+                                bbox_absolute[0] / img_width,   # x1
+                                bbox_absolute[1] / img_height,  # y1
+                                bbox_absolute[2] / img_width,  # x2
+                                bbox_absolute[3] / img_height, # y2
+                            ]
+                            
+                            yolo_v11_results.append(
+                                {
+                                    "confidence": float(box.conf.item()),
+                                    "bbox": bbox_normalized,
+                                    "model": "yolov11-face",
+                                }
+                            )
             except Exception as e:
                 logger.warning(f"REQ-007: YOLOv11 detection failed: {e}")
 

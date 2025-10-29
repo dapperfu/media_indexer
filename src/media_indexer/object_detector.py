@@ -105,6 +105,9 @@ class ObjectDetector:
             logger.debug(f"REQ-008: Detecting objects in {image_path}")
             # REQ-040: Convert RAW images to usable format
             source_path = get_raw_image_source(image_path)
+            if source_path is None:
+                logger.debug(f"REQ-008: Skipping {image_path} - no valid source")
+                return []
             # REQ-008: Use YOLOv12x for object detection
             results = self.model(source_path, device=self.device, verbose=False)
 

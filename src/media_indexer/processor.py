@@ -490,13 +490,13 @@ class ImageProcessor:
                 parts.append(f"{detections['poses']} pose{'s' if detections['poses'] != 1 else ''}")
             return ", ".join(parts) if parts else "no detections"
         
-        # Simple progress without second line complexity
+        # Simple progress - show tqdm at default level (verbose <= 20)
         progress_bar = tqdm.tqdm(
             total=len(images_to_process),
             desc="Processing images",
             unit="img",
             bar_format='{desc}: {bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]',
-        ) if self.verbose <= 12 else None
+        ) if self.verbose <= 20 else None
 
         # REQ-020: Process images in batches with threading for I/O
         try:

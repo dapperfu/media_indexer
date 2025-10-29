@@ -171,7 +171,7 @@ def cleanup_temp_files() -> None:
     _temp_file_registry.clear()
 
 
-def get_raw_image_source(image_path: Path) -> str:
+def get_raw_image_source(image_path: Path) -> str | None:
     """
     Get a source that can be used by YOLO for RAW images.
 
@@ -181,13 +181,17 @@ def get_raw_image_source(image_path: Path) -> str:
         image_path: Path to RAW image file.
 
     Returns:
-        Path to usable image file (temp file for RAW, original for non-RAW).
+        Path to usable image file (temp file for RAW, original for non-RAW), or None if conversion failed.
     """
     if is_raw_file(image_path):
         temp_jpeg = convert_raw_to_temp_jpeg(image_path)
         if temp_jpeg:
             register_temp_file(temp_jpeg)
             return str(temp_jpeg)
+        else:
+            # RAW conversion failed - return None to skip
+            logger.warning(f"REQ-040: Skipping {image_path} - RAW conversion failed")
+            return None
     return str(image_path)
 
 
