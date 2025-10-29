@@ -44,8 +44,8 @@ def setup_logging(verbose: int) -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    # REQ-016: Disable tqdm if not at TRACE level
-    if verbose > 12:
+    # REQ-016: Disable tqdm if verbosity is too high (DEBUG level)
+    if verbose < 20:  # Only disable tqdm at DEBUG level (10) or below
         import tqdm
 
         tqdm.tqdm.__init__ = lambda _self, *_args, **_kwargs: None  # type: ignore[method-assign, assignment]
