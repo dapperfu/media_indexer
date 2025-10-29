@@ -290,6 +290,31 @@ def parse_args() -> argparse.Namespace:
         help="Maximum number of images to process (for testing on small subsets) (REQ-038)",
     )
 
+    # Database statistics and management subcommand
+    stats_parser = subparsers.add_parser(
+        "stats",
+        help="Database statistics and management",
+        description="View database statistics and manage database contents.",
+    )
+    stats_parser.add_argument(
+        "command",
+        type=str,
+        choices=["show", "search", "clean"],
+        help="Subcommand: 'show' (display statistics), 'search' (find images), 'clean' (remove orphaned records)",
+    )
+    stats_parser.add_argument(
+        "--query",
+        type=str,
+        default=None,
+        help="Search query for 'search' command",
+    )
+    stats_parser.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+        help="Limit number of results for 'search' command",
+    )
+    
     # REQ-032, REQ-033, REQ-034: Convert subcommand
     convert_parser = subparsers.add_parser(
         "convert",
@@ -450,6 +475,64 @@ def process_analyze(args: argparse.Namespace, verbose: int) -> int:
         return 1
 
 
+def process_stats(args: argparse.Namespace, verbose: int) -> int:
+    """
+    Handle stats subcommand.
+    
+    Args:
+        args: Parsed arguments.
+        verbose: Verbosity level.
+    
+    Returns:
+        Exit code (0 for success, non-zero for error).
+    """
+    # Validate database path
+    if not args.db:
+        logging.error("--db is required for stats command")
+        return 1
+    
+    if not args.db.exists():
+        logging.error(f"Database does not exist: {args.db}")
+        return 1
+    
+    try:
+        from media_indexer.db_manager import DatabaseManager
+        
+        db_manager = DatabaseManager(args.db)
+        
+        if args.command == "show":
+            db_manager.print_statistics()
+            return 0
+        
+        elif args.command == "search":
+            if not args.query:
+                logging.error("--query required for search command")
+                return 1
+            
+            results = db_manager.search_images(args.query, args.limit)
+            print(f"\n=== Search Results (showing {len(results)} of {args.limit}) ===")
+            for result in results:
+                print(f"\n{result['path']}")
+                print(f"  Faces: {result['faces']}, Objects: {result['objects']}, Poses: {result['poses']}")
+                print(f"  Size: {result['file_size']} bytes")
+                if result['width'] and result['height']:
+                    print(f"  Dimensions: {result['width']}x{result['height']}")
+            return 0
+        
+        elif args.command == "clean":
+            logging.info("Cleaning database...")
+            stats = db_manager.clean_database()
+            print(f"\n=== Cleanup Statistics ===")
+            print(f"Images checked: {stats['images_checked']}")
+            print(f"Images removed: {stats['images_removed']}")
+            print(f"Files not found: {stats['files_not_found']}")
+            return 0
+    
+    except Exception as e:
+        logging.error(f"Stats command failed: {e}")
+        return 1
+
+
 def process_convert(args: argparse.Namespace, verbose: int) -> int:
     """
     Handle convert subcommand.
@@ -545,6 +628,8 @@ def main() -> None:
         sys.exit(process_analyze(args, verbose))
     elif args.command == "convert":
         sys.exit(process_convert(args, verbose))
+    elif args.command == "stats":
+        sys.exit(process_stats(args, verbose))
     else:
         # Should not reach here due to default handling in parse_args
         logging.error("REQ-029: Unknown subcommand")
