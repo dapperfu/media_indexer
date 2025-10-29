@@ -28,8 +28,9 @@ class DatabaseConnection:
         Args:
             database_path: Path to SQLite database file.
         """
-        self.database_path = Path(database_path)
-        logger.info(f"REQ-022: Initializing database at {database_path}")
+        # REQ-066: Resolve to absolute path for consistent storage location
+        self.database_path = Path(database_path).resolve()
+        logger.info(f"REQ-022: Initializing database at {self.database_path}")
 
     def connect(self) -> Database:
         """Connect to the database and create tables.

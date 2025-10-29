@@ -83,15 +83,18 @@ class ImageProcessor:
         self.gpu_validator: GPUValidator = get_gpu_validator()
         self.device = self.gpu_validator.get_device()
 
-        # REQ-002: Setup input/output directories
-        self.input_dir: Path = Path(input_dir)
+        # REQ-002: Setup input/output directories (resolve to absolute paths)
+        self.input_dir: Path = Path(input_dir).resolve()
         if output_dir is None:
             self.output_dir: Path = self.input_dir
         else:
-            self.output_dir = Path(output_dir)
+            self.output_dir = Path(output_dir).resolve()
 
-        # REQ-011: Setup checkpoint file
-        self.checkpoint_file: Path = checkpoint_file if checkpoint_file else Path(".checkpoint.json")
+        # REQ-011: Setup checkpoint file (resolve to absolute path)
+        if checkpoint_file:
+            self.checkpoint_file: Path = Path(checkpoint_file).resolve()
+        else:
+            self.checkpoint_file: Path = Path(".checkpoint.json").resolve()
         self.processed_files: set[str] = set()
 
         # REQ-016: Setup verbosity
