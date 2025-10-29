@@ -31,19 +31,19 @@ install-dev: ${VENV_UV}
 	${VENV_UV} pip install -e ".[dev]"
 
 # Run tests
-test: ${VENV_PYTHON}
+test: ${PYTEST}
 	${PYTEST} tests/
 
 # Run linters
-lint: ${VENV_PYTHON}
+lint: ${RUFF}
 	${RUFF} check src/
 
 # Check formatting (does not format)
-format-check: ${VENV_PYTHON}
+format-check: ${RUFF}
 	${RUFF} format --check src/
 
 # Format code
-format: ${VENV_PYTHON}
+format: ${RUFF}
 	${RUFF} format src/
 	${RUFF} check --fix src/
 
@@ -51,15 +51,15 @@ format: ${VENV_PYTHON}
 check: lint doc-check test
 
 # Check documentation style
-doc-check: ${VENV_PYTHON}
+doc-check: ${PYDOCSTYLE}
 	${PYDOCSTYLE} src/media_indexer --convention=numpy
 
 # Validate requirements.sdoc
-validate-requirements: ${VENV_PYTHON}
+validate-requirements: ${STRICTDOC}
 	${STRICTDOC} export requirements.sdoc --output-dir /tmp/strictdoc_export_validate
 
 # Generate HTML from all .sdoc files
-generate-sdocs-html: ${VENV_PYTHON}
+generate-sdocs-html: ${STRICTDOC}
 	mkdir -p docs
 	${STRICTDOC} export requirements.sdoc --output-dir docs/requirements
 
