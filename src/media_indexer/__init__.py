@@ -7,7 +7,11 @@ REQ-010: All code components directly linked to requirements.
 
 __version__ = "0.1.0"
 
-from media_indexer.cli import main
-from media_indexer.processor import ImageProcessor
 
-__all__ = ["ImageProcessor", "main"]
+def main():
+    """Main entry point for CLI."""
+    from media_indexer.cli import main as cli_main
+    return cli_main()
+
+
+__all__ = ["main"]
