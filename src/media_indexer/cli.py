@@ -165,6 +165,12 @@ def parse_args() -> argparse.Namespace:
         default=["jpg", "jpeg", "png", "tiff", "raw"],
         help="Image formats to process (REQ-018)",
     )
+    extract_parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Maximum number of images to process (for testing on small subsets) (REQ-038)",
+    )
 
     # REQ-031: Annotate subcommand (same as extract functionally)
     annotate_parser = subparsers.add_parser(
@@ -212,6 +218,12 @@ def parse_args() -> argparse.Namespace:
         nargs="+",
         default=["jpg", "jpeg", "png", "tiff", "raw"],
         help="Image formats to process (REQ-018)",
+    )
+    annotate_parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Maximum number of images to process (for testing on small subsets) (REQ-038)",
     )
 
     # REQ-032, REQ-033, REQ-034: Convert subcommand
@@ -293,6 +305,7 @@ def process_extract_or_annotate(args: argparse.Namespace, verbose: int) -> int:
             batch_size=args.batch_size,
             database_path=args.db,
             disable_sidecar=args.no_sidecar,
+            limit=args.limit,
         )
 
         # REQ-002: Process images

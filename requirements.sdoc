@@ -150,4 +150,8 @@ STATEMENT: All Python functions and files SHALL be documented to meet NumPy docu
 UID: REQ-037
 STATEMENT: Python dependency management shall use uv for installation of all packages. The virtual environment creation process shall install uv using pip, and subsequent package installations shall use 'uv pip install'.
 
+[REQUIREMENT]
+UID: REQ-038
+STATEMENT: The tool shall support a --limit flag to process only a specified number of images, enabling testing on small subsets before processing large image collections.
+
 

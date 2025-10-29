@@ -57,6 +57,7 @@ class ImageProcessor:
         batch_size: int = 1,
         database_path: Path | None = None,
         disable_sidecar: bool = False,
+        limit: int | None = None,
     ) -> None:
         """
         Initialize image processor.
@@ -65,6 +66,7 @@ class ImageProcessor:
         REQ-016: Multi-level verbosity.
         REQ-025: Support database storage.
         REQ-026: Support disabling sidecar generation.
+        REQ-038: Support limiting number of images to process.
 
         Args:
             input_dir: Directory containing images to process.
@@ -74,6 +76,7 @@ class ImageProcessor:
             batch_size: Batch size for processing (REQ-014).
             database_path: Path to database file (REQ-025).
             disable_sidecar: Disable sidecar generation when using database (REQ-026).
+            limit: Maximum number of images to process (REQ-038).
 
         Raises:
             RuntimeError: If no GPU is available (REQ-006).
@@ -101,6 +104,11 @@ class ImageProcessor:
         # REQ-020: Use optimal defaults for 12GB VRAM
         if self.batch_size == 1:
             self.batch_size = 4  # Default batch size for better GPU utilization
+
+        # REQ-038: Setup image limit
+        self.limit = limit
+        if self.limit:
+            logger.info(f"REQ-038: Limiting processing to {self.limit} images")
 
         # REQ-012: Statistics tracking
         self.stats: dict[str, Any] = {
@@ -215,10 +223,10 @@ class ImageProcessor:
 
     def _get_image_files(self) -> list[Path]:
         """
-        Get list of image files to process (REQ-018).
+        Get list of image files to process (REQ-018, REQ-038).
 
         Returns:
-            List of image file paths.
+            List of image file paths, optionally limited by --limit flag.
         """
         extensions = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".raw", ".cr2", ".nef", ".arw"}
         images: list[Path] = []
@@ -226,6 +234,11 @@ class ImageProcessor:
         for ext in extensions:
             images.extend(self.input_dir.glob(f"*{ext}"))
             images.extend(self.input_dir.glob(f"*{ext.upper()}"))
+
+        # REQ-038: Apply limit if specified
+        if self.limit and len(images) > self.limit:
+            images = images[:self.limit]
+            logger.info(f"REQ-038: Limited to {self.limit} images from {len(images)} total")
 
         return images
 
