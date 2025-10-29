@@ -100,13 +100,18 @@ def import_sidecars_to_database(
                             # Store faces
                             if "faces" in metadata and metadata["faces"]:
                                 for face_data in metadata["faces"]:
-                                    Face(
-                                        image=db_image,
-                                        confidence=face_data.get("confidence", 0.0),
-                                        bbox=face_data.get("bbox", []),
-                                        embedding=face_data.get("embedding"),
-                                        model=face_data.get("model", "unknown"),
-                                    )
+                                    # REQ-066: Handle optional embedding field
+                                    face_kwargs = {
+                                        "image": db_image,
+                                        "confidence": face_data.get("confidence", 0.0),
+                                        "bbox": face_data.get("bbox", []),
+                                        "model": face_data.get("model", "unknown"),
+                                    }
+                                    embedding = face_data.get("embedding")
+                                    if embedding is not None:
+                                        face_kwargs["embedding"] = embedding
+                                    
+                                    Face(**face_kwargs)
 
                             # Store objects
                             if "objects" in metadata and metadata["objects"]:
@@ -122,13 +127,18 @@ def import_sidecars_to_database(
                             # Store poses
                             if "poses" in metadata and metadata["poses"]:
                                 for pose_data in metadata["poses"]:
-                                    Pose(
-                                        image=db_image,
-                                        confidence=pose_data.get("confidence", 0.0),
-                                        keypoints=pose_data.get("keypoints", []),
-                                        bbox=pose_data.get("bbox", []),
-                                        keypoints_conf=pose_data.get("keypoints_conf"),
-                                    )
+                                    # REQ-066: Handle optional keypoints_conf field
+                                    pose_kwargs = {
+                                        "image": db_image,
+                                        "confidence": pose_data.get("confidence", 0.0),
+                                        "keypoints": pose_data.get("keypoints", []),
+                                        "bbox": pose_data.get("bbox", []),
+                                    }
+                                    keypoints_conf = pose_data.get("keypoints_conf")
+                                    if keypoints_conf is not None:
+                                        pose_kwargs["keypoints_conf"] = keypoints_conf
+                                    
+                                    Pose(**pose_kwargs)
 
                             # Store EXIF data
                             if "exif" in metadata and metadata["exif"]:

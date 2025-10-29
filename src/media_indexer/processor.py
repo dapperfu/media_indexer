@@ -289,13 +289,19 @@ class ImageProcessor:
                 # REQ-024: Store faces
                 if "faces" in metadata:
                     for face_data in metadata["faces"]:
-                        DBFace(
-                            image=db_image,
-                            confidence=face_data.get("confidence", 0.0),
-                            bbox=face_data.get("bbox", []),
-                            embedding=face_data.get("embedding"),
-                            model=face_data.get("model", "unknown"),
-                        )
+                        # REQ-066: Handle optional embedding field
+                        # PonyORM doesn't accept None for Optional(Json), so only set if present
+                        face_kwargs = {
+                            "image": db_image,
+                            "confidence": face_data.get("confidence", 0.0),
+                            "bbox": face_data.get("bbox", []),
+                            "model": face_data.get("model", "unknown"),
+                        }
+                        embedding = face_data.get("embedding")
+                        if embedding is not None:
+                            face_kwargs["embedding"] = embedding
+                        
+                        DBFace(**face_kwargs)
 
                 # REQ-024: Store objects
                 if "objects" in metadata:
@@ -311,13 +317,19 @@ class ImageProcessor:
                 # REQ-024: Store poses
                 if "poses" in metadata:
                     for pose_data in metadata["poses"]:
-                        DBPose(
-                            image=db_image,
-                            confidence=pose_data.get("confidence", 0.0),
-                            bbox=pose_data.get("bbox", []),
-                            keypoints=pose_data.get("keypoints", []),
-                            keypoints_conf=pose_data.get("keypoints_conf"),
-                        )
+                        # REQ-066: Handle optional keypoints_conf field
+                        # PonyORM doesn't accept None for Optional(Json), so only set if present
+                        pose_kwargs = {
+                            "image": db_image,
+                            "confidence": pose_data.get("confidence", 0.0),
+                            "bbox": pose_data.get("bbox", []),
+                            "keypoints": pose_data.get("keypoints", []),
+                        }
+                        keypoints_conf = pose_data.get("keypoints_conf")
+                        if keypoints_conf is not None:
+                            pose_kwargs["keypoints_conf"] = keypoints_conf
+                        
+                        DBPose(**pose_kwargs)
 
                 # REQ-024: Store EXIF data
                 if "exif" in metadata and metadata["exif"]:
