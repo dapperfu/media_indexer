@@ -122,7 +122,6 @@ def parse_args() -> argparse.Namespace:
     # REQ-030: Extract subcommand
     extract_parser = subparsers.add_parser(
         "extract",
-        aliases=["analyze"],
         help="Extract features from images (REQ-030)",
         description="Extract features (faces, objects, poses, EXIF) from images.",
     )
@@ -183,6 +182,13 @@ def parse_args() -> argparse.Namespace:
         help="Add features to images (REQ-031)",
         description="Process images and add features (faces, objects, poses, EXIF) as annotations.",
     )
+    
+    # Analyze subcommand (alias for extract/annotate)
+    analyze_parser = subparsers.add_parser(
+        "analyze",
+        help="Analyze images to extract features (REQ-030)",
+        description="Analyze images to extract features (faces, objects, poses, EXIF data).",
+    )
     annotate_parser.add_argument(
         "input_dir",
         type=Path,
@@ -228,6 +234,58 @@ def parse_args() -> argparse.Namespace:
         help="Image formats to process (REQ-018)",
     )
     annotate_parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Maximum number of images to process (for testing on small subsets) (REQ-038)",
+    )
+    
+    # Duplicate all arguments for analyze subcommand (same as extract)
+    analyze_parser.add_argument(
+        "input_dir",
+        type=Path,
+        help="Input directory containing images to process",
+    )
+    analyze_parser.add_argument(
+        "-o",
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Output directory for sidecar files (defaults to input directory)",
+    )
+    add_common_args(analyze_parser)
+    analyze_parser.add_argument(
+        "-c",
+        "--checkpoint",
+        type=Path,
+        default=Path(".checkpoint.json"),
+        help="Checkpoint file path for resume functionality (REQ-011)",
+    )
+    analyze_parser.add_argument(
+        "-b",
+        "--batch-size",
+        type=int,
+        default=1,
+        help="Batch size for parallel processing (default: 1 auto-scales to 4 for 12GB VRAM) (REQ-014, REQ-020)",
+    )
+    analyze_parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from checkpoint (REQ-011)",
+    )
+    analyze_parser.add_argument(
+        "--retry",
+        type=int,
+        default=0,
+        help="Number of retries for failed images (REQ-015)",
+    )
+    analyze_parser.add_argument(
+        "--formats",
+        nargs="+",
+        default=["jpg", "jpeg", "png", "tiff", "raw"],
+        help="Image formats to process (REQ-018)",
+    )
+    analyze_parser.add_argument(
         "--limit",
         type=int,
         default=None,
