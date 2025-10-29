@@ -297,6 +297,12 @@ def parse_args() -> argparse.Namespace:
         description="View database statistics and manage database contents.",
     )
     stats_parser.add_argument(
+        "--db",
+        type=Path,
+        required=True,
+        help="Database file path",
+    )
+    stats_parser.add_argument(
         "command",
         type=str,
         choices=["show", "search", "clean"],
