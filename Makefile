@@ -20,7 +20,7 @@ venv: ${VENV_PYTHON}
 ${VENV_PYTHON}:
 	${PYTHON} -m venv ${VENV_DIR}
 	${VENV_PIP} install uv
-	${VENV_UV} pip install -e .
+	${VENV_UV} pip install -e ".[dev]"
 
 # Install dependencies (reinstall/upgrade)
 install: ${VENV_UV}
