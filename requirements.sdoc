@@ -152,6 +152,10 @@ STATEMENT: Python dependency management shall use uv for installation of all pac
 
 [REQUIREMENT]
 UID: REQ-038
+STATEMENT: All imports in the CLI module shall be lazy-loaded (imported only when the specific command is executed) to minimize startup time for the media-indexer command. Imports of heavy dependencies (torch, ultralytics, image-sidecar-rust) shall not occur until the command actually needs them.
+
+[REQUIREMENT]
+UID: REQ-039
 STATEMENT: The tool shall support a --limit flag to process only a specified number of images, enabling testing on small subsets before processing large image collections.
 
 
