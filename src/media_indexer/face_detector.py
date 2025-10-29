@@ -8,6 +8,7 @@ REQ-010: All code components directly linked to requirements.
 import logging
 from pathlib import Path
 from typing import Any
+from urllib.request import urlretrieve
 
 import cv2
 import torch
@@ -23,6 +24,37 @@ except ImportError:
     insightface = None  # type: ignore[assignment, misc]
 
 logger = logging.getLogger(__name__)
+
+# Model download URLs
+YOLOV12N_FACE_URL = "https://github.com/YapaLab/yolo-face/releases/download/v0.0.0/yolov12n-face.pt"
+YOLOV8N_FACE_URL = "https://drive.google.com/uc?export=download&id=1qcr9DbgsX3ryrz2uU8w4Xm3cOrRywXqb"
+YOLOV11N_FACE_URL = "https://github.com/YapaLab/yolo-face/releases/download/v0.0.0/yolov11n-face.pt"
+
+
+def download_model_if_needed(model_path: str, url: str) -> Path:
+    """
+    Download model file if it doesn't exist.
+
+    Args:
+        model_path: Local path to model file.
+        url: URL to download from.
+
+    Returns:
+        Path to model file.
+    """
+    path = Path(model_path)
+    
+    if path.exists():
+        return path
+    
+    logger.info(f"REQ-007: Downloading {model_path} from {url}")
+    try:
+        urlretrieve(url, path)
+        logger.info(f"REQ-007: Successfully downloaded {path}")
+        return path
+    except Exception as e:
+        logger.error(f"REQ-007: Failed to download {model_path}: {e}")
+        raise RuntimeError(f"Failed to download model from {url}: {e}") from e
 
 
 class FaceDetector:
@@ -60,7 +92,9 @@ class FaceDetector:
         if YOLO is not None:
             try:
                 logger.info(f"REQ-007: Loading YOLOv8 face model from {model_path}")
-                self.yolo_model = YOLO(model_path)
+                # Download if needed
+                actual_path = download_model_if_needed(model_path, YOLOV8N_FACE_URL)
+                self.yolo_model = YOLO(str(actual_path))
                 logger.info("REQ-007: YOLOv8 face model loaded successfully")
             except Exception as e:
                 logger.warning(f"REQ-007: Failed to load YOLOv8 face model: {e}")
@@ -69,7 +103,9 @@ class FaceDetector:
         if YOLO is not None:
             try:
                 logger.info(f"REQ-007: Loading YOLOv11 face model from {model_path_v11}")
-                self.yolo_model_v11 = YOLO(model_path_v11)
+                # Download if needed
+                actual_path = download_model_if_needed(model_path_v11, YOLOV11N_FACE_URL)
+                self.yolo_model_v11 = YOLO(str(actual_path))
                 logger.info("REQ-007: YOLOv11 face model loaded successfully")
             except Exception as e:
                 logger.warning(f"REQ-007: Failed to load YOLOv11 face model: {e}")
