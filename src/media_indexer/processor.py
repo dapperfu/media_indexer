@@ -479,58 +479,24 @@ class ImageProcessor:
             return self.stats
 
         # REQ-012: Progress tracking with TQDM if verbose level <= 12
-        # Use a custom class to display bi-line info
-        class BiLineTQDM:
-            """Custom tqdm wrapper for bi-line display."""
-            def __init__(self, total: int):
-                self.pbar = tqdm.tqdm(
-                    total=total,
-                    desc="Processing images",
-                    bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]',
-                    ncols=100
-                )
-                self.current_image = "Starting..."
-                self.detections = ""
-                
-            def update_with_detections(self, image_path: Path, detections: dict[str, Any]) -> None:
-                """Update progress bar with image and detection info."""
-                # Format image name (shorten if too long)
-                img_name = image_path.name
-                if len(img_name) > 50:
-                    img_name = "..." + img_name[-47:]
-                
-                # Format detections
-                parts = []
-                if detections.get("faces", 0) > 0:
-                    parts.append(f"{detections['faces']} face{'s' if detections['faces'] != 1 else ''}")
-                if detections.get("objects", 0) > 0:
-                    parts.append(f"{detections['objects']} object{'s' if detections['objects'] != 1 else ''}")
-                if detections.get("poses", 0) > 0:
-                    parts.append(f"{detections['poses']} pose{'s' if detections['poses'] != 1 else ''}")
-                
-                detection_str = ", ".join(parts) if parts else "no detections"
-                
-                # Set postfix for second line
-                self.pbar.set_postfix_str(f"Image: {img_name}")
-                
-                # Write second line manually (tqdm doesn't natively support this)
-                # We'll use the description for the second line
-                second_line = f"└─ Detected: {detection_str}"
-                if hasattr(self, '_second_line_written'):
-                    # Move up one line and clear previous second line
-                    print('\r\033[1A\033[K', end='', flush=True)
-                print(second_line, flush=True)
-                self._second_line_written = True
-            
-            def update(self, n: int = 1) -> None:
-                """Update progress."""
-                self.pbar.update(n)
-            
-            def close(self) -> None:
-                """Close progress bar."""
-                self.pbar.close()
+        def format_detection_summary(detections: dict[str, Any]) -> str:
+            """Format detection info for display."""
+            parts = []
+            if detections.get("faces", 0) > 0:
+                parts.append(f"{detections['faces']} face{'s' if detections['faces'] != 1 else ''}")
+            if detections.get("objects", 0) > 0:
+                parts.append(f"{detections['objects']} object{'s' if detections['objects'] != 1 else ''}")
+            if detections.get("poses", 0) > 0:
+                parts.append(f"{detections['poses']} pose{'s' if detections['poses'] != 1 else ''}")
+            return ", ".join(parts) if parts else "no detections"
         
-        progress_bar = BiLineTQDM(total=len(images_to_process)) if self.verbose <= 12 else None
+        # Simple progress without second line complexity
+        progress_bar = tqdm.tqdm(
+            total=len(images_to_process),
+            desc="Processing images",
+            unit="img",
+            bar_format='{desc}: {bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]',
+        ) if self.verbose <= 12 else None
 
         # REQ-020: Process images in batches with threading for I/O
         try:
@@ -548,18 +514,35 @@ class ImageProcessor:
                             success, detections = future.result()
                             if success:
                                 self._update_stats_increment("processed_images")
-                                # Update progress bar with detection results
+                                # Display detection results  
+                                img_name = image_path.name
+                                if len(img_name) > 50:
+                                    img_name = "..." + img_name[-47:]
+                                det_summary = format_detection_summary(detections)
+                                
                                 if progress_bar:
-                                    progress_bar.update_with_detections(image_path, detections)
+                                    # Show image name and detections
+                                    progress_bar.set_description(f"Image: {img_name}")
+                                    progress_bar.set_postfix_str(f"Detected: {det_summary}", refresh=False)
                                     progress_bar.update(1)
                             else:
                                 self._update_stats_increment("error_images")
+                                img_name = image_path.name
+                                if len(img_name) > 50:
+                                    img_name = "..." + img_name[-47:]
                                 if progress_bar:
+                                    progress_bar.set_description(f"Image: {img_name}")
+                                    progress_bar.set_postfix_str("ERROR", refresh=False)
                                     progress_bar.update(1)
                         except Exception as e:
                             logger.error(f"REQ-015: Error processing {image_path}: {e}")
                             self._update_stats_increment("error_images")
+                            img_name = image_path.name
+                            if len(img_name) > 50:
+                                img_name = "..." + img_name[-47:]
                             if progress_bar:
+                                progress_bar.set_description(f"Image: {img_name}")
+                                progress_bar.set_postfix_str("FAILED", refresh=False)
                                 progress_bar.update(1)
 
                 # REQ-011: Save checkpoint periodically
