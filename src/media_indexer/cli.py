@@ -302,24 +302,26 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help="Database file path",
     )
-    stats_parser.add_argument(
-        "command",
-        type=str,
-        choices=["show", "search", "clean"],
-        help="Subcommand: 'show' (display statistics), 'search' (find images), 'clean' (remove orphaned records)",
-    )
-    stats_parser.add_argument(
+    # Use sub-subcommands to avoid overwriting the main command attribute
+    stats_subparsers = stats_parser.add_subparsers(dest="stats_command")
+    
+    show_parser = stats_subparsers.add_parser("show", help="Display database statistics")
+    
+    search_parser = stats_subparsers.add_parser("search", help="Search for images")
+    search_parser.add_argument(
         "--query",
         type=str,
-        default=None,
-        help="Search query for 'search' command",
+        required=True,
+        help="Search query",
     )
-    stats_parser.add_argument(
+    search_parser.add_argument(
         "--limit",
         type=int,
         default=10,
-        help="Limit number of results for 'search' command",
+        help="Limit number of results",
     )
+    
+    clean_parser = stats_subparsers.add_parser("clean", help="Remove orphaned records")
     
     # REQ-032, REQ-033, REQ-034: Convert subcommand
     convert_parser = subparsers.add_parser(
@@ -506,17 +508,21 @@ def process_stats(args: argparse.Namespace, verbose: int) -> int:
         
         db_manager = DatabaseManager(args.db)
         
-        if args.command == "show":
+        # Use stats_command instead of command
+        stats_command = getattr(args, 'stats_command', None)
+        
+        if stats_command == "show":
             db_manager.print_statistics()
             return 0
         
-        elif args.command == "search":
+        elif stats_command == "search":
             if not args.query:
                 logging.error("--query required for search command")
                 return 1
             
-            results = db_manager.search_images(args.query, args.limit)
-            print(f"\n=== Search Results (showing {len(results)} of {args.limit}) ===")
+            limit = getattr(args, 'limit', 10)
+            results = db_manager.search_images(args.query, limit)
+            print(f"\n=== Search Results (showing {len(results)} of {limit}) ===")
             for result in results:
                 print(f"\n{result['path']}")
                 print(f"  Faces: {result['faces']}, Objects: {result['objects']}, Poses: {result['poses']}")
@@ -525,7 +531,7 @@ def process_stats(args: argparse.Namespace, verbose: int) -> int:
                     print(f"  Dimensions: {result['width']}x{result['height']}")
             return 0
         
-        elif args.command == "clean":
+        elif stats_command == "clean":
             logging.info("Cleaning database...")
             stats = db_manager.clean_database()
             print(f"\n=== Cleanup Statistics ===")
@@ -533,6 +539,10 @@ def process_stats(args: argparse.Namespace, verbose: int) -> int:
             print(f"Images removed: {stats['images_removed']}")
             print(f"Files not found: {stats['files_not_found']}")
             return 0
+        
+        else:
+            logging.error("No stats command specified")
+            return 1
     
     except Exception as e:
         logging.error(f"Stats command failed: {e}")
