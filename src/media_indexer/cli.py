@@ -4,6 +4,7 @@ Command-Line Interface for Media Indexer
 REQ-016: Multi-level verbosity logging with support for -v through -vvvv.
 REQ-010: All code components directly linked to requirements.
 REQ-029: Subcommand-based CLI operation with extract, annotate, and convert commands.
+REQ-067: Database management operations organized under 'db' command group.
 """
 
 import argparse
@@ -290,24 +291,29 @@ def parse_args() -> argparse.Namespace:
         help="Maximum number of images to process (for testing on small subsets) (REQ-038)",
     )
 
-    # Database statistics and management subcommand
-    stats_parser = subparsers.add_parser(
-        "stats",
-        help="Database statistics and management",
-        description="View database statistics and manage database contents.",
+    # REQ-067: Database management subcommand group
+    db_parser = subparsers.add_parser(
+        "db",
+        help="Database management operations (REQ-067)",
+        description="Manage database: initialize, view statistics, search, and clean.",
     )
-    stats_parser.add_argument(
+    db_parser.add_argument(
         "--db",
         type=Path,
         required=True,
         help="Database file path",
     )
-    # Use sub-subcommands to avoid overwriting the main command attribute
-    stats_subparsers = stats_parser.add_subparsers(dest="stats_command")
+    # REQ-067: Create sub-subcommands under 'db'
+    db_subparsers = db_parser.add_subparsers(dest="db_command")
     
-    show_parser = stats_subparsers.add_parser("show", help="Display database statistics")
+    # REQ-067: 'db stats' subcommand
+    stats_parser = db_subparsers.add_parser("stats", help="Display database statistics")
     
-    search_parser = stats_subparsers.add_parser("search", help="Search for images")
+    # REQ-067: 'db init' subcommand
+    init_parser = db_subparsers.add_parser("init", help="Initialize database with required tables")
+    
+    # REQ-067: 'db search' subcommand
+    search_parser = db_subparsers.add_parser("search", help="Search for images")
     search_parser.add_argument(
         "--query",
         type=str,
@@ -321,7 +327,8 @@ def parse_args() -> argparse.Namespace:
         help="Limit number of results",
     )
     
-    clean_parser = stats_subparsers.add_parser("clean", help="Remove orphaned records")
+    # REQ-067: 'db clean' subcommand
+    clean_parser = db_subparsers.add_parser("clean", help="Remove orphaned records")
     
     # REQ-032, REQ-033, REQ-034: Convert subcommand
     convert_parser = subparsers.add_parser(
@@ -362,7 +369,7 @@ def parse_args() -> argparse.Namespace:
             import sys
 
             old_args = sys.argv[1:]
-            if old_args and old_args[0] not in ["extract", "annotate", "convert", "-h", "--help"]:
+            if old_args and old_args[0] not in ["extract", "annotate", "convert", "db", "-h", "--help"]:
                 # Insert 'extract' as the subcommand
                 args = parser.parse_args(["extract"] + old_args)
         except Exception:
@@ -483,9 +490,11 @@ def process_analyze(args: argparse.Namespace, verbose: int) -> int:
         return 1
 
 
-def process_stats(args: argparse.Namespace, verbose: int) -> int:
+def process_db(args: argparse.Namespace, verbose: int) -> int:
     """
-    Handle stats subcommand.
+    Handle database management subcommand.
+    
+    REQ-067: Database management operations organized under 'db' command group.
     
     Args:
         args: Parsed arguments.
@@ -496,11 +505,29 @@ def process_stats(args: argparse.Namespace, verbose: int) -> int:
     """
     # Validate database path
     if not args.db:
-        logging.error("--db is required for stats command")
+        logging.error("REQ-067: --db is required for db command")
         return 1
     
+    # Get the db subcommand
+    db_command = getattr(args, 'db_command', None)
+    
+    # REQ-067: Handle 'db init' subcommand
+    if db_command == "init":
+        try:
+            from media_indexer.db.connection import DatabaseConnection
+            
+            logging.info(f"REQ-067: Initializing database at {args.db}")
+            db_conn = DatabaseConnection(args.db)
+            db_conn.connect()
+            logging.info(f"REQ-067: Database initialized successfully at {args.db}")
+            return 0
+        except Exception as e:
+            logging.error(f"REQ-067: Database initialization failed: {e}")
+            return 1
+    
+    # For other commands, database must exist
     if not args.db.exists():
-        logging.error(f"Database does not exist: {args.db}")
+        logging.error(f"REQ-067: Database does not exist: {args.db}. Run 'media-indexer db init --db <path>' first.")
         return 1
     
     try:
@@ -508,16 +535,15 @@ def process_stats(args: argparse.Namespace, verbose: int) -> int:
         
         db_manager = DatabaseManager(args.db)
         
-        # Use stats_command instead of command
-        stats_command = getattr(args, 'stats_command', None)
-        
-        if stats_command == "show":
+        # REQ-067: Handle 'db stats' subcommand
+        if db_command == "stats":
             db_manager.print_statistics()
             return 0
         
-        elif stats_command == "search":
+        # REQ-067: Handle 'db search' subcommand
+        elif db_command == "search":
             if not args.query:
-                logging.error("--query required for search command")
+                logging.error("REQ-067: --query required for search command")
                 return 1
             
             limit = getattr(args, 'limit', 10)
@@ -531,8 +557,9 @@ def process_stats(args: argparse.Namespace, verbose: int) -> int:
                     print(f"  Dimensions: {result['width']}x{result['height']}")
             return 0
         
-        elif stats_command == "clean":
-            logging.info("Cleaning database...")
+        # REQ-067: Handle 'db clean' subcommand
+        elif db_command == "clean":
+            logging.info("REQ-067: Cleaning database...")
             stats = db_manager.clean_database()
             print(f"\n=== Cleanup Statistics ===")
             print(f"Images checked: {stats['images_checked']}")
@@ -541,11 +568,11 @@ def process_stats(args: argparse.Namespace, verbose: int) -> int:
             return 0
         
         else:
-            logging.error("No stats command specified")
+            logging.error("REQ-067: No db subcommand specified. Use: stats, init, search, or clean")
             return 1
     
     except Exception as e:
-        logging.error(f"Stats command failed: {e}")
+        logging.error(f"REQ-067: Database command failed: {e}")
         return 1
 
 
@@ -644,8 +671,9 @@ def main() -> None:
         sys.exit(process_analyze(args, verbose))
     elif args.command == "convert":
         sys.exit(process_convert(args, verbose))
-    elif args.command == "stats":
-        sys.exit(process_stats(args, verbose))
+    elif args.command == "db":
+        # REQ-067: Route to database management handler
+        sys.exit(process_db(args, verbose))
     else:
         # Should not reach here due to default handling in parse_args
         logging.error("REQ-029: Unknown subcommand")

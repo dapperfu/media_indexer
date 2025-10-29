@@ -270,3 +270,7 @@ STATEMENT: When determining the model version for commit attribution, the system
 UID: REQ-066
 STATEMENT: When database storage is enabled with the --db flag, the database SHALL be properly initialized with all required tables (Image, Face, Object, Pose, EXIFData) before any metadata storage operations are performed. If database initialization fails or tables are not created, the tool SHALL raise an error and NOT proceed with processing.
 
+[REQUIREMENT]
+UID: REQ-067
+STATEMENT: Database management operations SHALL be organized under a 'db' command group with subcommands: 'stats' (display database statistics), 'init' (initialize database), 'search' (search for images), and 'clean' (remove orphaned records). The CLI syntax SHALL be 'media-indexer db <subcommand>'.
+
