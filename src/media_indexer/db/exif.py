@@ -8,9 +8,8 @@ REQ-024: EXIF entity linked to Image.
 import logging
 from typing import Any, Optional
 
-from pony.orm import Required
+from pony.orm import Required, Json
 from pony.orm import Optional as PonyOptional
-from pony.orm import db_json
 
 from media_indexer.db.connection import db
 from media_indexer.db.image import Image
@@ -31,7 +30,7 @@ class EXIFData(db.Entity):
     image: Image = Required(Image, unique=True, index=True)
 
     # EXIF data as JSON blob
-    data: dict[str, Any] = Required(db_json)
+    data: dict[str, Any] = Required(Json)
 
     # Timestamp
     extracted_at: PonyOptional[float] = None  # Extraction timestamp

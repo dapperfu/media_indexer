@@ -7,9 +7,8 @@ REQ-024: Face entity linked to Image.
 
 import logging
 
-from pony.orm import Required
+from pony.orm import Required, Json
 from pony.orm import Optional as PonyOptional
-from pony.orm import db_json
 
 from media_indexer.db.connection import db
 from media_indexer.db.image import Image
@@ -31,7 +30,7 @@ class Face(db.Entity):
 
     # Face detection metadata
     confidence: float = Required(float, index=True)
-    bbox: list[float] = Required(db_json)  # Bounding box [x1, y1, x2, y2]
+    bbox: list[float] = Required(Json)  # Bounding box [x1, y1, x2, y2]
     embedding: PonyOptional[list[float]] = None  # Face embedding vector
     model: str = Required(str, index=True)  # Detection model name
 
