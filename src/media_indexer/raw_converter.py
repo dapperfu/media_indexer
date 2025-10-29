@@ -190,3 +190,51 @@ def get_raw_image_source(image_path: Path) -> str:
             return str(temp_jpeg)
     return str(image_path)
 
+
+def load_image_to_array(image_path: Path) -> np.ndarray | None:
+    """
+    Load an image file to numpy array using the best method available.
+
+    REQ-040: Load both RAW and standard images to numpy arrays.
+
+    This function tries multiple methods:
+    1. For RAW files: Uses rawpy or PIL
+    2. For standard formats: Uses PIL which has better format support
+
+    Args:
+        image_path: Path to image file.
+
+    Returns:
+        Numpy array with image data (RGB format) or None on failure.
+    """
+    # Try RAW conversion first
+    if is_raw_file(image_path):
+        rgb_array, _ = convert_raw_to_array(image_path)
+        if rgb_array is not None:
+            return rgb_array
+    
+    # Fall back to PIL for all image types
+    try:
+        image = Image.open(image_path)
+        # Convert to RGB if needed
+        if image.mode in ("RGBA", "LA", "P"):
+            # Create white background for alpha channel
+            if image.mode == "RGBA":
+                rgb_image = Image.new("RGB", image.size, (255, 255, 255))
+                rgb_image.paste(image, mask=image.split()[3])  # Use alpha channel as mask
+            else:
+                rgb_image = image.convert("RGB")
+        elif image.mode != "RGB":
+            rgb_image = image.convert("RGB")
+        else:
+            rgb_image = image
+        
+        # Convert to numpy array
+        rgb_array = np.array(rgb_image)
+        logger.debug(f"REQ-040: Loaded image {image_path} to array shape {rgb_array.shape}")
+        return rgb_array
+    
+    except Exception as e:
+        logger.warning(f"REQ-040: Failed to load image {image_path}: {e}")
+        return None
+

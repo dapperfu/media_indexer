@@ -23,6 +23,8 @@ try:
 except ImportError:
     insightface = None  # type: ignore[assignment, misc]
 
+from media_indexer.raw_converter import load_image_to_array, get_raw_image_source
+
 logger = logging.getLogger(__name__)
 
 # Model download URLs
@@ -137,14 +139,16 @@ class FaceDetector:
         faces: list[dict[str, Any]] = []
         logger.debug(f"REQ-007: Detecting faces in {image_path}")
 
-        # Load image
+        # Load image - using universal loader for RAW file support
         try:
-            image = cv2.imread(str(image_path))
-            if image is None:
+            # Use universal loader that handles RAW files
+            rgb_array = load_image_to_array(image_path)
+            if rgb_array is None:
                 logger.warning(f"REQ-007: Could not load image {image_path}")
                 return faces
-
-            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            
+            # For insightface, we need the numpy array directly
+            image_rgb = rgb_array
 
         except Exception as e:
             logger.warning(f"REQ-007: Error loading image {image_path}: {e}")
@@ -154,7 +158,9 @@ class FaceDetector:
         yolo_v8_results: list[dict[str, Any]] = []
         if self.yolo_model is not None:
             try:
-                yolo_detections = self.yolo_model(str(image_path), device=self.device)
+                # Use universal image source that handles RAW files
+                source_path = get_raw_image_source(image_path)
+                yolo_detections = self.yolo_model(source_path, device=self.device)
                 for detection in yolo_detections:
                     boxes = detection.boxes
                     for box in boxes:
@@ -172,7 +178,9 @@ class FaceDetector:
         yolo_v11_results: list[dict[str, Any]] = []
         if self.yolo_model_v11 is not None:
             try:
-                yolo_detections = self.yolo_model_v11(str(image_path), device=self.device)
+                # Use universal image source that handles RAW files
+                source_path = get_raw_image_source(image_path)
+                yolo_detections = self.yolo_model_v11(source_path, device=self.device)
                 for detection in yolo_detections:
                     boxes = detection.boxes
                     for box in boxes:
