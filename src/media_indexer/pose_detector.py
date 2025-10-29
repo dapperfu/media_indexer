@@ -8,6 +8,7 @@ REQ-010: All code components directly linked to requirements.
 import logging
 from pathlib import Path
 from typing import Any
+from urllib.request import urlretrieve
 
 import torch
 from ultralytics import YOLO
@@ -15,6 +16,35 @@ from ultralytics import YOLO
 from media_indexer.raw_converter import get_raw_image_source
 
 logger = logging.getLogger(__name__)
+
+# Model download URLs
+YOLO11X_POSE_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11x-pose.pt"
+
+
+def download_model_if_needed(model_path: str, url: str) -> Path:
+    """
+    Download model file if it doesn't exist.
+
+    Args:
+        model_path: Local path to model file.
+        url: URL to download from.
+
+    Returns:
+        Path to model file.
+    """
+    path = Path(model_path)
+    
+    if path.exists():
+        return path
+    
+    logger.info(f"REQ-009: Downloading {model_path} from {url}")
+    try:
+        urlretrieve(url, path)
+        logger.info(f"REQ-009: Successfully downloaded {path}")
+        return path
+    except Exception as e:
+        logger.error(f"REQ-009: Failed to download {model_path}: {e}")
+        raise RuntimeError(f"Failed to download model from {url}: {e}") from e
 
 
 class PoseDetector:
@@ -51,7 +81,9 @@ class PoseDetector:
         try:
             logger.info(f"REQ-009: Loading YOLOv11-pose model from {model_path}")
             logger.debug(f"REQ-009: Model cache: {cache.yolo_cache}")
-            self.model: YOLO = YOLO(model_path)
+            # Download model if needed
+            actual_path = download_model_if_needed(model_path, YOLO11X_POSE_URL)
+            self.model: YOLO = YOLO(str(actual_path))
             logger.info("REQ-009: YOLOv11-pose model loaded successfully")
         except Exception as e:
             error_msg = f"REQ-009: Failed to load YOLOv11-pose model: {e}"

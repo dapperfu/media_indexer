@@ -8,6 +8,7 @@ REQ-010: All code components directly linked to requirements.
 import logging
 from pathlib import Path
 from typing import Any
+from urllib.request import urlretrieve
 
 import torch
 from ultralytics import YOLO
@@ -15,6 +16,35 @@ from ultralytics import YOLO
 from media_indexer.raw_converter import get_raw_image_source
 
 logger = logging.getLogger(__name__)
+
+# Model download URLs
+YOLO12X_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo12x.pt"
+
+
+def download_model_if_needed(model_path: str, url: str) -> Path:
+    """
+    Download model file if it doesn't exist.
+
+    Args:
+        model_path: Local path to model file.
+        url: URL to download from.
+
+    Returns:
+        Path to model file.
+    """
+    path = Path(model_path)
+    
+    if path.exists():
+        return path
+    
+    logger.info(f"REQ-008: Downloading {model_path} from {url}")
+    try:
+        urlretrieve(url, path)
+        logger.info(f"REQ-008: Successfully downloaded {path}")
+        return path
+    except Exception as e:
+        logger.error(f"REQ-008: Failed to download {model_path}: {e}")
+        raise RuntimeError(f"Failed to download model from {url}: {e}") from e
 
 
 class ObjectDetector:
@@ -49,7 +79,9 @@ class ObjectDetector:
         try:
             logger.info(f"REQ-008: Loading YOLOv12x model from {model_path}")
             logger.debug(f"REQ-008: Model cache: {cache.yolo_cache}")
-            self.model: YOLO = YOLO(model_path)
+            # Download model if needed
+            actual_path = download_model_if_needed(model_path, YOLO12X_URL)
+            self.model: YOLO = YOLO(str(actual_path))
             logger.info("REQ-008: YOLOv12x model loaded successfully")
         except Exception as e:
             error_msg = f"REQ-008: Failed to load YOLOv12x model: {e}"
