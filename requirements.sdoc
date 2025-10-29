@@ -158,4 +158,99 @@ STATEMENT: All imports in the CLI module shall be lazy-loaded (imported only whe
 UID: REQ-039
 STATEMENT: The tool shall support a --limit flag to process only a specified number of images, enabling testing on small subsets before processing large image collections.
 
+[REQUIREMENT]
+UID: REQ-040
+STATEMENT: All StrictDoc (.sdoc) documents SHALL follow the StrictDoc grammar rules as defined at https://github.com/strictdoc-project/strictdoc/blob/main/strictdoc/backend/sdoc/grammar/grammar.py
+
+[REQUIREMENT]
+UID: REQ-041
+STATEMENT: All StrictDoc (.sdoc) documents SHALL not have C-style comments at the top of the file.
+
+[REQUIREMENT]
+UID: REQ-042
+STATEMENT: All StrictDoc (.sdoc) documents SHALL have the tool (Cursor.AI) and model (Claude) listed in any Git commit message involving a StrictDoc.
+
+[REQUIREMENT]
+UID: REQ-043
+STATEMENT: All StrictDoc (.sdoc) documents SHALL be validated using the strictdoc CLI tool to ensure grammar compliance.
+
+[REQUIREMENT]
+UID: REQ-044
+STATEMENT: ALL notebooks must be generated programmatically from a .py script. The .py script shall have the same name as the .ipynb notebook and shall be the golden master for the notebook. If the notebooks need to be regenerated they are regenerated from the .py script.
+
+[REQUIREMENT]
+UID: REQ-045
+STATEMENT: All code changes SHALL have an accompanying requirement in the requirements documentation. Requirements SHALL be tracked in StrictDoc format. When implementing new features or functionality, ensure the corresponding requirement exists or create it. All code MUST trace back to at least one requirement.
+
+[REQUIREMENT]
+UID: REQ-046
+STATEMENT: The git user SHALL be changed to "<username> | Cursor.sh | <model>" where <username> is the output of the whoami command. This way any git commit changed by you will be known as automated.
+
+[REQUIREMENT]
+UID: REQ-047
+STATEMENT: ALL git commits SHALL be followed by a git push if and only if a remote exists.
+
+[REQUIREMENT]
+UID: REQ-048
+STATEMENT: The commit message SHALL include the filename and what changed / why it was added. In addition to a summary of the prompt as to why the changes were made.
+
+[REQUIREMENT]
+UID: REQ-049
+STATEMENT: ALWAYS pull from remote before committing changes.
+
+[REQUIREMENT]
+UID: REQ-050
+STATEMENT: Never under any circumstances SHALL rm -rf be run on ~/ (the user's home directory).
+
+[REQUIREMENT]
+UID: REQ-051
+STATEMENT: Under no circumstances should sudo be run. All commands SHALL be done in userspace.
+
+[REQUIREMENT]
+UID: REQ-052
+STATEMENT: The exclamation mark (!) SHALL NOT be used in strings meant for the command line / bash.
+
+[REQUIREMENT]
+UID: REQ-053
+STATEMENT: The system pip SHALL NOT be used. All Python related matters SHALL use a virtual environment.
+
+[REQUIREMENT]
+UID: REQ-054
+STATEMENT: Python packages SHALL NOT be installed to the system. All Python related matters SHALL use a virtual environment.
+
+[REQUIREMENT]
+UID: REQ-055
+STATEMENT: All Python related matters SHALL use a virtual environment. The Python virtual environment SHALL be called `venv`
+
+[REQUIREMENT]
+UID: REQ-056
+STATEMENT: All Makefile references to pip and python installed tools like pytest SHALL use the full path to the venv bin directory, eg `venv/bin/pytest`, `venv/bin/pip`
+
+[REQUIREMENT]
+UID: REQ-057
+STATEMENT: All python language scripts SHALL use full mypy typing.
+
+[REQUIREMENT]
+UID: REQ-058
+STATEMENT: All python language scripts SHALL be documented such that they meet numpy style guidelines.
+
+[REQUIREMENT]
+UID: REQ-059
+STATEMENT: ALL functions and files in Python SHALL be documented to meet numpy documentation standards.
+
+[REQUIREMENT]
+UID: REQ-060
+STATEMENT: Always include a detailed technical attribution comment at the top of each commit message with a specified format including LLM information, IDE information, generation method, code style, and dependencies.
+
+[REQUIREMENT]
+UID: REQ-061
+STATEMENT: After all file changes add and commit.
+
+[REQUIREMENT]
+UID: REQ-062
+STATEMENT: Makefiles SHALL use full escape for all variables: ${VAR} not $VAR to avoid confusion.
+
+[REQUIREMENT]
+UID: REQ-063
+STATEMENT: All makefiles SHALL use an actual file/folder where possible as a target. For example python -mvenv venv generates venv. Any target that depends on Python having the venv built shall use `venv` as a dependency so that the GNU make resolves everything correctly and in the right order.
 
