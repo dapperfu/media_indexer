@@ -340,34 +340,89 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def process_extract_or_annotate(args: argparse.Namespace, verbose: int) -> int:
+def process_extract(args: argparse.Namespace, verbose: int) -> int:
     """
-    Handle extract or annotate subcommands.
-
-    REQ-002, REQ-016, REQ-030, REQ-031: Process images with specified verbosity.
-
+    Handle extract subcommand (read from sidecars/database and export).
+    
+    REQ-030: Extract features from existing sidecar files and/or database.
+    
     Args:
         args: Parsed arguments.
         verbose: Verbosity level.
-
+    
     Returns:
         Exit code (0 for success, non-zero for error).
     """
-    # REQ-002: Validate input directory
-    if not args.input_dir.exists():
-        logging.error(f"REQ-002: Input directory does not exist: {args.input_dir}")
+    # REQ-030: Validate that we have either input_dir or database
+    if not args.input_dir and not args.db:
+        logging.error("REQ-030: Either --input-dir or --db must be specified")
+        return 1
+    
+    if args.input_dir and not args.input_dir.exists():
+        logging.error(f"REQ-030: Input directory does not exist: {args.input_dir}")
+        return 1
+    
+    if not args.output_dir:
+        logging.error("REQ-030: --output-dir is required")
+        return 1
+    
+    logging.info("REQ-030: Extracting features from sidecars/database")
+    logging.info(f"REQ-016: Verbosity level: {verbose}")
+    
+    # REQ-030: Initialize feature extractor (lazy import)
+    try:
+        from media_indexer.feature_extractor import FeatureExtractor
+        
+        extractor = FeatureExtractor(
+            input_dir=args.input_dir,
+            database_path=args.db,
+            output_dir=args.output_dir,
+        )
+        
+        # REQ-030: Extract features
+        stats = extractor.extract_features()
+        
+        # REQ-030: Exit with error code if there were errors
+        if stats["error_images"] > 0:
+            logging.warning(f"REQ-030: Completed with {stats['error_images']} errors")
+            return 1
+        else:
+            logging.info("REQ-030: Extraction completed successfully")
+            return 0
+    
+    except Exception as e:
+        logging.error(f"REQ-030: Extraction failed: {e}")
         return 1
 
-    logging.info(f"REQ-002: Processing images from {args.input_dir}")
-    logging.info(f"REQ-016: Verbosity level: {verbose}")
 
-    # REQ-002: Initialize processor (lazy import)
+def process_analyze(args: argparse.Namespace, verbose: int) -> int:
+    """
+    Handle analyze subcommand (analyze images and populate sidecars/database).
+    
+    REQ-031: Analyze images and extract features.
+    
+    Args:
+        args: Parsed arguments.
+        verbose: Verbosity level.
+    
+    Returns:
+        Exit code (0 for success, non-zero for error).
+    """
+    # REQ-031: Validate input directory
+    if not args.input_dir.exists():
+        logging.error(f"REQ-031: Input directory does not exist: {args.input_dir}")
+        return 1
+    
+    logging.info(f"REQ-031: Analyzing images from {args.input_dir}")
+    logging.info(f"REQ-016: Verbosity level: {verbose}")
+    
+    # REQ-031: Initialize processor (lazy import)
     try:
         from media_indexer.processor import ImageProcessor
         
         processor = ImageProcessor(
             input_dir=args.input_dir,
-            output_dir=args.output_dir,
+            output_dir=args.output_dir or args.input_dir,
             checkpoint_file=args.checkpoint,
             verbose=verbose,
             batch_size=args.batch_size,
@@ -375,10 +430,10 @@ def process_extract_or_annotate(args: argparse.Namespace, verbose: int) -> int:
             disable_sidecar=args.no_sidecar,
             limit=args.limit,
         )
-
-        # REQ-002: Process images
+        
+        # REQ-031: Process images
         stats = processor.process()
-
+        
         # REQ-012: Exit with error code if there were errors
         if stats["error_images"] > 0:
             logging.warning(f"REQ-012: Completed with {stats['error_images']} errors")
@@ -386,7 +441,7 @@ def process_extract_or_annotate(args: argparse.Namespace, verbose: int) -> int:
         else:
             logging.info("REQ-012: Processing completed successfully")
             return 0
-
+    
     except KeyboardInterrupt:
         logging.warning("REQ-011: Processing interrupted by user, checkpoint saved")
         return 130
@@ -484,8 +539,10 @@ def main() -> None:
     setup_logging(verbose)
 
     # REQ-029: Route to appropriate subcommand handler
-    if args.command in ["extract", "annotate", "analyze"]:
-        sys.exit(process_extract_or_annotate(args, verbose))
+    if args.command == "extract":
+        sys.exit(process_extract(args, verbose))
+    elif args.command in ["annotate", "analyze"]:
+        sys.exit(process_analyze(args, verbose))
     elif args.command == "convert":
         sys.exit(process_convert(args, verbose))
     else:
