@@ -37,7 +37,7 @@ dependencies = [
     "image-sidecar-rust @ git+https://github.com/dapperfu/image-sidecar-rust.git",
     "pony>=0.7.17",
     "xxhash>=3.0.0",
-    "fast-exif-rs-py>=0.5.0",
+    # fast-exif-rs-py not on PyPI - optional dependency
 ]
 
 [project.optional-dependencies]
