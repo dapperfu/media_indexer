@@ -140,10 +140,14 @@ STATEMENT: The 'convert' subcommand shall provide --direction flag with values '
 
 [REQUIREMENT]
 UID: REQ-035
-STATEMENT: All Python functions and files SHALL be documented to meet NumPy documentation standards as specified in the NumPy documentation style guide.
+STATEMENT: The tool shall maintain backwards compatibility with legacy CLI usage where subcommands are not explicitly specified, automatically defaulting to the extract subcommand.
 
 [REQUIREMENT]
 UID: REQ-036
+STATEMENT: All Python functions and files SHALL be documented to meet NumPy documentation standards as specified in the NumPy documentation style guide.
+
+[REQUIREMENT]
+UID: REQ-037
 STATEMENT: Python dependency management shall use uv for installation of all packages. The virtual environment creation process shall install uv using pip, and subsequent package installations shall use 'uv pip install'.
 
 
