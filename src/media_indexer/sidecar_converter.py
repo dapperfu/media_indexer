@@ -101,8 +101,8 @@ def create_progress_bar_with_global_speed(
             progress_bar._custom_postfix = postfix  # type: ignore[attr-defined]
             # Recalculate global speed and combine
             elapsed = time.time() - progress_bar.start_time  # type: ignore[attr-defined]
-            if elapsed > 0 and progress_bar.n > 0:
-                global_speed = progress_bar.n / elapsed
+            if elapsed > 0 and progress_bar._processed_count > 0:  # type: ignore[attr-defined]
+                global_speed = progress_bar._processed_count / elapsed  # type: ignore[attr-defined]
                 if global_speed >= 1:
                     speed_str = f"{global_speed:.1f} {unit}/s"
                 else:
