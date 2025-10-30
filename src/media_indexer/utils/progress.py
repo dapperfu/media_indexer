@@ -38,12 +38,13 @@ def create_progress_bar_with_global_speed(
         total: Total number of items to process.
         desc: Description for the progress bar.
         unit: Unit label for items (e.g., "file", "img").
-        verbose: Verbosity level (only create if >= 15).
+        verbose: Verbosity level (only create if >= 17 to match CLI tqdm disable threshold).
 
     Returns:
         tqdm progress bar instance or None if verbosity is too low.
     """
-    if verbose < 15:
+    # REQ-016: Match CLI threshold - tqdm is disabled when verbose < 17
+    if verbose < 17:
         return None
 
     # REQ-012: Create progress bar with compact format showing both speeds
