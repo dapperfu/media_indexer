@@ -431,7 +431,7 @@ def process_analyze(args: argparse.Namespace, verbose: int) -> int:
             disable_sidecar=args.no_sidecar,
             limit=args.limit,
             force=getattr(args, 'force', False),
-            scan_workers=getattr(args, 'workers', 8),
+            scan_workers=args.workers,
         )
         
         # REQ-031: Process images
@@ -566,12 +566,11 @@ def process_convert(args: argparse.Namespace, verbose: int) -> int:
         try:
             from media_indexer.sidecar_converter import import_sidecars_to_database
 
-            workers = getattr(args, 'workers', 1)
             import_sidecars_to_database(
                 input_dir=args.input_dir,
                 database_path=args.db,
                 verbose=verbose,
-                workers=workers,
+                workers=args.workers,
             )
             logging.info("REQ-032: Sidecar import to database completed successfully")
             return 0
@@ -594,12 +593,11 @@ def process_convert(args: argparse.Namespace, verbose: int) -> int:
         try:
             from media_indexer.sidecar_converter import export_database_to_sidecars
 
-            workers = getattr(args, 'workers', 1)
             export_database_to_sidecars(
                 database_path=args.db,
                 output_dir=None,  # None means sidecar files go next to image files
                 verbose=verbose,
-                workers=workers,
+                workers=args.workers,
             )
             logging.info("REQ-033: Database export to sidecar completed successfully")
             return 0
