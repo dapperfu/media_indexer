@@ -19,24 +19,23 @@ class SidecarGenerator:
     Sidecar file generator using image-sidecar-rust library.
 
     REQ-004: Generate sidecar files containing extracted metadata.
+    Sidecar files are always created alongside the image files.
     """
 
-    def __init__(self, output_dir: Path) -> None:
+    def __init__(self) -> None:
         """
         Initialize sidecar generator.
 
-        Args:
-            output_dir: Directory where sidecar files should be saved.
+        REQ-004: Initialize sidecar generator (no directory needed, sidecars go next to images).
         """
-        self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        logger.debug(f"REQ-004: Sidecar generator initialized with output_dir={output_dir}")
+        logger.debug("REQ-004: Sidecar generator initialized (sidecars created alongside images)")
 
     def generate_sidecar(self, image_path: Path, metadata: dict[str, Any]) -> Path:
         """
         Generate sidecar file for an image.
 
         REQ-004: Generate sidecar file for image containing metadata.
+        Sidecar files are always created next to the image file.
 
         Args:
             image_path: Path to the image file.
@@ -51,13 +50,15 @@ class SidecarGenerator:
         logger.debug(f"REQ-004: Generating sidecar for {image_path}")
 
         # REQ-004: Use image-sidecar-rust to handle sidecar file creation
-        # Use the correct API: save_data with operation type
+        # The library creates sidecar files next to the image
+        image_path_resolved = Path(image_path).resolve()
         sidecar = image_sidecar_rust.ImageSidecar()
         try:
             # Use UNIFIED operation type to store all metadata types together
             info = sidecar.save_data(str(image_path), image_sidecar_rust.OperationType.UNIFIED, metadata)
             logger.debug(f"REQ-004: Generated sidecar info: {info}")
-            return Path(info.get('sidecar_path', str(image_path) + '.json'))
+            generated_sidecar_path = Path(info.get('sidecar_path', str(image_path) + '.json')).resolve()
+            return generated_sidecar_path
         except Exception as e:
             # Fallback if library fails
             logger.warning(f"REQ-004: Sidecar generation failed, using fallback: {e}")
@@ -92,24 +93,34 @@ class SidecarGenerator:
             return {}
     
     def _fallback_sidecar(self, image_path: Path, metadata: dict[str, Any]) -> Path:
-        """Fallback sidecar generation using JSON file."""
-        sidecar_path = image_path.with_suffix(image_path.suffix + '.json')
+        """
+        Fallback sidecar generation using JSON file.
+        
+        Args:
+            image_path: Path to the image file.
+            metadata: Metadata to store in sidecar.
+            
+        Returns:
+            Path to the generated sidecar file.
+        """
+        image_path_resolved = Path(image_path).resolve()
+        
+        # Always create sidecar next to image file
+        sidecar_path = image_path_resolved.with_suffix(image_path_resolved.suffix + '.json')
+        
         import json
         with open(sidecar_path, 'w') as f:
             json.dump(metadata, f, indent=2)
         return sidecar_path
 
 
-def get_sidecar_generator(output_dir: Path) -> SidecarGenerator:
+def get_sidecar_generator() -> SidecarGenerator:
     """
     Factory function to get sidecar generator instance.
 
     REQ-004: Factory function for sidecar generation.
 
-    Args:
-        output_dir: Directory where sidecar files should be saved.
-
     Returns:
         SidecarGenerator: Configured sidecar generator.
     """
-    return SidecarGenerator(output_dir)
+    return SidecarGenerator()
