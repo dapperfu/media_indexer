@@ -10,43 +10,18 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
 from typing import Any
-from urllib.request import urlretrieve
 
 import torch
 from ultralytics import YOLO
 
 from media_indexer.raw_converter import get_raw_image_source
+from media_indexer.utils.image_utils import normalize_bbox
+from media_indexer.utils.model_utils import download_model_if_needed
 
 logger = logging.getLogger(__name__)
 
 # Model download URLs
 YOLO12X_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo12x.pt"
-
-
-def download_model_if_needed(model_path: str, url: str) -> Path:
-    """
-    Download model file if it doesn't exist.
-
-    Args:
-        model_path: Local path to model file.
-        url: URL to download from.
-
-    Returns:
-        Path to model file.
-    """
-    path = Path(model_path)
-    
-    if path.exists():
-        return path
-    
-    logger.info(f"REQ-008: Downloading {model_path} from {url}")
-    try:
-        urlretrieve(url, path)
-        logger.info(f"REQ-008: Successfully downloaded {path}")
-        return path
-    except Exception as e:
-        logger.error(f"REQ-008: Failed to download {model_path}: {e}")
-        raise RuntimeError(f"Failed to download model from {url}: {e}") from e
 
 
 class ObjectDetector:
@@ -82,7 +57,7 @@ class ObjectDetector:
             logger.info(f"REQ-008: Loading YOLOv12x model from {model_path}")
             logger.debug(f"REQ-008: Model cache: {cache.yolo_cache}")
             # Download model if needed
-            actual_path = download_model_if_needed(model_path, YOLO12X_URL)
+            actual_path = download_model_if_needed(model_path, YOLO12X_URL, "REQ-008")
             # REQ-016: Suppress YOLO model summary output during initialization
             null_stream = StringIO()
             with redirect_stdout(null_stream), redirect_stderr(null_stream):
@@ -129,12 +104,7 @@ class ObjectDetector:
                     
                     # Normalize bbox to percentages (0.0-1.0)
                     bbox_absolute = box.xyxy[0].cpu().numpy().tolist()
-                    bbox_normalized = [
-                        bbox_absolute[0] / img_width,   # x1
-                        bbox_absolute[1] / img_height,  # y1
-                        bbox_absolute[2] / img_width,  # x2
-                        bbox_absolute[3] / img_height, # y2
-                    ]
+                    bbox_normalized = normalize_bbox(bbox_absolute, img_width, img_height)
 
                     objects.append(
                         {

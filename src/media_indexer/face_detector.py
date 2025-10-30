@@ -6,35 +6,21 @@ REQ-010: All code components directly linked to requirements.
 """
 
 import logging
-import os
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
 from typing import Any
-from urllib.request import urlretrieve
 
 import cv2
 import torch
 
-# REQ-016: Suppress ONNX Runtime verbose output before importing insightface
-os.environ.setdefault("ORT_LOG_LEVEL", "3")  # 3 = ERROR level (suppress INFO/VERBOSE)
+from media_indexer.raw_converter import get_raw_image_source, load_image_to_array
+from media_indexer.utils import setup_suppression
+from media_indexer.utils.image_utils import normalize_bbox
+from media_indexer.utils.model_utils import download_model_if_needed
 
-# REQ-016: Suppress OpenCV warnings when cv2 is imported
-try:
-    # Suppress all OpenCV warnings except errors
-    # OpenCV uses numeric log levels: 0=SILENT, 1=FATAL, 2=ERROR, 3=WARN, 4=INFO, 5=DEBUG, 6=VERBOSE
-    # Set to ERROR level (2) to suppress WARN and below
-    try:
-        cv2.setLogLevel(2)  # ERROR level
-    except (TypeError, AttributeError):
-        # Fallback: try with string constant if available
-        if hasattr(cv2, 'LOG_LEVEL_ERROR'):
-            cv2.setLogLevel(cv2.LOG_LEVEL_ERROR)
-        elif hasattr(cv2, 'utils') and hasattr(cv2.utils, 'logging'):
-            cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)
-except (AttributeError):
-    # OpenCV logging API not available
-    pass
+# REQ-016: Suppress ONNX Runtime and OpenCV verbose output
+setup_suppression()
 
 try:
     from ultralytics import YOLO
@@ -46,8 +32,6 @@ try:
 except ImportError:
     insightface = None  # type: ignore[assignment, misc]
 
-from media_indexer.raw_converter import load_image_to_array, get_raw_image_source
-
 logger = logging.getLogger(__name__)
 
 # Model download URLs
@@ -56,30 +40,6 @@ YOLOV8N_FACE_URL = "https://drive.google.com/uc?export=download&id=1qcr9DbgsX3ry
 YOLOV11N_FACE_URL = "https://github.com/YapaLab/yolo-face/releases/download/v0.0.0/yolov11n-face.pt"
 
 
-def download_model_if_needed(model_path: str, url: str) -> Path:
-    """
-    Download model file if it doesn't exist.
-
-    Args:
-        model_path: Local path to model file.
-        url: URL to download from.
-
-    Returns:
-        Path to model file.
-    """
-    path = Path(model_path)
-    
-    if path.exists():
-        return path
-    
-    logger.info(f"REQ-007: Downloading {model_path} from {url}")
-    try:
-        urlretrieve(url, path)
-        logger.info(f"REQ-007: Successfully downloaded {path}")
-        return path
-    except Exception as e:
-        logger.error(f"REQ-007: Failed to download {model_path}: {e}")
-        raise RuntimeError(f"Failed to download model from {url}: {e}") from e
 
 
 class FaceDetector:
@@ -118,7 +78,7 @@ class FaceDetector:
             try:
                 logger.info(f"REQ-007: Loading YOLOv8 face model from {model_path}")
                 # Download if needed
-                actual_path = download_model_if_needed(model_path, YOLOV8N_FACE_URL)
+                actual_path = download_model_if_needed(model_path, YOLOV8N_FACE_URL, "REQ-007")
                 # REQ-016: Suppress YOLO model summary output during initialization
                 null_stream = StringIO()
                 with redirect_stdout(null_stream), redirect_stderr(null_stream):
@@ -132,7 +92,7 @@ class FaceDetector:
             try:
                 logger.info(f"REQ-007: Loading YOLOv11 face model from {model_path_v11}")
                 # Download if needed
-                actual_path = download_model_if_needed(model_path_v11, YOLOV11N_FACE_URL)
+                actual_path = download_model_if_needed(model_path_v11, YOLOV11N_FACE_URL, "REQ-007")
                 # REQ-016: Suppress YOLO model summary output during initialization
                 null_stream = StringIO()
                 with redirect_stdout(null_stream), redirect_stderr(null_stream):
@@ -212,12 +172,7 @@ class FaceDetector:
                         for box in boxes:
                             # Normalize bbox to percentages (0.0-1.0)
                             bbox_absolute = box.xyxy[0].cpu().numpy().tolist()
-                            bbox_normalized = [
-                                bbox_absolute[0] / img_width,   # x1
-                                bbox_absolute[1] / img_height,  # y1
-                                bbox_absolute[2] / img_width,  # x2
-                                bbox_absolute[3] / img_height, # y2
-                            ]
+                            bbox_normalized = normalize_bbox(bbox_absolute, img_width, img_height)
                             
                             yolo_v8_results.append(
                                 {
@@ -247,12 +202,7 @@ class FaceDetector:
                         for box in boxes:
                             # Normalize bbox to percentages (0.0-1.0)
                             bbox_absolute = box.xyxy[0].cpu().numpy().tolist()
-                            bbox_normalized = [
-                                bbox_absolute[0] / img_width,   # x1
-                                bbox_absolute[1] / img_height,  # y1
-                                bbox_absolute[2] / img_width,  # x2
-                                bbox_absolute[3] / img_height, # y2
-                            ]
+                            bbox_normalized = normalize_bbox(bbox_absolute, img_width, img_height)
                             
                             yolo_v11_results.append(
                                 {
@@ -287,12 +237,7 @@ class FaceDetector:
                         # Normalize bbox to percentages (0.0-1.0)
                         # insightface bbox format is [x1, y1, x2, y2]
                         bbox_absolute = face.bbox.tolist()
-                        bbox_normalized = [
-                            bbox_absolute[0] / img_width,   # x1
-                            bbox_absolute[1] / img_height,  # y1
-                            bbox_absolute[2] / img_width,  # x2
-                            bbox_absolute[3] / img_height, # y2
-                        ]
+                        bbox_normalized = normalize_bbox(bbox_absolute, img_width, img_height)
                         
                         insight_results.append(
                             {

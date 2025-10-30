@@ -16,6 +16,8 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
+from media_indexer.utils.file_utils import is_raw_file
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,9 +40,7 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
         logger.warning("REQ-040: rawpy not available, will use PIL fallback for RAW images")
         rawpy_available = False
 
-    raw_extensions = {".cr2", ".cr3", ".nef", ".arw", ".dng", ".orf", ".rw2", ".pef"}
-    
-    if image_path.suffix.lower() not in raw_extensions:
+    if not is_raw_file(image_path):
         logger.debug(f"REQ-040: {image_path} is not a RAW file")
         return None, "unknown"
 
@@ -155,18 +155,6 @@ def convert_raw_to_temp_jpeg(image_path: Path) -> Path | None:
         return None
 
 
-def is_raw_file(image_path: Path) -> bool:
-    """
-    Check if image file is a RAW format.
-
-    Args:
-        image_path: Path to image file.
-
-    Returns:
-        True if file is a RAW format.
-    """
-    raw_extensions = {".cr2", ".cr3", ".nef", ".arw", ".dng", ".orf", ".rw2", ".pef", ".raw"}
-    return image_path.suffix.lower() in raw_extensions
 
 
 # Global registry for temporary files created during processing

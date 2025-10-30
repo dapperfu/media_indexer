@@ -27,101 +27,12 @@ from media_indexer.db.hash_util import calculate_file_hash, get_file_size
 from media_indexer.db.image import Image
 from media_indexer.db.object import Object
 from media_indexer.db.pose import Pose
+from media_indexer.utils.progress import create_progress_bar_with_global_speed
 
 logger = logging.getLogger(__name__)
 
 # REQ-015: Global cancellation flag for quick shutdown
 _shutdown_flag = threading.Event()
-
-
-def create_progress_bar_with_global_speed(
-    total: int,
-    desc: str,
-    unit: str = "item",
-    verbose: int = 20,
-) -> tqdm.tqdm | None:
-    """
-    Create a tqdm progress bar with global speed calculation.
-
-    REQ-012: Progress tracking with both instantaneous and global/average speed.
-
-    Args:
-        total: Total number of items to process.
-        desc: Description for the progress bar.
-        unit: Unit label for items (e.g., "file", "img").
-        verbose: Verbosity level (only create if >= 15).
-
-    Returns:
-        tqdm progress bar instance or None if verbosity is too low.
-    """
-    if verbose < 15:
-        return None
-
-    # REQ-012: Create progress bar with compact format showing both speeds
-    progress_bar = tqdm.tqdm(
-        total=total,
-        desc=desc,
-        unit=unit,
-        bar_format='{desc}: {bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}, {postfix}]',
-    )
-
-    # Store start time for global speed calculation
-    progress_bar.start_time = time.time()  # type: ignore[attr-defined]
-    progress_bar._custom_postfix = ""  # type: ignore[attr-defined]
-    progress_bar._processed_count = 0  # type: ignore[attr-defined]
-    
-    # Store original methods BEFORE wrapping
-    original_update = progress_bar.update
-    original_set_postfix = progress_bar.set_postfix_str
-
-    def update_with_global_speed(n: int = 1) -> None:
-        """Update progress bar with global speed calculation."""
-        # Increment our tracked count
-        progress_bar._processed_count += n  # type: ignore[attr-defined]
-        # Call original update
-        original_update(n)
-        # Calculate global speed: processed / elapsed_time
-        elapsed = time.time() - progress_bar.start_time  # type: ignore[attr-defined]
-        if elapsed > 0 and progress_bar._processed_count > 0:  # type: ignore[attr-defined]
-            global_speed = progress_bar._processed_count / elapsed  # type: ignore[attr-defined]
-            # Format speed nicely
-            if global_speed >= 1:
-                speed_str = f"{global_speed:.1f} {unit}/s"
-            else:
-                speed_str = f"{1/global_speed:.1f}s/{unit}"
-            # Combine with custom postfix if any
-            custom = progress_bar._custom_postfix  # type: ignore[attr-defined]
-            if custom:
-                combined = f"{custom} | avg: {speed_str}"
-            else:
-                combined = f"avg: {speed_str}"
-            # Use original set_postfix to avoid recursion
-            original_set_postfix(combined, refresh=False)
-    
-    def set_postfix_with_global_speed(postfix: str | None = None, refresh: bool = True) -> None:
-        """Set postfix while preserving global speed."""
-        if postfix:
-            progress_bar._custom_postfix = postfix  # type: ignore[attr-defined]
-            # Recalculate global speed and combine
-            elapsed = time.time() - progress_bar.start_time  # type: ignore[attr-defined]
-            if elapsed > 0 and progress_bar._processed_count > 0:  # type: ignore[attr-defined]
-                global_speed = progress_bar._processed_count / elapsed  # type: ignore[attr-defined]
-                if global_speed >= 1:
-                    speed_str = f"{global_speed:.1f} {unit}/s"
-                else:
-                    speed_str = f"{1/global_speed:.1f}s/{unit}"
-                combined = f"{postfix} | avg: {speed_str}"
-                original_set_postfix(combined, refresh=refresh)
-            else:
-                original_set_postfix(postfix, refresh=refresh)
-        else:
-            original_set_postfix(postfix, refresh=refresh)
-    
-    # Replace methods AFTER defining both functions
-    progress_bar.set_postfix_str = set_postfix_with_global_speed  # type: ignore[method-assign]
-    progress_bar.update = update_with_global_speed  # type: ignore[method-assign]
-
-    return progress_bar
 
 
 def _import_single_sidecar(
