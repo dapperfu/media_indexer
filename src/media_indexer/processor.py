@@ -755,272 +755,306 @@ class ImageProcessor:
             # Initialize components first (needed to determine required analyses)
             self._initialize_components()
 
-        # Get image files
-        images = self._get_image_files()
-        self.stats["total_images"] = len(images)
-        logger.info(f"REQ-002: Found {len(images)} images")
+            # Get image files
+            images = self._get_image_files()
+            self.stats["total_images"] = len(images)
+            logger.info(f"REQ-002: Found {len(images)} images")
 
-        # REQ-013: Scan sidecar files or database to determine which images need processing
-        images_to_process: list[tuple[Path, set[str]]] = []
-        skipped_count = 0
+            # REQ-013: Scan sidecar files or database to determine which images need processing
+            images_to_process: list[tuple[Path, set[str]]] = []
+            skipped_count = 0
         
-        # REQ-025: Use database batch query if database is available (faster than file scanning)
-        if self.database_connection:
-            # Use database batch query for better performance when using database
-            logger.info("REQ-013: Querying database for existing analyses...")
-            progress_bar = create_progress_bar_with_global_speed(
-                total=len(images),
-                desc="Querying database",
-                unit="file",
-                verbose=self.verbose,
-            )
-            
-            try:
-                # Query database in batch (single query for all images)
-                db_analyses = self._get_existing_analyses_from_database_batch(images)
+            # REQ-025: Use database batch query if database is available (faster than file scanning)
+            if self.database_connection:
+                # Use database batch query for better performance when using database
+                logger.info("REQ-013: Querying database for existing analyses...")
+                progress_bar = create_progress_bar_with_global_speed(
+                    total=len(images),
+                    desc="Querying database",
+                    unit="file",
+                    verbose=self.verbose,
+                )
                 
-                required = self._get_required_analyses()
-                
-                for image_path in images:
-                    path_str = str(image_path)
-                    existing = db_analyses.get(path_str, set())
-                    
-                    # Also check sidecar files if not disabled (complement database, avoiding redundant DB query)
-                    if not self.disable_sidecar:
-                        sidecar_path = self._find_sidecar_path(image_path)
-                        if sidecar_path and sidecar_path.exists():
-                            try:
-                                if self.sidecar_generator:
-                                    metadata = self.sidecar_generator.read_sidecar(sidecar_path)
-                                else:
-                                    # Fallback: read JSON directly
-                                    with open(sidecar_path) as f:
-                                        metadata = json.load(f)
-                                
-                                # Add analyses from sidecar (union with database)
-                                if metadata.get('exif'):
-                                    existing.add('exif')
-                                if metadata.get('faces'):
-                                    existing.add('faces')
-                                if metadata.get('objects'):
-                                    existing.add('objects')
-                                if metadata.get('poses'):
-                                    existing.add('poses')
-                            except Exception as e:
-                                logger.debug(f"REQ-013: Failed to read sidecar for {image_path}: {e}")
-                    
-                    missing = required - existing
-                    
-                    if len(missing) > 0:
-                        images_to_process.append((image_path, missing))
-                    else:
-                        skipped_count += 1
-                    
-                    if progress_bar:
-                        progress_bar.update(1)
-            finally:
-                if progress_bar:
-                    progress_bar.close()
-        else:
-            # REQ-020: Parallel scanning with progress bar and global speed (file-based)
-            logger.info("REQ-013: Scanning sidecar files to determine required analyses...")
-            scan_workers = min(self.scan_workers, len(images))  # Use configured workers for I/O-bound scanning
-            progress_bar = create_progress_bar_with_global_speed(
-                total=len(images),
-                desc="Scanning sidecars",
-                unit="file",
-                verbose=self.verbose,
-            )
-            
-            try:
-                if scan_workers == 1:
-                    # Sequential scanning for small sets
-                    for image_path in images:
-                        needs_processing, missing_analyses = self._needs_processing(image_path)
-                        if needs_processing:
-                            images_to_process.append((image_path, missing_analyses))
-                        else:
-                            skipped_count += 1
-                        if progress_bar:
-                            progress_bar.update(1)
-            else:
-                # REQ-020: Parallel scanning with thread pool
-                executor: ThreadPoolExecutor | None = None
                 try:
-                    executor = ThreadPoolExecutor(max_workers=scan_workers)
-                    futures = {
-                        executor.submit(self._needs_processing, image_path): image_path
-                        for image_path in images
-                    }
+                    # Query database in batch (single query for all images)
+                    db_analyses = self._get_existing_analyses_from_database_batch(images)
                     
-                    for future in as_completed(futures):
+                    required = self._get_required_analyses()
+                    
+                    for image_path in images:
                         # REQ-015: Check for cancellation
                         if _shutdown_flag.is_set():
                             logger.warning("REQ-015: Processing interrupted by user")
-                            # Cancel remaining futures
-                            for f in futures:
-                                if not f.done():
-                                    f.cancel()
                             break
                         
-                        image_path = futures[future]
-                        try:
-                            needs_processing, missing_analyses = future.result()
+                        path_str = str(image_path)
+                        existing = db_analyses.get(path_str, set())
+                        
+                        # Also check sidecar files if not disabled (complement database, avoiding redundant DB query)
+                        if not self.disable_sidecar:
+                            sidecar_path = self._find_sidecar_path(image_path)
+                            if sidecar_path and sidecar_path.exists():
+                                try:
+                                    if self.sidecar_generator:
+                                        metadata = self.sidecar_generator.read_sidecar(sidecar_path)
+                                    else:
+                                        # Fallback: read JSON directly
+                                        with open(sidecar_path) as f:
+                                            metadata = json.load(f)
+                                    
+                                    # Add analyses from sidecar (union with database)
+                                    if metadata.get('exif'):
+                                        existing.add('exif')
+                                    if metadata.get('faces'):
+                                        existing.add('faces')
+                                    if metadata.get('objects'):
+                                        existing.add('objects')
+                                    if metadata.get('poses'):
+                                        existing.add('poses')
+                                except Exception as e:
+                                    logger.debug(f"REQ-013: Failed to read sidecar for {image_path}: {e}")
+                        
+                        missing = required - existing
+                        
+                        if len(missing) > 0:
+                            images_to_process.append((image_path, missing))
+                        else:
+                            skipped_count += 1
+                        
+                        if progress_bar:
+                            progress_bar.update(1)
+                finally:
+                    if progress_bar:
+                        progress_bar.close()
+            else:
+                # REQ-020: Parallel scanning with progress bar and global speed (file-based)
+                logger.info("REQ-013: Scanning sidecar files to determine required analyses...")
+                scan_workers = min(self.scan_workers, len(images))  # Use configured workers for I/O-bound scanning
+                progress_bar = create_progress_bar_with_global_speed(
+                    total=len(images),
+                    desc="Scanning sidecars",
+                    unit="file",
+                    verbose=self.verbose,
+                )
+                
+                try:
+                    if scan_workers == 1:
+                        # Sequential scanning for small sets
+                        for image_path in images:
+                            # REQ-015: Check for cancellation
+                            if _shutdown_flag.is_set():
+                                logger.warning("REQ-015: Processing interrupted by user")
+                                break
+                            needs_processing, missing_analyses = self._needs_processing(image_path)
                             if needs_processing:
                                 images_to_process.append((image_path, missing_analyses))
                             else:
                                 skipped_count += 1
-                        except CancelledError:
-                            # REQ-015: Future was cancelled, skip
-                            pass
-                        except Exception as e:
-                            # If scanning fails, assume needs processing
-                            logger.debug(f"REQ-013: Failed to scan {image_path}: {e}")
-                            images_to_process.append((image_path, self._get_required_analyses()))
-                        finally:
                             if progress_bar:
                                 progress_bar.update(1)
-                finally:
-                    # REQ-015: Shutdown executor quickly when interrupted
-                    if executor:
-                        if _shutdown_flag.is_set():
-                            executor.shutdown(wait=False, cancel_futures=True)
-                        else:
-                            executor.shutdown(wait=True)
-        except KeyboardInterrupt:
-            # REQ-015: Handle KeyboardInterrupt at loop level
-            logger.warning("REQ-015: Processing interrupted by user")
-            _shutdown_flag.set()
-        finally:
-            if progress_bar:
-                progress_bar.close()
-        
-        self.stats["skipped_images"] = skipped_count
-        
-        # REQ-013: Show summary before processing
-        required_analyses = self._get_required_analyses()
-        analysis_names = {
-            'exif': 'EXIF',
-            'faces': 'faces',
-            'objects': 'objects',
-            'poses': 'poses'
-        }
-        required_str = ', '.join(analysis_names.get(a, a) for a in sorted(required_analyses))
-        logger.info(f"REQ-013: Required analyses: {required_str}")
-        logger.info(f"REQ-013: Already analyzed: {skipped_count} images")
-        logger.info(f"REQ-013: Needs processing: {len(images_to_process)} images")
-        
-        if not images_to_process:
-            logger.info("REQ-013: All images already have complete analyses")
-            self.stats["end_time"] = datetime.now().isoformat()
-            self._print_statistics()
-            return self.stats
-
-        # REQ-012: Progress tracking with TQDM
-        # Show progress bars by default (WARNING level) and above, disable only at very verbose levels
-        def format_detection_summary(detections: dict[str, Any]) -> str:
-            """Format detection info for display."""
-            parts = []
-            if detections.get("faces", 0) > 0:
-                parts.append(f"{detections['faces']} face{'s' if detections['faces'] != 1 else ''}")
-            if detections.get("objects", 0) > 0:
-                parts.append(f"{detections['objects']} object{'s' if detections['objects'] != 1 else ''}")
-            if detections.get("poses", 0) > 0:
-                parts.append(f"{detections['poses']} pose{'s' if detections['poses'] != 1 else ''}")
-            return ", ".join(parts) if parts else "no detections"
-        
-        # REQ-012: Progress tracking with Rich for multi-line detection info
-        use_rich = self.verbose >= 15
-        if use_rich:
-            progress = create_rich_progress_bar(
-                total=len(images_to_process),
-                desc="Processing images",
-                unit="img",
-                verbose=self.verbose,
-                show_detections=True,
-            )
-            progress_bar = None
-            task_id = progress.add_task(
-                "Processing images",
-                total=len(images_to_process),
-                current_file="",
-                detections="",
-                avg_speed="0.0 img/s",
-            )
-            progress.start()
-        else:
-            progress = None
-            progress_bar = create_progress_bar_with_global_speed(
-                total=len(images_to_process),
-                desc="Processing images",
-                unit="img",
-                verbose=self.verbose,
-            )
-            task_id = None
-
-        # REQ-020: Process images in batches with threading for I/O
-        try:
-            # Process in batches
-            for i in range(0, len(images_to_process), self.batch_size):
-                # REQ-015: Check for cancellation before starting new batch
-                if _shutdown_flag.is_set():
-                    logger.warning("REQ-015: Processing interrupted by user")
-                    break
-                
-                batch = images_to_process[i : i + self.batch_size]
-
-                # REQ-015: Robust error handling with thread pool
-                executor: ThreadPoolExecutor | None = None
-                try:
-                    executor = ThreadPoolExecutor(max_workers=self.batch_size)
-                    futures = {
-                        executor.submit(self._process_single_image, img_path, missing): img_path 
-                        for img_path, missing in batch
-                    }
-
-                    for future in as_completed(futures):
-                        # REQ-015: Check for cancellation
-                        if _shutdown_flag.is_set():
-                            logger.warning("REQ-015: Processing interrupted by user")
-                            # Cancel remaining futures
-                            for f in futures:
-                                if not f.done():
-                                    f.cancel()
-                            break
-                        
-                        image_path = futures[future]
+                    else:
+                        # REQ-020: Parallel scanning with thread pool
+                        executor: ThreadPoolExecutor | None = None
                         try:
-                            success, detections = future.result()
-                            if success:
-                                self._update_stats_increment("processed_images")
-                                # Display detection results  
-                                img_name = image_path.name
-                                if len(img_name) > 50:
-                                    img_name = "..." + img_name[-47:]
-                                det_summary = format_detection_summary(detections)
+                            executor = ThreadPoolExecutor(max_workers=scan_workers)
+                            futures = {
+                                executor.submit(self._needs_processing, image_path): image_path
+                                for image_path in images
+                            }
+                            
+                            for future in as_completed(futures):
+                                # REQ-015: Check for cancellation
+                                if _shutdown_flag.is_set():
+                                    logger.warning("REQ-015: Processing interrupted by user")
+                                    # Cancel remaining futures
+                                    for f in futures:
+                                        if not f.done():
+                                            f.cancel()
+                                    break
                                 
-                                if use_rich and progress:
-                                    # Update Rich progress bar with multi-line info
-                                    elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
-                                    progress._processed_count += 1  # type: ignore[attr-defined]
-                                    if elapsed > 0:
-                                        avg_speed = progress._processed_count / elapsed  # type: ignore[attr-defined]
-                                        avg_str = f"{avg_speed:.1f} img/s"
+                                image_path = futures[future]
+                                try:
+                                    needs_processing, missing_analyses = future.result()
+                                    if needs_processing:
+                                        images_to_process.append((image_path, missing_analyses))
                                     else:
-                                        avg_str = "0.0 img/s"
-                                    progress.update(
-                                        task_id,
-                                        advance=1,
-                                        current_file=f"📷 {img_name}",
-                                        detections=f"  👤 {det_summary}" if det_summary else "  ✓ Processed",
-                                        avg_speed=avg_str,
-                                    )
-                                elif progress_bar:
-                                    # Show image name and detections (tqdm fallback)
-                                    progress_bar.set_description(f"Image: {img_name}")
-                                    progress_bar.set_postfix_str(f"Detected: {det_summary}", refresh=False)
-                                    progress_bar.update(1)
-                            else:
+                                        skipped_count += 1
+                                except CancelledError:
+                                    # REQ-015: Future was cancelled, skip
+                                    pass
+                                except Exception as e:
+                                    # If scanning fails, assume needs processing
+                                    logger.debug(f"REQ-013: Failed to scan {image_path}: {e}")
+                                    images_to_process.append((image_path, self._get_required_analyses()))
+                                finally:
+                                    if progress_bar:
+                                        progress_bar.update(1)
+                        finally:
+                            # REQ-015: Shutdown executor quickly when interrupted
+                            if executor:
+                                if _shutdown_flag.is_set():
+                                    executor.shutdown(wait=False, cancel_futures=True)
+                                else:
+                                    executor.shutdown(wait=True)
+                except KeyboardInterrupt:
+                    # REQ-015: Handle KeyboardInterrupt at loop level
+                    logger.warning("REQ-015: Processing interrupted by user")
+                    _shutdown_flag.set()
+                finally:
+                    if progress_bar:
+                        progress_bar.close()
+            
+            self.stats["skipped_images"] = skipped_count
+            
+            # REQ-013: Show summary before processing
+            required_analyses = self._get_required_analyses()
+            analysis_names = {
+                'exif': 'EXIF',
+                'faces': 'faces',
+                'objects': 'objects',
+                'poses': 'poses'
+            }
+            required_str = ', '.join(analysis_names.get(a, a) for a in sorted(required_analyses))
+            logger.info(f"REQ-013: Required analyses: {required_str}")
+            logger.info(f"REQ-013: Already analyzed: {skipped_count} images")
+            logger.info(f"REQ-013: Needs processing: {len(images_to_process)} images")
+            
+            if not images_to_process:
+                logger.info("REQ-013: All images already have complete analyses")
+                self.stats["end_time"] = datetime.now().isoformat()
+                self._print_statistics()
+                return self.stats
+
+            # REQ-012: Progress tracking with TQDM
+            # Show progress bars by default (WARNING level) and above, disable only at very verbose levels
+            def format_detection_summary(detections: dict[str, Any]) -> str:
+                """Format detection info for display."""
+                parts = []
+                if detections.get("faces", 0) > 0:
+                    parts.append(f"{detections['faces']} face{'s' if detections['faces'] != 1 else ''}")
+                if detections.get("objects", 0) > 0:
+                    parts.append(f"{detections['objects']} object{'s' if detections['objects'] != 1 else ''}")
+                if detections.get("poses", 0) > 0:
+                    parts.append(f"{detections['poses']} pose{'s' if detections['poses'] != 1 else ''}")
+                return ", ".join(parts) if parts else "no detections"
+            
+            # REQ-012: Progress tracking with Rich for multi-line detection info
+            use_rich = self.verbose >= 15
+            if use_rich:
+                progress = create_rich_progress_bar(
+                    total=len(images_to_process),
+                    desc="Processing images",
+                    unit="img",
+                    verbose=self.verbose,
+                    show_detections=True,
+                )
+                progress_bar = None
+                task_id = progress.add_task(
+                    "Processing images",
+                    total=len(images_to_process),
+                    current_file="",
+                    detections="",
+                    avg_speed="0.0 img/s",
+                )
+                progress.start()
+            else:
+                progress = None
+                progress_bar = create_progress_bar_with_global_speed(
+                    total=len(images_to_process),
+                    desc="Processing images",
+                    unit="img",
+                    verbose=self.verbose,
+                )
+                task_id = None
+
+            # REQ-020: Process images in batches with threading for I/O
+            try:
+                # Process in batches
+                for i in range(0, len(images_to_process), self.batch_size):
+                    # REQ-015: Check for cancellation before starting new batch
+                    if _shutdown_flag.is_set():
+                        logger.warning("REQ-015: Processing interrupted by user")
+                        break
+                    
+                    batch = images_to_process[i : i + self.batch_size]
+
+                    # REQ-015: Robust error handling with thread pool
+                    executor: ThreadPoolExecutor | None = None
+                    try:
+                        executor = ThreadPoolExecutor(max_workers=self.batch_size)
+                        futures = {
+                            executor.submit(self._process_single_image, img_path, missing): img_path 
+                            for img_path, missing in batch
+                        }
+
+                        for future in as_completed(futures):
+                            # REQ-015: Check for cancellation
+                            if _shutdown_flag.is_set():
+                                logger.warning("REQ-015: Processing interrupted by user")
+                                # Cancel remaining futures
+                                for f in futures:
+                                    if not f.done():
+                                        f.cancel()
+                                break
+                            
+                            image_path = futures[future]
+                            try:
+                                success, detections = future.result()
+                                if success:
+                                    self._update_stats_increment("processed_images")
+                                    # Display detection results  
+                                    img_name = image_path.name
+                                    if len(img_name) > 50:
+                                        img_name = "..." + img_name[-47:]
+                                    det_summary = format_detection_summary(detections)
+                                    
+                                    if use_rich and progress:
+                                        # Update Rich progress bar with multi-line info
+                                        elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
+                                        progress._processed_count += 1  # type: ignore[attr-defined]
+                                        if elapsed > 0:
+                                            avg_speed = progress._processed_count / elapsed  # type: ignore[attr-defined]
+                                            avg_str = f"{avg_speed:.1f} img/s"
+                                        else:
+                                            avg_str = "0.0 img/s"
+                                        progress.update(
+                                            task_id,
+                                            advance=1,
+                                            current_file=f"📷 {img_name}",
+                                            detections=f"  👤 {det_summary}" if det_summary else "  ✓ Processed",
+                                            avg_speed=avg_str,
+                                        )
+                                    elif progress_bar:
+                                        # Show image name and detections (tqdm fallback)
+                                        progress_bar.set_description(f"Image: {img_name}")
+                                        progress_bar.set_postfix_str(f"Detected: {det_summary}", refresh=False)
+                                        progress_bar.update(1)
+                                else:
+                                    self._update_stats_increment("error_images")
+                                    img_name = image_path.name
+                                    if len(img_name) > 50:
+                                        img_name = "..." + img_name[-47:]
+                                    if use_rich and progress:
+                                        elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
+                                        progress._processed_count += 1  # type: ignore[attr-defined]
+                                        if elapsed > 0:
+                                            avg_speed = progress._processed_count / elapsed  # type: ignore[attr-defined]
+                                            avg_str = f"{avg_speed:.1f} img/s"
+                                        else:
+                                            avg_str = "0.0 img/s"
+                                        progress.update(
+                                            task_id,
+                                            advance=1,
+                                            current_file=f"📷 {img_name}",
+                                            detections="  ❌ ERROR",
+                                            avg_speed=avg_str,
+                                        )
+                                    elif progress_bar:
+                                        progress_bar.set_description(f"Image: {img_name}")
+                                        progress_bar.set_postfix_str("ERROR", refresh=False)
+                                        progress_bar.update(1)
+                            except Exception as e:
+                                logger.error(f"REQ-015: Error processing {image_path}: {e}")
                                 self._update_stats_increment("error_images")
                                 img_name = image_path.name
                                 if len(img_name) > 50:
@@ -1037,65 +1071,40 @@ class ImageProcessor:
                                         task_id,
                                         advance=1,
                                         current_file=f"📷 {img_name}",
-                                        detections="  ❌ ERROR",
+                                        detections=f"  ❌ FAILED: {str(e)[:50]}",
                                         avg_speed=avg_str,
                                     )
                                 elif progress_bar:
                                     progress_bar.set_description(f"Image: {img_name}")
-                                    progress_bar.set_postfix_str("ERROR", refresh=False)
-                                    progress_bar.update(1)
-                        except Exception as e:
-                            logger.error(f"REQ-015: Error processing {image_path}: {e}")
-                            self._update_stats_increment("error_images")
-                            img_name = image_path.name
-                            if len(img_name) > 50:
-                                img_name = "..." + img_name[-47:]
-                            if use_rich and progress:
-                                elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
-                                progress._processed_count += 1  # type: ignore[attr-defined]
-                                if elapsed > 0:
-                                    avg_speed = progress._processed_count / elapsed  # type: ignore[attr-defined]
-                                    avg_str = f"{avg_speed:.1f} img/s"
-                                else:
-                                    avg_str = "0.0 img/s"
-                                progress.update(
-                                    task_id,
-                                    advance=1,
-                                    current_file=f"📷 {img_name}",
-                                    detections=f"  ❌ FAILED: {str(e)[:50]}",
-                                    avg_speed=avg_str,
-                                )
-                            elif progress_bar:
-                                    progress_bar.set_description(f"Image: {img_name}")
                                     progress_bar.set_postfix_str("FAILED", refresh=False)
                                     progress_bar.update(1)
-                        except CancelledError:
-                            # REQ-015: Future was cancelled, skip
-                            logger.debug(f"REQ-015: Processing cancelled for {image_path}")
-                            self._update_stats_increment("error_images")
-                        except KeyboardInterrupt:
-                            # REQ-015: Re-raise to outer handler
-                            raise
-                finally:
-                    # REQ-015: Shutdown executor quickly when interrupted
-                    if executor:
-                        if _shutdown_flag.is_set():
-                            executor.shutdown(wait=False, cancel_futures=True)
-                        else:
-                            executor.shutdown(wait=True)
-        except KeyboardInterrupt:
-            # REQ-015: Handle KeyboardInterrupt at loop level
-            logger.warning("REQ-015: Processing interrupted by user")
-            _shutdown_flag.set()
-        finally:
-            if use_rich and progress:
-                progress.stop()
-            elif progress_bar:
-                progress_bar.close()
+                            except CancelledError:
+                                # REQ-015: Future was cancelled, skip
+                                logger.debug(f"REQ-015: Processing cancelled for {image_path}")
+                                self._update_stats_increment("error_images")
+                            except KeyboardInterrupt:
+                                # REQ-015: Re-raise to outer handler
+                                raise
+                    finally:
+                        # REQ-015: Shutdown executor quickly when interrupted
+                        if executor:
+                            if _shutdown_flag.is_set():
+                                executor.shutdown(wait=False, cancel_futures=True)
+                            else:
+                                executor.shutdown(wait=True)
+            except KeyboardInterrupt:
+                # REQ-015: Handle KeyboardInterrupt at loop level
+                logger.warning("REQ-015: Processing interrupted by user")
+                _shutdown_flag.set()
+            finally:
+                if use_rich and progress:
+                    progress.stop()
+                elif progress_bar:
+                    progress_bar.close()
 
-            # REQ-012: Final statistics
-            self.stats["end_time"] = datetime.now().isoformat()
-            self._print_statistics()
+                # REQ-012: Final statistics
+                self.stats["end_time"] = datetime.now().isoformat()
+                self._print_statistics()
 
         finally:
             # REQ-040: Clean up temporary RAW conversion files (always cleanup, even on interrupt)
