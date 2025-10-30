@@ -10,12 +10,15 @@ import logging
 import time
 from collections.abc import Iterable
 from concurrent.futures import CancelledError, ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from media_indexer.processor.object_emoji import get_object_emoji
-from media_indexer.processor.progress import create_rich_progress_bar
+from media_indexer.processor.progress import (
+    ProgressLogHandler,
+    RichProgressContext,
+    create_rich_progress_bar,
+)
 from media_indexer.raw_converter import cleanup_temp_files
 from media_indexer.utils.cancellation import CancellationManager
 from media_indexer.utils.sidecar_utils import read_sidecar_metadata
@@ -27,25 +30,6 @@ logger = logging.getLogger(__name__)
 
 
 _DB_QUERY_BATCH_SIZE = 256
-
-
-@dataclass(slots=True)
-class RichProgressContext:
-    """Wraps Rich-based progress tracking for reuse across phases."""
-
-    total: int
-    unit: str
-    progress: Any
-    display: Any
-    live: Any
-    task_id: Any
-    start_time: float
-    processed: int = 0
-
-    def stop(self) -> None:
-        """Tear down the live display safely."""
-
-        self.live.stop()
 
 
 def run_processing(processor: ImageProcessor) -> dict[str, Any]:
@@ -391,7 +375,7 @@ def _init_rich_context(
 
     task_id = progress.add_task(desc, total=total, avg_speed=f"0.0 {unit}/s")
     live.start()
-    return RichProgressContext(
+    context = RichProgressContext(
         total=total,
         unit=unit,
         progress=progress,
@@ -400,6 +384,13 @@ def _init_rich_context(
         task_id=task_id,
         start_time=time.time(),
     )
+
+    handler = ProgressLogHandler(display, live)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logging.getLogger().addHandler(handler)
+    context.log_handler = handler
+
+    return context
 
 
 def _advance_progress(

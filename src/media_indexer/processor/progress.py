@@ -8,6 +8,7 @@ REQ-010: All code components directly linked to requirements.
 import logging
 import time
 from collections import deque
+from dataclasses import dataclass
 from typing import Any
 
 from rich.console import Console, RenderableType
@@ -144,6 +145,131 @@ class MultiLineProgressDisplay:
 
         self.recent_events.appendleft(message)
 
+
+class ProgressLogHandler(logging.Handler):
+    """Bridge warnings and errors into the live progress display.
+
+    REQ-076: Persist transient warning/error messages beneath the progress bar
+    so that brief console output does not obscure actionable issues.
+    """
+
+    def __init__(self, display: MultiLineProgressDisplay, live: Live) -> None:
+        """Initialize handler with target display and live renderer.
+
+        Parameters
+        ----------
+        display : MultiLineProgressDisplay
+            Display instance that aggregates recent events.
+        live : Live
+            Live renderer responsible for refreshing the terminal output.
+        """
+
+        super().__init__(level=logging.WARNING)
+        self.display = display
+        self.live = live
+        self._last_event: str | None = None
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Handle log records reaching WARNING level or higher.
+
+        Parameters
+        ----------
+        record : logging.LogRecord
+            Logging record to display.
+        """
+
+        try:
+            message = self.format(record)
+        except Exception:  # noqa: BLE001
+            message = record.getMessage()
+
+        sanitized = message.strip().replace("\n", " ⏎ ")
+        if len(sanitized) > 160:
+            sanitized = f"{sanitized[:157]}..."
+
+        symbol = "❌" if record.levelno >= logging.ERROR else "⚠️"
+        event_text = f"{symbol} {sanitized}"
+
+        if event_text == self._last_event:
+            return
+
+        self._last_event = event_text
+
+        try:
+            self.display.add_event(event_text)
+            self.live.console.call_from_thread(self._refresh)
+        except Exception as exc:  # noqa: BLE001
+            self.handleError(record)
+            logger.debug("REQ-076: ProgressLogHandler refresh failed: %s", exc)
+
+    def _refresh(self) -> None:
+        """Refresh the live progress display to surface new events.
+
+        Notes
+        -----
+        Invoked on the console's render thread via
+        :meth:`rich.console.Console.call_from_thread` to preserve Rich's thread
+        safety guarantees while updating the shared live display (REQ-076).
+        """
+
+        self.live.update(self.display)
+
+
+@dataclass(slots=True)
+class RichProgressContext:
+    """Encapsulate Rich progress machinery for reuse across pipeline phases.
+
+    REQ-012: Provide reusable tracking components for processing phases.
+    REQ-076: Manage the lifecycle of warning-aware handlers for live output.
+
+    Attributes
+    ----------
+    total : int
+        Total number of work items in the current phase.
+    unit : str
+        Unit label describing the work items (e.g., ``"img"``).
+    progress : Any
+        Rich ``Progress`` instance displaying the bar.
+    display : Any
+        Multi-line wrapper combining the bar with supplemental text.
+    live : Any
+        Live renderer responsible for updating the terminal output.
+    task_id : Any
+        Identifier returned by Rich for the registered task.
+    start_time : float
+        Epoch timestamp recorded when tracking began.
+    processed : int, optional
+        Count of processed items updated by callers. Defaults to ``0``.
+    log_handler : logging.Handler | None, optional
+        Active handler mirroring warnings into the progress display.
+    """
+
+    total: int
+    unit: str
+    progress: Any
+    display: Any
+    live: Any
+    task_id: Any
+    start_time: float
+    processed: int = 0
+    log_handler: logging.Handler | None = None
+
+    def stop(self) -> None:
+        """Dispose of the live progress display and detach log forwarding.
+
+        Notes
+        -----
+        The attached progress log handler is removed prior to stopping the
+        live renderer to prevent duplicate warning delivery across subsequent
+        processing phases (REQ-076).
+        """
+
+        if self.log_handler:
+            logging.getLogger().removeHandler(self.log_handler)
+            self.log_handler.close()
+            self.log_handler = None
+
+        self.live.stop()
 
 class SpeedColumn(ProgressColumn):
     """
