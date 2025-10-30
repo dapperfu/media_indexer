@@ -559,13 +559,14 @@ class ImageProcessor:
         skipped_count = 0
         
         # REQ-020: Parallel scanning with progress bar
+        # Show progress bars by default (WARNING level) and above, disable only at very verbose levels
         scan_workers = min(self.scan_workers, len(images))  # Use configured workers for I/O-bound scanning
         progress_bar = tqdm.tqdm(
             total=len(images),
             desc="Scanning sidecars",
             unit="file",
             bar_format='{desc}: {bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]',
-        ) if self.verbose <= 20 else None
+        ) if self.verbose >= 15 else None
         
         try:
             if scan_workers == 1:
@@ -626,7 +627,8 @@ class ImageProcessor:
             self._print_statistics()
             return self.stats
 
-        # REQ-012: Progress tracking with TQDM if verbose level <= 20
+        # REQ-012: Progress tracking with TQDM
+        # Show progress bars by default (WARNING level) and above, disable only at very verbose levels
         def format_detection_summary(detections: dict[str, Any]) -> str:
             """Format detection info for display."""
             parts = []
@@ -638,13 +640,13 @@ class ImageProcessor:
                 parts.append(f"{detections['poses']} pose{'s' if detections['poses'] != 1 else ''}")
             return ", ".join(parts) if parts else "no detections"
         
-        # Simple progress - show tqdm at default level (verbose <= 20)
+        # Show progress bars at WARNING (30) and above, disable at VERBOSE (15) and below
         progress_bar = tqdm.tqdm(
             total=len(images_to_process),
             desc="Processing images",
             unit="img",
             bar_format='{desc}: {bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]',
-        ) if self.verbose <= 20 else None
+        ) if self.verbose >= 15 else None
 
         # REQ-020: Process images in batches with threading for I/O
         try:

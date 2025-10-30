@@ -225,13 +225,14 @@ def import_sidecars_to_database(
             logger.info("REQ-032: No sidecar files found to import")
             return
 
-        # REQ-012: Progress tracking with TQDM if verbose level <= 20
+        # REQ-012: Progress tracking with TQDM
+        # Show progress bars by default (WARNING level) and above, disable only at very verbose levels
         progress_bar = tqdm.tqdm(
             total=len(image_files),
             desc="Importing sidecars",
             unit="file",
             bar_format='{desc}: {bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]',
-        ) if verbose <= 20 else None
+        ) if verbose >= 15 else None
 
         # REQ-020: Process with parallel workers
         processed = 0
@@ -474,13 +475,14 @@ def export_database_to_sidecars(
             logger.info("REQ-033: No images found in database to export")
             return
 
-        # REQ-012: Progress tracking with TQDM if verbose level <= 20
+        # REQ-012: Progress tracking with TQDM
+        # Show progress bars by default (WARNING level) and above, disable only at very verbose levels
         progress_bar = tqdm.tqdm(
             total=len(image_paths),
             desc="Exporting sidecars",
             unit="file",
             bar_format='{desc}: {bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]',
-        ) if verbose <= 20 else None
+        ) if verbose >= 15 else None
 
         # REQ-020: Process with parallel workers
         processed = 0
