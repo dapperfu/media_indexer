@@ -68,6 +68,11 @@ STATEMENT: The tool shall provide real-time progress tracking with statistics in
 COMMENT: Long-running batch jobs require visibility into progress for operational planning and user confidence. Real-time progress tracking provides: (1) Operational visibility - administrators can monitor processing health and detect stalls or performance degradation; (2) Resource planning - processing speed metrics enable estimation of completion times for different collection sizes; (3) User confidence - seeing progress prevents user anxiety about whether the system is working, especially for multi-day jobs; (4) Performance optimization - processing speed metrics help identify bottlenecks and optimize batch sizes or GPU utilization; (5) Billing accuracy - cloud cost estimation requires understanding processing duration. The dual metrics (images/sec and MB/sec) account for varying image sizes - processing 1MP images is faster than 50MP images. ETA calculation enables users to plan around completion times. The final summary report provides post-processing verification (total images processed, errors encountered, processing time). This requirement demonstrates user-centric design thinking - recognizing that users need visibility, not just raw processing power.
 
 [REQUIREMENT]
+UID: REQ-076
+STATEMENT: The progress display shall retain and visibly surface recent warning and error messages within the live progress interface so brief console output does not obscure actionable issues.
+COMMENT: During GPU-intensive processing runs, warning and error messages can flash past as the live progress bar refreshes the terminal, making diagnostics difficult. Persisting the most recent noteworthy events directly beneath the progress bar ensures operators can review failures without scrolling back through logs, aligns with production observability practices, and prevents transient console updates from hiding critical alerts while maintaining the concise Rich-based UI required for long sessions.
+
+[REQUIREMENT]
 UID: REQ-013
 STATEMENT: The tool shall implement idempotent processing by detecting and skipping already-processed images based on existing sidecar files, with options for selective reprocessing.
 COMMENT: Idempotency ensures that re-running the tool on a collection (e.g., after adding new images) doesn't reprocess existing images. This provides: (1) Incremental processing - new images can be added to collections without reprocessing existing images; (2) Cost efficiency - prevents wasted GPU compute on already-processed images; (3) Time savings - skipping processed images significantly reduces processing time for incremental updates; (4) Safety - accidental re-runs don't cause duplicate work or overwrite existing metadata; (5) Selectivity - options for selective reprocessing enable metadata updates (e.g., after model improvements) without full reprocessing. The sidecar file existence check is a lightweight operation (file system stat) compared to image processing (GPU inference), making idempotency checks extremely fast. This requirement demonstrates understanding of production system design patterns - idempotency is a fundamental principle of reliable distributed systems. For enterprise customers, this enables maintenance workflows and incremental indexing strategies.
@@ -361,4 +366,19 @@ COMMENT: ``urllib.request.urlretrieve`` buffers whole files in-memory and provid
 UID: REQ-072
 STATEMENT: All version-controlled text files SHALL contain no more than 500 lines, and a git pre-commit hook SHALL block commits that stage files exceeding this limit.
 COMMENT: Limiting file length enforces modular design and maintainability by encouraging developers to decompose oversized modules before committing changes. The automated pre-commit guard provides immediate feedback, preventing regressions as the codebase evolves. This aligns with professional engineering practices by ensuring architectural discipline, simplifying code reviews, and avoiding technical debt that accrues when monolithic files accumulate unnoticed.
+
+[REQUIREMENT]
+UID: REQ-073
+STATEMENT: The build tooling SHALL provide an automated script that downloads, patches, and installs dlib with CUDA support using the local GPU compute capability so that face recognition pipelines can rely on GPU-enabled dlib without manual intervention.
+COMMENT: Manual rebuilding of dlib to enable CUDA is error-prone and time consuming, requiring developers to remember architecture flags and patch upstream CMake files. Automating the process ensures consistent GPU-enabled builds across environments, reduces onboarding friction, and guarantees that downstream components depending on dlib's CUDA kernels operate with expected performance. This requirement formalizes the scripted installation workflow so it can be validated, version-controlled, and reused in CI pipelines.
+
+[REQUIREMENT]
+UID: REQ-074
+STATEMENT: The face detection pipeline SHALL incorporate face_recognition embeddings in addition to existing detectors so that downstream consumers can access the standardized 128-dimensional dlib encodings alongside YOLO and InsightFace metadata.
+COMMENT: Third-party systems frequently rely on the canonical dlib/face_recognition embeddings for face comparison and clustering. By integrating face_recognition into the detector stack, the system emits both the project’s InsightFace embeddings and the widely adopted 128-d encodings, improving interoperability and coverage for legacy workflows. The requirement ensures the embeddings are generated within the main processing path, eliminating the need for post-processing scripts and guaranteeing consistent storage in sidecars and the database.
+
+[REQUIREMENT]
+UID: REQ-075
+STATEMENT: The codebase SHALL remain free of Ruff lint violations as enforced by the make lint target to maintain coding standards, performance best practices, and developer productivity.
+COMMENT: Continuous lint compliance prevents stylistic drift, catches common bugs early, and enforces performance-conscious patterns (e.g., avoiding expensive constructs in hot loops). Aligning with the unified Ruff rule set ensures engineers share a consistent baseline, enabling faster reviews and safer refactoring while sustaining the project’s quality bar for new contributors.
 

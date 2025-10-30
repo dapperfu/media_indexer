@@ -7,6 +7,7 @@ REQ-010: All code components directly linked to requirements.
 
 import logging
 import time
+from collections import deque
 from typing import Any
 
 from rich.console import Console, RenderableType
@@ -70,7 +71,7 @@ class MultiLineProgressDisplay:
     Uses Rich's Live display pattern for proper multi-line rendering.
     """
 
-    def __init__(self, progress: Progress, show_detections: bool = False) -> None:
+    def __init__(self, progress: Progress, show_detections: bool = False, max_events: int = 5) -> None:
         """
         Initialize multi-line progress display.
 
@@ -83,6 +84,7 @@ class MultiLineProgressDisplay:
         self.current_file: str = ""
         self.detections: str = ""
         self.avg_speed: str = "0.0"
+        self.recent_events: deque[str] = deque(maxlen=max_events)
 
     def __rich__(self) -> RenderableType:
         """
@@ -95,7 +97,7 @@ class MultiLineProgressDisplay:
 
         # Create info lines below progress bar
         info_lines: list[RenderableType] = [self.progress]
-        
+
         if self.current_file or self.detections:
             info_text = Text()
             if self.current_file:
@@ -106,7 +108,14 @@ class MultiLineProgressDisplay:
                 info_text.append(self.detections, style="dim")
             if len(info_text) > 0:
                 info_lines.append(info_text)
-        
+
+        if self.recent_events:
+            events_text = Text("Recent events:\n", style="bold")
+            for message in self.recent_events:
+                events_text.append(message)
+                events_text.append("\n")
+            info_lines.append(events_text)
+
         return Group(*info_lines)
 
     def update_info(self, current_file: str = "", detections: str = "", avg_speed: str = "0.0") -> None:
@@ -121,6 +130,19 @@ class MultiLineProgressDisplay:
         self.current_file = current_file
         self.detections = detections
         self.avg_speed = avg_speed
+
+    def add_event(self, message: str) -> None:
+        """Record a recent event for persistent display.
+
+        REQ-076: Preserve transient error messages alongside the live progress bar.
+
+        Parameters
+        ----------
+        message : str
+            Message describing the recent event.
+        """
+
+        self.recent_events.appendleft(message)
 
 
 class SpeedColumn(ProgressColumn):
