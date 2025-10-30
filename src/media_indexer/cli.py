@@ -56,14 +56,6 @@ def setup_logging(verbose: int) -> None:
     # REQ-016: OpenCV warnings are suppressed globally at module import time
     # (see top of file for OpenCV warning suppression)
 
-    # REQ-016: Disable tqdm if verbosity is too high (DEBUG/TRACE level)
-    # Progress bars show at INFO (20) and above (less verbose)
-    # Disable at DEBUG/TRACE levels where detailed output is preferred
-    if verbose < 17:  # Disable tqdm at VERBOSE (15), TRACE (12), DEBUG (10) levels
-        import tqdm
-
-        tqdm.tqdm.__init__ = lambda _self, *_args, **_kwargs: None  # type: ignore[method-assign, assignment]
-
 
 def add_common_args(parser: argparse.ArgumentParser, include_db: bool = False) -> None:
     """

@@ -308,7 +308,7 @@ class ImageProcessor:
             if self.database_connection:
                 logger.info("REQ-013: Querying database for existing analyses...")
                 # REQ-012: Use Rich progress bar for multi-line display
-                use_rich_query = self.verbose >= 17
+                use_rich_query = self.verbose >= 15
                 if use_rich_query:
                     progress_query = create_rich_progress_bar(
                         total=len(images),
@@ -433,7 +433,7 @@ class ImageProcessor:
                 logger.info("REQ-013: Scanning sidecar files...")
                 scan_workers = min(self.scan_workers, len(images))
                 # REQ-012: Use Rich progress bar for multi-line display
-                use_rich_scan = self.verbose >= 17
+                use_rich_scan = self.verbose >= 15
                 if use_rich_scan:
                     progress_scan = create_rich_progress_bar(
                         total=len(images),
@@ -603,8 +603,8 @@ class ImageProcessor:
                 return ", ".join(parts) if parts else "no detections"
 
             # REQ-012: Progress tracking with Rich for multi-line detection info
-            # REQ-016: Use Rich when verbose >= 17 to match CLI tqdm disable threshold
-            use_rich = self.verbose >= 17
+            # REQ-016: Use Rich when verbose >= 15 for progress display
+            use_rich = self.verbose >= 15
             if use_rich:
                 progress = create_rich_progress_bar(
                     total=len(images_to_process),
@@ -623,7 +623,7 @@ class ImageProcessor:
                 )
                 progress.start()
             else:
-                # No progress bar when verbose < 17 (tqdm is disabled, Rich not shown)
+                # No progress bar when verbose < 15
                 progress = None
                 progress_bar = None
                 task_id = None

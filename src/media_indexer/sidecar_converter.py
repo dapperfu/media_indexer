@@ -17,7 +17,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import tqdm
 from pony.orm import db_session
 
 from media_indexer.db.connection import DatabaseConnection
@@ -27,7 +26,7 @@ from media_indexer.db.hash_util import calculate_file_hash, get_file_size
 from media_indexer.db.image import Image
 from media_indexer.db.object import Object
 from media_indexer.db.pose import Pose
-from media_indexer.utils.progress import create_progress_bar_with_global_speed
+from media_indexer.processor.progress import create_rich_progress_bar
 
 logger = logging.getLogger(__name__)
 
@@ -227,13 +226,28 @@ def import_sidecars_to_database(
             logger.info("REQ-032: No sidecar files found to import")
             return
 
-        # REQ-012: Progress tracking with TQDM and global speed
-        progress_bar = create_progress_bar_with_global_speed(
-            total=len(image_files),
-            desc="Importing sidecars",
-            unit="file",
-            verbose=verbose,
-        )
+        # REQ-012: Progress tracking with Rich for multi-line display
+        use_rich = verbose >= 15
+        if use_rich:
+            progress = create_rich_progress_bar(
+                total=len(image_files),
+                desc="Importing sidecars",
+                unit="file",
+                verbose=verbose,
+                show_detections=False,
+            )
+            task_id = progress.add_task(
+                "Importing sidecars",
+                total=len(image_files),
+                current_file="",
+                avg_speed="0.0 file/s",
+            )
+            progress.start()
+            progress_bar = None
+        else:
+            progress = None
+            task_id = None
+            progress_bar = None
 
         # REQ-020: Process with parallel workers
         processed = 0
@@ -255,8 +269,23 @@ def import_sidecars_to_database(
                         processed += items_processed
                     else:
                         errors += 1
-                    if progress_bar:
-                        progress_bar.update(1)
+                    if use_rich and progress:
+                        elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
+                        progress._processed_count += 1  # type: ignore[attr-defined]
+                        if elapsed > 0:
+                            avg_speed = progress._processed_count / elapsed  # type: ignore[attr-defined]
+                            avg_str = f"{avg_speed:.1f} file/s"
+                        else:
+                            avg_str = "0.0 file/s"
+                        img_name = image_file.name
+                        if len(img_name) > 50:
+                            img_name = "..." + img_name[-47:]
+                        progress.update(
+                            task_id,
+                            advance=1,
+                            current_file=f"📁 {img_name}",
+                            avg_speed=avg_str,
+                        )
             else:
                 # REQ-020: Parallel processing with thread pool
                 executor = ThreadPoolExecutor(max_workers=workers)
@@ -295,8 +324,23 @@ def import_sidecars_to_database(
                             errors += 1
                             logger.error(f"REQ-032: Unexpected error processing {image_file}: {e}")
                         finally:
-                            if progress_bar:
-                                progress_bar.update(1)
+                            if use_rich and progress:
+                                elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
+                                progress._processed_count += 1  # type: ignore[attr-defined]
+                                if elapsed > 0:
+                                    avg_speed = progress._processed_count / elapsed  # type: ignore[attr-defined]
+                                    avg_str = f"{avg_speed:.1f} file/s"
+                                else:
+                                    avg_str = "0.0 file/s"
+                                img_name = image_file.name
+                                if len(img_name) > 50:
+                                    img_name = "..." + img_name[-47:]
+                                progress.update(
+                                    task_id,
+                                    advance=1,
+                                    current_file=f"📁 {img_name}",
+                                    avg_speed=avg_str,
+                                )
                 finally:
                     # REQ-015: Shutdown executor quickly when interrupted
                     if executor:
@@ -313,7 +357,9 @@ def import_sidecars_to_database(
             if executor:
                 executor.shutdown(wait=False, cancel_futures=True)
         finally:
-            if progress_bar:
+            if use_rich and progress:
+                progress.stop()
+            elif progress_bar:
                 progress_bar.close()
             # REQ-015: Restore original signal handler
             signal.signal(signal.SIGINT, original_handler)
@@ -476,13 +522,28 @@ def export_database_to_sidecars(
             logger.info("REQ-033: No images found in database to export")
             return
 
-        # REQ-012: Progress tracking with TQDM and global speed
-        progress_bar = create_progress_bar_with_global_speed(
-            total=len(image_paths),
-            desc="Exporting sidecars",
-            unit="file",
-            verbose=verbose,
-        )
+        # REQ-012: Progress tracking with Rich for multi-line display
+        use_rich = verbose >= 15
+        if use_rich:
+            progress = create_rich_progress_bar(
+                total=len(image_paths),
+                desc="Exporting sidecars",
+                unit="file",
+                verbose=verbose,
+                show_detections=False,
+            )
+            task_id = progress.add_task(
+                "Exporting sidecars",
+                total=len(image_paths),
+                current_file="",
+                avg_speed="0.0 file/s",
+            )
+            progress.start()
+            progress_bar = None
+        else:
+            progress = None
+            task_id = None
+            progress_bar = None
 
         # REQ-020: Process with parallel workers
         processed = 0
@@ -504,8 +565,23 @@ def export_database_to_sidecars(
                         processed += items_processed
                     else:
                         errors += 1
-                    if progress_bar:
-                        progress_bar.update(1)
+                    if use_rich and progress:
+                        elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
+                        progress._processed_count += 1  # type: ignore[attr-defined]
+                        if elapsed > 0:
+                            avg_speed = progress._processed_count / elapsed  # type: ignore[attr-defined]
+                            avg_str = f"{avg_speed:.1f} file/s"
+                        else:
+                            avg_str = "0.0 file/s"
+                        img_name = Path(image_path).name
+                        if len(img_name) > 50:
+                            img_name = "..." + img_name[-47:]
+                        progress.update(
+                            task_id,
+                            advance=1,
+                            current_file=f"📁 {img_name}",
+                            avg_speed=avg_str,
+                        )
             else:
                 # REQ-020: Parallel processing with thread pool
                 executor = ThreadPoolExecutor(max_workers=workers)
@@ -544,8 +620,23 @@ def export_database_to_sidecars(
                             errors += 1
                             logger.error(f"REQ-033: Unexpected error processing {image_path}: {e}")
                         finally:
-                            if progress_bar:
-                                progress_bar.update(1)
+                            if use_rich and progress:
+                                elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
+                                progress._processed_count += 1  # type: ignore[attr-defined]
+                                if elapsed > 0:
+                                    avg_speed = progress._processed_count / elapsed  # type: ignore[attr-defined]
+                                    avg_str = f"{avg_speed:.1f} file/s"
+                                else:
+                                    avg_str = "0.0 file/s"
+                                img_name = Path(image_path).name
+                                if len(img_name) > 50:
+                                    img_name = "..." + img_name[-47:]
+                                progress.update(
+                                    task_id,
+                                    advance=1,
+                                    current_file=f"📁 {img_name}",
+                                    avg_speed=avg_str,
+                                )
                 finally:
                     # REQ-015: Shutdown executor quickly when interrupted
                     if executor:
@@ -562,7 +653,9 @@ def export_database_to_sidecars(
             if executor:
                 executor.shutdown(wait=False, cancel_futures=True)
         finally:
-            if progress_bar:
+            if use_rich and progress:
+                progress.stop()
+            elif progress_bar:
                 progress_bar.close()
             # REQ-015: Restore original signal handler
             signal.signal(signal.SIGINT, original_handler)
