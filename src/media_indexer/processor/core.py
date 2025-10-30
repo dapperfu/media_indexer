@@ -134,9 +134,11 @@ class ImageProcessor:
             self.force,
         )
 
+        # REQ-086: Propagate disable_sidecar flag to downstream components
         # Initialize image processor component
         self.image_processor = ImageProcessorComponent(
             None,  # Will be set after initialization
+            None,
             None,
             None,
             None,
