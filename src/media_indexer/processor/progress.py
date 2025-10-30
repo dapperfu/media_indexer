@@ -103,6 +103,67 @@ class DetectionsColumn(ProgressColumn):
         return Text("")
 
 
+class SpeedColumn(ProgressColumn):
+    """
+    Custom column to display instantaneous speed safely.
+
+    REQ-012: Shows instantaneous processing speed in progress bar.
+    REQ-015: Handles None values to prevent format errors.
+    """
+
+    def __init__(self, unit: str = "item") -> None:
+        """
+        Initialize speed column.
+
+        Args:
+            unit: Unit label for items (e.g., "file", "img").
+        """
+        super().__init__()
+        self.unit = unit
+
+    def render(self, task: Any) -> Text:
+        """
+        Render instantaneous speed safely.
+
+        Args:
+            task: Progress task.
+
+        Returns:
+            Formatted text for speed.
+        """
+        speed = getattr(task, "speed", None)
+        if speed is not None:
+            return Text(
+                f"[progress.speed]{speed:>8.1f}[/progress.speed]",
+                style="progress.speed",
+            )
+        return Text("[progress.speed]       0.0[/progress.speed]", style="progress.speed")
+
+
+class PercentageColumn(ProgressColumn):
+    """
+    Custom column to display percentage safely.
+
+    REQ-012: Shows percentage complete in progress bar.
+    REQ-015: Handles None values to prevent format errors.
+    """
+
+    def render(self, task: Any) -> Text:
+        """
+        Render percentage safely.
+
+        Args:
+            task: Progress task.
+
+        Returns:
+            Formatted text for percentage.
+        """
+        percentage = getattr(task, "percentage", None)
+        if percentage is not None:
+            return Text(f"{percentage:>3.0f}%")
+        return Text("  0%")
+
+
 def create_rich_progress_bar(
     total: int,
     desc: str,
@@ -130,19 +191,19 @@ def create_rich_progress_bar(
         return None
 
     # REQ-012: Create Rich progress bar with custom columns
-    # Use custom columns to safely handle None values
+    # REQ-015: Use custom columns to safely handle None values for speed and percentage
     if show_detections:
         columns = [
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            PercentageColumn(),
             TextColumn("{task.completed}/{task.total}"),
             TextColumn(f"{unit}"),
             TimeElapsedColumn(),
             TextColumn("<"),
             TimeRemainingColumn(),
             TextColumn("•"),
-            TextColumn("[progress.speed]{task.speed:>8.1f}", style="progress.speed"),
+            SpeedColumn(unit=unit),
             TextColumn(f"{unit}/s"),
             TextColumn("•"),
             AvgSpeedColumn(unit=unit),
@@ -153,14 +214,14 @@ def create_rich_progress_bar(
         columns = [
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            PercentageColumn(),
             TextColumn("{task.completed}/{task.total}"),
             TextColumn(f"{unit}"),
             TimeElapsedColumn(),
             TextColumn("<"),
             TimeRemainingColumn(),
             TextColumn("•"),
-            TextColumn("[progress.speed]{task.speed:>8.1f}", style="progress.speed"),
+            SpeedColumn(unit=unit),
             TextColumn(f"{unit}/s"),
             TextColumn("•"),
             AvgSpeedColumn(unit=unit),

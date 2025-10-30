@@ -26,7 +26,6 @@ from media_indexer.raw_converter import cleanup_temp_files
 from media_indexer.sidecar_generator import SidecarGenerator, get_sidecar_generator
 from media_indexer.utils.cancellation import CancellationManager
 from media_indexer.utils.file_utils import get_image_extensions
-from media_indexer.utils.progress import create_progress_bar_with_global_speed
 from media_indexer.utils.sidecar_utils import read_sidecar_metadata
 
 from media_indexer.processor.analysis_scanner import AnalysisScanner
@@ -308,12 +307,28 @@ class ImageProcessor:
             # REQ-025: Use database batch query if database is available
             if self.database_connection:
                 logger.info("REQ-013: Querying database for existing analyses...")
-                progress_bar = create_progress_bar_with_global_speed(
-                    total=len(images),
-                    desc="Querying database",
-                    unit="file",
-                    verbose=self.verbose,
-                )
+                # REQ-012: Use Rich progress bar for multi-line display
+                use_rich_query = self.verbose >= 17
+                if use_rich_query:
+                    progress_query = create_rich_progress_bar(
+                        total=len(images),
+                        desc="Querying database",
+                        unit="file",
+                        verbose=self.verbose,
+                        show_detections=False,
+                    )
+                    task_id_query = progress_query.add_task(
+                        "Querying database",
+                        total=len(images),
+                        current_file="",
+                        avg_speed="0.0 file/s",
+                    )
+                    progress_query.start()
+                    progress_bar_query = None
+                else:
+                    progress_query = None
+                    task_id_query = None
+                    progress_bar_query = None
 
                 try:
                     # Query database in batch
@@ -351,8 +366,23 @@ class ImageProcessor:
                                             f"REQ-040: Skipping {image_path} - RAW conversion failed previously (use --force to retry)"
                                         )
                                         skipped_count += 1
-                                        if progress_bar:
-                                            progress_bar.update(1)
+                                        if use_rich_query and progress_query:
+                                            elapsed = time.time() - progress_query._start_time  # type: ignore[attr-defined]
+                                            progress_query._processed_count += 1  # type: ignore[attr-defined]
+                                            if elapsed > 0:
+                                                avg_speed = progress_query._processed_count / elapsed  # type: ignore[attr-defined]
+                                                avg_str = f"{avg_speed:.1f} file/s"
+                                            else:
+                                                avg_str = "0.0 file/s"
+                                            img_name = image_path.name
+                                            if len(img_name) > 50:
+                                                img_name = "..." + img_name[-47:]
+                                            progress_query.update(
+                                                task_id_query,
+                                                advance=1,
+                                                current_file=f"📁 {img_name}",
+                                                avg_speed=avg_str,
+                                            )
                                         continue
 
                                     # Add analyses from sidecar (union with database)
@@ -376,21 +406,54 @@ class ImageProcessor:
                         else:
                             skipped_count += 1
 
-                        if progress_bar:
-                            progress_bar.update(1)
+                        if use_rich_query and progress_query:
+                            elapsed = time.time() - progress_query._start_time  # type: ignore[attr-defined]
+                            progress_query._processed_count += 1  # type: ignore[attr-defined]
+                            if elapsed > 0:
+                                avg_speed = progress_query._processed_count / elapsed  # type: ignore[attr-defined]
+                                avg_str = f"{avg_speed:.1f} file/s"
+                            else:
+                                avg_str = "0.0 file/s"
+                            img_name = image_path.name
+                            if len(img_name) > 50:
+                                img_name = "..." + img_name[-47:]
+                            progress_query.update(
+                                task_id_query,
+                                advance=1,
+                                current_file=f"📁 {img_name}",
+                                avg_speed=avg_str,
+                            )
                 finally:
-                    if progress_bar:
-                        progress_bar.close()
+                    if use_rich_query and progress_query:
+                        progress_query.stop()
+                    elif progress_bar_query:
+                        progress_bar_query.close()
             else:
                 # REQ-020: Parallel scanning with progress bar (file-based)
                 logger.info("REQ-013: Scanning sidecar files...")
                 scan_workers = min(self.scan_workers, len(images))
-                progress_bar = create_progress_bar_with_global_speed(
-                    total=len(images),
-                    desc="Scanning sidecars",
-                    unit="file",
-                    verbose=self.verbose,
-                )
+                # REQ-012: Use Rich progress bar for multi-line display
+                use_rich_scan = self.verbose >= 17
+                if use_rich_scan:
+                    progress_scan = create_rich_progress_bar(
+                        total=len(images),
+                        desc="Scanning sidecars",
+                        unit="file",
+                        verbose=self.verbose,
+                        show_detections=False,
+                    )
+                    task_id_scan = progress_scan.add_task(
+                        "Scanning sidecars",
+                        total=len(images),
+                        current_file="",
+                        avg_speed="0.0 file/s",
+                    )
+                    progress_scan.start()
+                    progress_bar_scan = None
+                else:
+                    progress_scan = None
+                    task_id_scan = None
+                    progress_bar_scan = None
 
                 try:
                     if scan_workers == 1:
@@ -408,8 +471,23 @@ class ImageProcessor:
                                 images_to_process.append((image_path, missing_analyses))
                             else:
                                 skipped_count += 1
-                            if progress_bar:
-                                progress_bar.update(1)
+                            if use_rich_scan and progress_scan:
+                                elapsed = time.time() - progress_scan._start_time  # type: ignore[attr-defined]
+                                progress_scan._processed_count += 1  # type: ignore[attr-defined]
+                                if elapsed > 0:
+                                    avg_speed = progress_scan._processed_count / elapsed  # type: ignore[attr-defined]
+                                    avg_str = f"{avg_speed:.1f} file/s"
+                                else:
+                                    avg_str = "0.0 file/s"
+                                img_name = image_path.name
+                                if len(img_name) > 50:
+                                    img_name = "..." + img_name[-47:]
+                                progress_scan.update(
+                                    task_id_scan,
+                                    advance=1,
+                                    current_file=f"📁 {img_name}",
+                                    avg_speed=avg_str,
+                                )
                     else:
                         # REQ-020: Parallel scanning with thread pool
                         executor: ThreadPoolExecutor | None = None
@@ -451,8 +529,23 @@ class ImageProcessor:
                                         (image_path, self._get_required_analyses())
                                     )
                                 finally:
-                                    if progress_bar:
-                                        progress_bar.update(1)
+                                    if use_rich_scan and progress_scan:
+                                        elapsed = time.time() - progress_scan._start_time  # type: ignore[attr-defined]
+                                        progress_scan._processed_count += 1  # type: ignore[attr-defined]
+                                        if elapsed > 0:
+                                            avg_speed = progress_scan._processed_count / elapsed  # type: ignore[attr-defined]
+                                            avg_str = f"{avg_speed:.1f} file/s"
+                                        else:
+                                            avg_str = "0.0 file/s"
+                                        img_name = image_path.name
+                                        if len(img_name) > 50:
+                                            img_name = "..." + img_name[-47:]
+                                        progress_scan.update(
+                                            task_id_scan,
+                                            advance=1,
+                                            current_file=f"📁 {img_name}",
+                                            avg_speed=avg_str,
+                                        )
                         finally:
                             if executor:
                                 if cancellation_manager.is_cancelled():
@@ -463,8 +556,10 @@ class ImageProcessor:
                     logger.warning("REQ-015: Processing interrupted by user")
                     cancellation_manager.cancel()
                 finally:
-                    if progress_bar:
-                        progress_bar.close()
+                    if use_rich_scan and progress_scan:
+                        progress_scan.stop()
+                    elif progress_bar_scan:
+                        progress_bar_scan.close()
 
             self.stats_tracker.set("skipped_images", skipped_count)
 
@@ -508,7 +603,8 @@ class ImageProcessor:
                 return ", ".join(parts) if parts else "no detections"
 
             # REQ-012: Progress tracking with Rich for multi-line detection info
-            use_rich = self.verbose >= 15
+            # REQ-016: Use Rich when verbose >= 17 to match CLI tqdm disable threshold
+            use_rich = self.verbose >= 17
             if use_rich:
                 progress = create_rich_progress_bar(
                     total=len(images_to_process),
@@ -527,13 +623,9 @@ class ImageProcessor:
                 )
                 progress.start()
             else:
+                # No progress bar when verbose < 17 (tqdm is disabled, Rich not shown)
                 progress = None
-                progress_bar = create_progress_bar_with_global_speed(
-                    total=len(images_to_process),
-                    desc="Processing images",
-                    unit="img",
-                    verbose=self.verbose,
-                )
+                progress_bar = None
                 task_id = None
 
             # REQ-020: Process images in batches with threading for I/O
