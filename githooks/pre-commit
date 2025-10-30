@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# REQ-072: Enforce line count limit on staged files via git pre-commit hook.
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+line_limit=500
+declare -a blocked_files
+
+mapfile -t staged_files < <(git diff --cached --name-only --diff-filter=ACM)
+
+if [ "${#staged_files[@]}" -eq 0 ]; then
+  exit 0
+fi
+
+for file_path in "${staged_files[@]}"; do
+  if [ ! -f "$file_path" ]; then
+    continue
+  fi
+
+  numstat_entry=$(git diff --cached --numstat -- "$file_path" | head -n 1)
+
+  if [ -z "$numstat_entry" ]; then
+    continue
+  fi
+
+  IFS=$'\t' read -r added_lines removed_lines _ <<< "$numstat_entry"
+
+  if [ "$added_lines" = "-" ] || [ "$removed_lines" = "-" ]; then
+    continue
+  fi
+
+  current_lines=$(wc -l < "$file_path")
+
+  if [ "$current_lines" -gt "$line_limit" ]; then
+    blocked_files+=("${file_path} (${current_lines} lines)")
+  fi
+done
+
+if [ "${#blocked_files[@]}" -gt 0 ]; then
+  printf '\nCommit blocked by REQ-072: files exceed %s lines.\n' "$line_limit"
+  for blocked in "${blocked_files[@]}"; do
+    printf '  %s\n' "$blocked"
+  done
+  printf '\nPlease refactor these files below the enforced limit before committing.\n' >&2
+  exit 1
+fi
+
+exit 0
+

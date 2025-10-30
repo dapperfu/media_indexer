@@ -342,3 +342,23 @@ UID: REQ-067
 STATEMENT: Database management operations SHALL be organized under a 'db' command group with subcommands: 'stats' (display database statistics), 'init' (initialize database), 'search' (search for images), and 'clean' (remove orphaned records). The CLI syntax SHALL be 'media-indexer db <subcommand>'.
 COMMENT: Organizing database operations under a command group provides clear separation and intuitive CLI structure. This requirement: (1) Organization - groups related database operations together; (2) Discoverability - users can explore database commands via 'db --help'; (3) Consistency - follows established CLI patterns (git, docker, kubectl); (4) Extensibility - new database operations can be added as subcommands; (5) User experience - clear command structure improves usability. The subcommands cover essential database operations: stats (monitoring), init (setup), search (querying), and clean (maintenance). This requirement demonstrates UX design thinking - organizing commands logically improves discoverability and usability.
 
+[REQUIREMENT]
+UID: REQ-069
+STATEMENT: Output suppression utilities SHALL provide context-managed redirection of both stdout and stderr so that verbosity controls (REQ-016) silence third-party libraries only within the intended scope without leaking file descriptors or mutating global handlers.
+COMMENT: Reliable suppression is essential for the CLI logging contract. If stdout/stderr are not redirected together, noisy native dependencies (OpenCV, ONNX Runtime) can still spam the console, undermining REQ-016. Proper use of context managers eliminates global side effects, guarantees deterministic teardown even on exceptions, and prevents descriptor leaks that can exhaust process resources during long-running jobs.
+
+[REQUIREMENT]
+UID: REQ-070
+STATEMENT: Parallel execution helpers SHALL return structured result records capturing the original work item, success flag, optional payload, and any raised exception to support robust error handling (REQ-015) while preserving type safety.
+COMMENT: Returning bare tuples with sentinel ``None`` values obscures failures and defeats static typing (REQ-057). Structured results make it trivial to inspect and log failures, avoid loss of diagnostic context, and keep the parallel orchestration layer aligned with the project's strict typing guarantees. This design also future-proofs the executor for richer metadata (durations, retries) without breaking callers.
+
+[REQUIREMENT]
+UID: REQ-071
+STATEMENT: Model downloads SHALL stream payloads to a temporary file and atomically promote the completed file into place, ensuring resilient delivery of large model artifacts mandated by REQ-007, REQ-008, and REQ-009.
+COMMENT: ``urllib.request.urlretrieve`` buffers whole files in-memory and provides weak error handling, which risks partial downloads and corrupted weights. Streaming to a temporary file guarantees bounded memory usage, enables retry-friendly cleanup, and prevents exposing half-written models if a transfer fails. Atomic promotion ensures consumers either observe the previous good version or the newly downloaded file, never a torn write.
+
+[REQUIREMENT]
+UID: REQ-072
+STATEMENT: All version-controlled text files SHALL contain no more than 500 lines, and a git pre-commit hook SHALL block commits that stage files exceeding this limit.
+COMMENT: Limiting file length enforces modular design and maintainability by encouraging developers to decompose oversized modules before committing changes. The automated pre-commit guard provides immediate feedback, preventing regressions as the codebase evolves. This aligns with professional engineering practices by ensuring architectural discipline, simplifying code reviews, and avoiding technical debt that accrues when monolithic files accumulate unnoticed.
+
