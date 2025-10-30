@@ -4,11 +4,14 @@ Sidecar Converter Module
 REQ-032, REQ-033, REQ-034: Convert between sidecar and database formats.
 REQ-010: All code components directly linked to requirements.
 REQ-020: Parallel processing with thread-based I/O operations.
+REQ-015: Handle user interruption gracefully with quick shutdown.
 """
 
 import json
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import signal
+import threading
+from concurrent.futures import CancelledError, ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -26,6 +29,9 @@ from media_indexer.db.pose import Pose
 
 logger = logging.getLogger(__name__)
 
+# REQ-015: Global cancellation flag for quick shutdown
+_shutdown_flag = threading.Event()
+
 
 def _import_single_sidecar(
     image_file: Path,
@@ -37,6 +43,7 @@ def _import_single_sidecar(
 
     REQ-032: Import a single sidecar file into database.
     REQ-020: Parallel processing support for sidecar import.
+    REQ-015: Check cancellation flag for quick shutdown.
 
     Args:
         image_file: Path to image file.
@@ -46,12 +53,19 @@ def _import_single_sidecar(
     Returns:
         Tuple of (success: bool, items_processed: int) where items_processed is 1 on success, 0 on skip/error.
     """
+    # REQ-015: Check for cancellation before processing
+    if _shutdown_flag.is_set():
+        return False, 0
+    
     sidecar_path = image_file.with_suffix('.json')
     
     if not sidecar_path.exists():
         return False, 0
     
     try:
+        # REQ-015: Check for cancellation again before expensive operations
+        if _shutdown_flag.is_set():
+            return False, 0
         # REQ-032: Read sidecar file
         logger.debug(f"REQ-032: Reading sidecar from {sidecar_path}")
         with open(sidecar_path) as f:
@@ -150,6 +164,20 @@ def _import_single_sidecar(
         return False, 0
 
 
+def _signal_handler(signum: int, frame: Any) -> None:
+    """
+    Signal handler for SIGINT (KeyboardInterrupt).
+
+    REQ-015: Set shutdown flag when user interrupts processing.
+
+    Args:
+        signum: Signal number.
+        frame: Current stack frame.
+    """
+    logger.warning("REQ-015: Processing interrupted by user")
+    _shutdown_flag.set()
+
+
 def import_sidecars_to_database(
     input_dir: Path,
     database_path: Path,
@@ -161,6 +189,7 @@ def import_sidecars_to_database(
 
     REQ-032: Import existing sidecar files into database.
     REQ-020: Parallel processing with thread-based I/O operations.
+    REQ-015: Handle user interruption gracefully with quick shutdown.
 
     Args:
         input_dir: Directory containing images and sidecar files.
@@ -168,6 +197,10 @@ def import_sidecars_to_database(
         verbose: Verbosity level.
         workers: Number of parallel workers for processing (default: 1).
     """
+    # REQ-015: Reset shutdown flag and register signal handler
+    _shutdown_flag.clear()
+    original_handler = signal.signal(signal.SIGINT, _signal_handler)
+    
     logger.info("REQ-032: Initializing database connection")
     db_conn = DatabaseConnection(database_path)
     db_conn.connect()
@@ -203,11 +236,16 @@ def import_sidecars_to_database(
         # REQ-020: Process with parallel workers
         processed = 0
         errors = 0
+        executor: ThreadPoolExecutor | None = None
 
         try:
             if workers == 1:
                 # Sequential processing for single worker
                 for image_file in image_files:
+                    # REQ-015: Check for cancellation
+                    if _shutdown_flag.is_set():
+                        logger.warning("REQ-015: Processing interrupted by user")
+                        break
                     success, items_processed = _import_single_sidecar(
                         image_file, database_path, verbose
                     )
@@ -219,7 +257,8 @@ def import_sidecars_to_database(
                         progress_bar.update(1)
             else:
                 # REQ-020: Parallel processing with thread pool
-                with ThreadPoolExecutor(max_workers=workers) as executor:
+                executor = ThreadPoolExecutor(max_workers=workers)
+                try:
                     futures = {
                         executor.submit(
                             _import_single_sidecar,
@@ -231,6 +270,15 @@ def import_sidecars_to_database(
                     }
 
                     for future in as_completed(futures):
+                        # REQ-015: Check for cancellation
+                        if _shutdown_flag.is_set():
+                            logger.warning("REQ-015: Processing interrupted by user")
+                            # Cancel remaining futures
+                            for f in futures:
+                                if not f.done():
+                                    f.cancel()
+                            break
+                        
                         image_file = futures[future]
                         try:
                             success, items_processed = future.result()
@@ -238,15 +286,35 @@ def import_sidecars_to_database(
                                 processed += items_processed
                             else:
                                 errors += 1
+                        except CancelledError:
+                            # REQ-015: Future was cancelled, skip
+                            errors += 1
                         except Exception as e:
                             errors += 1
                             logger.error(f"REQ-032: Unexpected error processing {image_file}: {e}")
                         finally:
                             if progress_bar:
                                 progress_bar.update(1)
+                finally:
+                    # REQ-015: Shutdown executor quickly when interrupted
+                    if executor:
+                        if _shutdown_flag.is_set():
+                            # Quick shutdown: cancel futures and don't wait
+                            executor.shutdown(wait=False, cancel_futures=True)
+                        else:
+                            # Normal shutdown: wait for completion
+                            executor.shutdown(wait=True)
+        except KeyboardInterrupt:
+            # REQ-015: Handle KeyboardInterrupt at loop level
+            logger.warning("REQ-015: Processing interrupted by user")
+            _shutdown_flag.set()
+            if executor:
+                executor.shutdown(wait=False, cancel_futures=True)
         finally:
             if progress_bar:
                 progress_bar.close()
+            # REQ-015: Restore original signal handler
+            signal.signal(signal.SIGINT, original_handler)
 
         logger.info(f"REQ-032: Import completed - {processed} imported, {errors} errors")
 
@@ -264,6 +332,7 @@ def _export_single_image(
 
     REQ-033: Export a single image from database to sidecar file.
     REQ-020: Parallel processing support for sidecar export.
+    REQ-015: Check cancellation flag for quick shutdown.
 
     Args:
         image_path: Path to image file (as string from database).
@@ -273,12 +342,19 @@ def _export_single_image(
     Returns:
         Tuple of (success: bool, items_processed: int) where items_processed is 1 on success, 0 on error.
     """
+    # REQ-015: Check for cancellation before processing
+    if _shutdown_flag.is_set():
+        return False, 0
+    
     from pony.orm import db_session
 
     from media_indexer.db.image import Image
     from media_indexer.sidecar_generator import get_sidecar_generator
 
     try:
+        # REQ-015: Check for cancellation again before expensive operations
+        if _shutdown_flag.is_set():
+            return False, 0
         sidecar_generator = get_sidecar_generator()
 
         # REQ-033: Fetch image data in its own db_session
@@ -361,6 +437,7 @@ def export_database_to_sidecars(
     REQ-033: Export database contents to individual sidecar JSON files.
     Sidecar files are created next to the image files.
     REQ-020: Parallel processing with thread-based I/O operations.
+    REQ-015: Handle user interruption gracefully with quick shutdown.
 
     Args:
         database_path: Path to SQLite database.
@@ -372,6 +449,10 @@ def export_database_to_sidecars(
 
     from media_indexer.db.connection import DatabaseConnection
     from media_indexer.db.image import Image
+
+    # REQ-015: Reset shutdown flag and register signal handler
+    _shutdown_flag.clear()
+    original_handler = signal.signal(signal.SIGINT, _signal_handler)
 
     logger.info("REQ-033: Initializing database connection")
     db_conn = DatabaseConnection(database_path)
@@ -404,11 +485,16 @@ def export_database_to_sidecars(
         # REQ-020: Process with parallel workers
         processed = 0
         errors = 0
+        executor: ThreadPoolExecutor | None = None
 
         try:
             if workers == 1:
                 # Sequential processing for single worker
                 for image_path in image_paths:
+                    # REQ-015: Check for cancellation
+                    if _shutdown_flag.is_set():
+                        logger.warning("REQ-015: Processing interrupted by user")
+                        break
                     success, items_processed = _export_single_image(
                         image_path, database_path, verbose
                     )
@@ -420,7 +506,8 @@ def export_database_to_sidecars(
                         progress_bar.update(1)
             else:
                 # REQ-020: Parallel processing with thread pool
-                with ThreadPoolExecutor(max_workers=workers) as executor:
+                executor = ThreadPoolExecutor(max_workers=workers)
+                try:
                     futures = {
                         executor.submit(
                             _export_single_image,
@@ -432,6 +519,15 @@ def export_database_to_sidecars(
                     }
 
                     for future in as_completed(futures):
+                        # REQ-015: Check for cancellation
+                        if _shutdown_flag.is_set():
+                            logger.warning("REQ-015: Processing interrupted by user")
+                            # Cancel remaining futures
+                            for f in futures:
+                                if not f.done():
+                                    f.cancel()
+                            break
+                        
                         image_path = futures[future]
                         try:
                             success, items_processed = future.result()
@@ -439,15 +535,35 @@ def export_database_to_sidecars(
                                 processed += items_processed
                             else:
                                 errors += 1
+                        except CancelledError:
+                            # REQ-015: Future was cancelled, skip
+                            errors += 1
                         except Exception as e:
                             errors += 1
                             logger.error(f"REQ-033: Unexpected error processing {image_path}: {e}")
                         finally:
                             if progress_bar:
                                 progress_bar.update(1)
+                finally:
+                    # REQ-015: Shutdown executor quickly when interrupted
+                    if executor:
+                        if _shutdown_flag.is_set():
+                            # Quick shutdown: cancel futures and don't wait
+                            executor.shutdown(wait=False, cancel_futures=True)
+                        else:
+                            # Normal shutdown: wait for completion
+                            executor.shutdown(wait=True)
+        except KeyboardInterrupt:
+            # REQ-015: Handle KeyboardInterrupt at loop level
+            logger.warning("REQ-015: Processing interrupted by user")
+            _shutdown_flag.set()
+            if executor:
+                executor.shutdown(wait=False, cancel_futures=True)
         finally:
             if progress_bar:
                 progress_bar.close()
+            # REQ-015: Restore original signal handler
+            signal.signal(signal.SIGINT, original_handler)
 
         logger.info(f"REQ-033: Export completed - {processed} exported, {errors} errors")
 
