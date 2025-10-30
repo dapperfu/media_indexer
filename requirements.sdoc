@@ -68,7 +68,7 @@ STATEMENT: The tool shall implement robust error handling to gracefully handle c
 
 [REQUIREMENT]
 UID: REQ-016
-STATEMENT: The tool shall implement multi-level verbosity logging with support for verbose flags (-v through -vvvv): -vvvv for DEBUG level (10), -vvv for TRACE level with TQDM progress bars (12), -vv for VERBOSE level with detailed processing info (15), -v for DETAILED file-by-file processing (17), and default INFO level (20). Structured logging shall be configured with file destination options.
+STATEMENT: The tool shall implement multi-level verbosity logging with support for verbose flags (-v through -vvvv): -vvvvv for DEBUG level (10), -vvvv for TRACE level with TQDM progress bars (12), -vvv for VERBOSE level with detailed processing info (15), -vv for DETAILED file-by-file processing (17), -v for INFO level (20), and default WARNING level (30) showing only warnings and errors. Structured logging shall be configured with file destination options.
 
 [REQUIREMENT]
 UID: REQ-017
