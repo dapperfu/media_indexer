@@ -2,7 +2,7 @@
 MID: REQ-DOC-PIPE
 TITLE: Processing Pipeline Requirements
 
-[SECTION]
+[[SECTION]]
 TITLE: Core Extraction Capabilities
 
 [REQUIREMENT]
@@ -50,7 +50,9 @@ UID: REQ-081
 STATEMENT: Face attribute analysis SHALL enrich every detected face with age and emotion metadata, and the sidecar files and database entries SHALL preserve those attributes with 1:1 parity.
 COMMENT: Investors and downstream consumers expect demographic and affective search filters (e.g., “find smiling seniors”), which require structured age/emotion fields. Persisting attributes identically across sidecars and the SQLite index guarantees traceability (REQ-010), enables lossless convert/import operations (REQ-027, REQ-033), and prevents the data drift that occurs when one storage modality omits fields available in the other.
 
-[SECTION]
+[[/SECTION]]
+
+[[SECTION]]
 TITLE: Processing Reliability
 
 [REQUIREMENT]
@@ -78,7 +80,9 @@ UID: REQ-070
 STATEMENT: Parallel execution helpers SHALL return structured result records capturing the original work item, success flag, optional payload, and any raised exception to support robust error handling (REQ-015) while preserving type safety.
 COMMENT: Returning bare tuples with sentinel ``None`` values obscures failures and defeats static typing (REQ-057). Structured results make it trivial to inspect and log failures, avoid loss of diagnostic context, and keep the parallel orchestration layer aligned with the project's strict typing guarantees. This design also future-proofs the executor for richer metadata (durations, retries) without breaking callers.
 
-[SECTION]
+[[/SECTION]]
+
+[[SECTION]]
 TITLE: Performance and Model Management
 
 [REQUIREMENT]
@@ -100,4 +104,6 @@ COMMENT: Professional photographers often work with RAW formats that contain mor
 UID: REQ-071
 STATEMENT: Model downloads SHALL stream payloads to a temporary file and atomically promote the completed file into place, ensuring resilient delivery of large model artifacts mandated by REQ-007, REQ-008, and REQ-009.
 COMMENT: ``urllib.request.urlretrieve`` buffers whole files in-memory and provides weak error handling, which risks partial downloads and corrupted weights. Streaming to a temporary file guarantees bounded memory usage, enables retry-friendly cleanup, and prevents exposing half-written models if a transfer fails. Atomic promotion ensures consumers either observe the previous good version or the newly downloaded file, never a torn write.
+
+[[/SECTION]]
 

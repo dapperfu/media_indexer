@@ -115,8 +115,13 @@ class FaceAttributeAnalyzer:
                 enriched_faces.append(self._attach_error(detection, "empty_crop"))
                 continue
 
+            prepared = self._prepare_face_crop(crop)
+            if prepared is None:
+                enriched_faces.append(self._attach_error(detection, "crop_prep_failed"))
+                continue
+
             try:
-                result = self._run_deepface(crop)
+                result = self._run_deepface(prepared)
                 enriched_faces.append(self._apply_attributes(detection, result))
             except Exception as exc:  # noqa: BLE001
                 logger.debug("REQ-081: DeepFace analysis failed: %s", exc)
@@ -151,6 +156,18 @@ class FaceAttributeAnalyzer:
             emotion_scores=emotion_scores,
             source=AttributeSource.DEEPFACE,
         )
+
+    @staticmethod
+    def _prepare_face_crop(crop: np.ndarray) -> np.ndarray | None:
+        """Resize the cropped face to DeepFace's expected dimensions."""
+
+        if crop.ndim != 3 or crop.shape[2] != 3:
+            return None
+
+        import cv2
+
+        resized = cv2.resize(crop, (224, 224), interpolation=cv2.INTER_AREA)
+        return np.ascontiguousarray(resized)
 
     @staticmethod
     def _apply_attributes(detection: dict[str, Any], result: FaceAttributeResult) -> dict[str, Any]:

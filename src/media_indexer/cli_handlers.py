@@ -106,6 +106,7 @@ def process_analyze(args: argparse.Namespace, verbose: int) -> int:
                 limit=args.limit,
                 force=getattr(args, "force", False),
                 scan_workers=getattr(args, "workers", 8),
+                enable_face_attributes=not getattr(args, "no_face_attributes", False),
             )
 
             stats = processor.process()
@@ -154,6 +155,27 @@ def process_db(args: argparse.Namespace, verbose: int) -> int:
             return 0
         except Exception as exc:  # noqa: BLE001
             logging.error("REQ-067: Database initialization failed: %s", exc)
+            return 1
+
+    if db_command == "migrate":
+        if not args.db.exists():
+            logging.error("REQ-067: Database does not exist: %s", args.db)
+            return 1
+        try:
+            import sqlite3
+
+            from media_indexer.db.migrations import run_migrations
+
+            logging.info("REQ-067: Running migrations on database at %s", args.db)
+            conn = sqlite3.connect(str(args.db))
+            try:
+                run_migrations(conn)
+                logging.info("REQ-067: Migrations completed successfully")
+                return 0
+            finally:
+                conn.close()
+        except Exception as exc:  # noqa: BLE001
+            logging.error("REQ-067: Migration failed: %s", exc)
             return 1
 
     if not args.db.exists():

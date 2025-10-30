@@ -57,6 +57,7 @@ def _export_single_image(
                         "bbox": face.bbox,
                         "embedding": face.embedding,
                         "model": face.model,
+                        "attributes": face.attributes,
                     }
                 )
 

@@ -2,7 +2,7 @@
 MID: REQ-DOC-CLI
 TITLE: CLI and Observability Requirements
 
-[SECTION]
+[[SECTION]]
 TITLE: Progress Visibility and Logging
 
 [REQUIREMENT]
@@ -30,7 +30,9 @@ UID: REQ-077
 STATEMENT: Object detection summaries in the live progress display shall include representative emoji icons for the leading detected classes so operators can identify key categories without reading verbose text.
 COMMENT: Dense textual summaries slow situational awareness when thousands of images are processed. Mapping detected object classes to familiar emoji condenses the same information into a scannable glyph-based line, allowing users to recognise patterns (“⚽ sports ball”, “🚗 car”) instantly. This mirrors dashboard best practices where iconography communicates state faster than prose while keeping console output compact for long-running jobs.
 
-[SECTION]
+[[/SECTION]]
+
+[[SECTION]]
 TITLE: Configuration Management
 
 [REQUIREMENT]
@@ -48,7 +50,9 @@ UID: REQ-038
 STATEMENT: All imports in the CLI module shall be lazy-loaded (imported only when the specific command is executed) to minimize startup time for the media-indexer command. Imports of heavy dependencies (torch, ultralytics, image-sidecar-rust) shall not occur until the command actually needs them.
 COMMENT: CLI startup time directly impacts user experience and perceived performance. Lazy loading provides: (1) Fast startup - CLI commands appear instantly, even when heavy dependencies aren't needed; (2) Better UX - users can run help commands without waiting for GPU libraries to load; (3) Resource efficiency - heavy dependencies (PyTorch, CUDA) only load when actually needed; (4) Error handling - dependency errors surface only when relevant commands are executed; (5) Development experience - faster iteration cycles during CLI development. The explicit mention of heavy dependencies (torch, ultralytics, image-sidecar-rust) identifies the specific performance bottlenecks being addressed. This requirement demonstrates attention to user experience details - fast startup times are often overlooked but significantly impact perceived quality.
 
-[SECTION]
+[[/SECTION]]
+
+[[SECTION]]
 TITLE: CLI Structure and Controls
 
 [REQUIREMENT]
@@ -85,4 +89,6 @@ COMMENT: Testing and validation on large-scale systems requires the ability to o
 UID: REQ-078
 STATEMENT: The CLI subcommands (extract, annotate, analyze, convert) shall accept multiple input directories or files as positional arguments, enabling batch processing of multiple directories in a single command invocation.
 COMMENT: Users often organize images across multiple directories (e.g., by year, event, or source). Processing multiple directories in a single command provides: (1) Operational efficiency - users can process entire collections without running separate commands for each directory; (2) Consistency - all directories are processed with identical parameters, ensuring uniform processing; (3) Workflow simplification - eliminates the need for shell loops or wrapper scripts; (4) Progress visibility - single command provides unified progress tracking across all directories; (5) Error handling - unified error reporting across all directories simplifies troubleshooting. The requirement supports both directory paths and individual file paths, accommodating flexible usage patterns. Shell glob expansion (e.g., /path/to/202*/) naturally provides multiple directories, making this feature essential for real-world usage scenarios. This requirement demonstrates understanding of practical CLI design - recognizing that users need to process collections organized across multiple directories efficiently.
+
+[[/SECTION]]
 

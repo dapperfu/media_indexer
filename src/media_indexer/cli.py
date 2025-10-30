@@ -18,10 +18,6 @@ from media_indexer.cli_handlers import (
     process_db,
     process_extract,
 )
-from media_indexer.utils.suppression import setup_suppression
-
-# REQ-016: Suppress ONNX Runtime and OpenCV verbose output
-setup_suppression()
 
 
 def setup_logging(verbose: int) -> None:
@@ -232,6 +228,11 @@ def parse_args() -> argparse.Namespace:
         default=8,
         help="Number of parallel workers for sidecar scanning (default: 8) (REQ-020)",
     )
+    annotate_parser.add_argument(
+        "--no-face-attributes",
+        action="store_true",
+        help="Disable DeepFace age and emotion analysis (enabled by default) (REQ-081)",
+    )
 
     # Duplicate all arguments for analyze subcommand (same as extract)
     analyze_parser.add_argument(
@@ -278,6 +279,11 @@ def parse_args() -> argparse.Namespace:
         default=8,
         help="Number of parallel workers for sidecar scanning (default: 8) (REQ-020)",
     )
+    analyze_parser.add_argument(
+        "--no-face-attributes",
+        action="store_true",
+        help="Disable DeepFace age and emotion analysis (enabled by default) (REQ-081)",
+    )
 
     # REQ-067: Database management subcommand group
     db_parser = subparsers.add_parser(
@@ -299,6 +305,9 @@ def parse_args() -> argparse.Namespace:
 
     # REQ-067: 'db init' subcommand
     db_subparsers.add_parser("init", help="Initialize database with required tables")
+
+    # REQ-067: 'db migrate' subcommand
+    db_subparsers.add_parser("migrate", help="Run database migrations to update schema")
 
     # REQ-067: 'db search' subcommand
     search_parser = db_subparsers.add_parser("search", help="Search for images")
@@ -361,6 +370,7 @@ def main() -> None:
     Main entry point for CLI.
 
     REQ-002, REQ-016, REQ-029: Handle subcommands with specified verbosity.
+    REQ-038: Lazy loading for optimal startup performance.
     """
     args = parse_args()
 
@@ -378,6 +388,13 @@ def main() -> None:
 
     # REQ-016: Setup logging
     setup_logging(verbose)
+
+    # REQ-016, REQ-038: Suppress ONNX Runtime and OpenCV verbose output only when needed
+    # (lazy load to avoid importing cv2 at startup for commands that don't need it)
+    if args.command in ["extract", "annotate", "analyze"]:
+        from media_indexer.utils.suppression import setup_suppression
+
+        setup_suppression()
 
     # REQ-029: Route to appropriate subcommand handler
     if args.command == "extract":

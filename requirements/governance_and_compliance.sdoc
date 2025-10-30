@@ -2,7 +2,7 @@
 MID: REQ-DOC-GOV
 TITLE: Governance and Compliance Requirements
 
-[SECTION]
+[[SECTION]]
 TITLE: Documentation Standards
 
 [REQUIREMENT]
@@ -38,7 +38,7 @@ COMMENT: Grammar compliance ensures that StrictDoc documents are valid and can b
 [REQUIREMENT]
 UID: REQ-042
 STATEMENT: All StrictDoc (.sdoc) documents SHALL not have C-style comments at the top of the file.
-COMMENT: C-style comments (/* */) are not part of the StrictDoc grammar and would cause parsing errors. This requirement ensures: (1) Grammar compliance - documents follow StrictDoc syntax rules without mixing comment styles; (2) Tool compatibility - StrictDoc parsers expect pure StrictDoc syntax without C-style comments; (3) Consistency - all documentation uses consistent comment syntax; (4) Parsing reliability - eliminates syntax ambiguity that could cause parsing failures; (5) Professional appearance - clean syntax without mixed comment styles presents a professional codebase. This requirement reflects understanding of language grammar constraints - mixing syntax styles breaks parsers and reduces tool compatibility.
+COMMENT: C-style comments (/\* \*/) are not part of the StrictDoc grammar and would cause parsing errors. This requirement ensures: (1) Grammar compliance - documents follow StrictDoc syntax rules without mixing comment styles; (2) Tool compatibility - StrictDoc parsers expect pure StrictDoc syntax without C-style comments; (3) Consistency - all documentation uses consistent comment syntax; (4) Parsing reliability - eliminates syntax ambiguity that could cause parsing failures; (5) Professional appearance - clean syntax without mixed comment styles presents a professional codebase. This requirement reflects understanding of language grammar constraints - mixing syntax styles breaks parsers and reduces tool compatibility.
 
 [REQUIREMENT]
 UID: REQ-043
@@ -50,7 +50,9 @@ UID: REQ-044
 STATEMENT: ALL notebooks must be generated programmatically from a .py script. The .py script shall have the same name as the .ipynb notebook and shall be the golden master for the notebook. If the notebooks need to be regenerated they are regenerated from the .py script.
 COMMENT: Notebooks (Jupyter/IPython) are difficult to version control due to JSON metadata and cell output. Using Python scripts as the source of truth provides: (1) Version control - Python scripts are clean, diff-friendly text files; (2) Reproducibility - scripts can be run to regenerate notebooks with identical results; (3) Code quality - Python scripts can be linted, type-checked, and tested like regular code; (4) Automation - notebooks can be regenerated automatically in CI/CD pipelines; (5) Collaboration - avoids merge conflicts from notebook JSON metadata. The "golden master" concept ensures scripts are the authoritative source, preventing divergence between scripts and notebooks. This requirement demonstrates understanding of data science workflow challenges and commitment to reproducible research practices.
 
-[SECTION]
+[[/SECTION]]
+
+[[SECTION]]
 TITLE: Traceability and Governance
 
 [REQUIREMENT]
@@ -68,7 +70,9 @@ UID: REQ-068
 STATEMENT: All StrictDoc (.sdoc) documents SHALL have the tool (Cursor.AI) and model (Claude) listed in any Git commit message involving a StrictDoc.
 COMMENT: Attribution and auditability are critical for compliance and traceability in professional software development. This requirement ensures: (1) Tool transparency - commits clearly indicate when AI-assisted tools were used; (2) Model tracking - enables tracking of which AI models contributed to documentation; (3) Audit trail - provides complete history of who/what modified documentation; (4) Compliance - supports requirements for documenting AI tool usage in some regulated industries; (5) Reproducibility - enables understanding of tool/model context for documentation changes. The explicit mention of "Cursor.AI" and "Claude" ensures specific attribution rather than generic "AI assistance" claims. This requirement demonstrates commitment to transparency and auditability - critical for enterprise customers and regulatory compliance.
 
-[SECTION]
+[[/SECTION]]
+
+[[SECTION]]
 TITLE: Quality Gates
 
 [REQUIREMENT]
@@ -80,4 +84,6 @@ COMMENT: Limiting file length enforces modular design and maintainability by enc
 UID: REQ-075
 STATEMENT: The codebase SHALL remain free of Ruff lint violations as enforced by the make lint target to maintain coding standards, performance best practices, and developer productivity.
 COMMENT: Continuous lint compliance prevents stylistic drift, catches common bugs early, and enforces performance-conscious patterns (e.g., avoiding expensive constructs in hot loops). Aligning with the unified Ruff rule set ensures engineers share a consistent baseline, enabling faster reviews and safer refactoring while sustaining the project’s quality bar for new contributors.
+
+[[/SECTION]]
 

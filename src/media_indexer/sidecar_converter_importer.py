@@ -89,6 +89,9 @@ def _import_single_sidecar(
                     embedding = face_data.get("embedding")
                     if embedding is not None:
                         face_kwargs["embedding"] = embedding
+                    attributes = face_data.get("attributes")
+                    if attributes is not None:
+                        face_kwargs["attributes"] = attributes
                     Face(**face_kwargs)
 
             if metadata.get("objects"):

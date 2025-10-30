@@ -44,6 +44,9 @@ class Image(db.Entity):
     # REQ-024: One-to-one relationships
     exif_data = Optional("EXIFData", cascade_delete=True)
 
+    # REQ-024: One-to-many relationship to relational EXIF tag values
+    exif_tag_values = Set("EXIFTagValue", cascade_delete=True)
+
     def __repr__(self) -> str:
         """Return string representation."""
         return f"Image(id={self.id}, path='{self.path}')"

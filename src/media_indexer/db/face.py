@@ -19,6 +19,7 @@ class Face(db.Entity):
     """Face detection database model.
 
     REQ-024: Store face detection results with relationship to Image.
+    REQ-081: Persist age and emotion attributes with sidecar parity.
     """
 
     # REQ-024: Foreign key to Image
@@ -29,6 +30,7 @@ class Face(db.Entity):
     bbox = Required(Json)  # Bounding box [x1, y1, x2, y2] normalized (0.0-1.0)
     embedding = Optional(Json)  # Face embedding vector
     model = Required(str, index=True)  # Detection model name
+    attributes = Optional(Json)  # REQ-081: Age/emotion attribute payload
 
     # Timestamp
     detected_at = Optional(float)  # Detection timestamp

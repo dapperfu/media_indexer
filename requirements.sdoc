@@ -2,43 +2,43 @@
 MID: REQ-DOC-INDEX
 TITLE: Media Indexer Requirements Catalog
 
-[SECTION]
+[[SECTION]]
 TITLE: Governance and Compliance
 
 [DOCUMENT_FROM_FILE]
 FILE: requirements/governance_and_compliance.sdoc
 
-[/SECTION]
+[[/SECTION]]
 
-[SECTION]
+[[SECTION]]
 TITLE: Engineering Workflow and Tooling
 
 [DOCUMENT_FROM_FILE]
 FILE: requirements/engineering_workflow_and_tooling.sdoc
 
-[/SECTION]
+[[/SECTION]]
 
-[SECTION]
+[[SECTION]]
 TITLE: Processing Pipeline
 
 [DOCUMENT_FROM_FILE]
 FILE: requirements/processing_pipeline.sdoc
 
-[/SECTION]
+[[/SECTION]]
 
-[SECTION]
+[[SECTION]]
 TITLE: Database and Storage
 
 [DOCUMENT_FROM_FILE]
 FILE: requirements/database_and_storage.sdoc
 
-[/SECTION]
+[[/SECTION]]
 
-[SECTION]
+[[SECTION]]
 TITLE: CLI and Observability
 
 [DOCUMENT_FROM_FILE]
 FILE: requirements/cli_and_observability.sdoc
 
-[/SECTION]
+[[/SECTION]]
 

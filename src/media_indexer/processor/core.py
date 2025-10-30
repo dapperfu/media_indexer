@@ -12,21 +12,25 @@ REQ-016: Multi-level verbosity logging.
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from media_indexer.db.connection import DatabaseConnection
-from media_indexer.exif_extractor import EXIFExtractor, get_exif_extractor
-from media_indexer.face_detector import FaceDetector, get_face_detector
-from media_indexer.gpu_validator import GPUValidator, get_gpu_validator
-from media_indexer.object_detector import ObjectDetector, get_object_detector
-from media_indexer.pose_detector import PoseDetector, get_pose_detector
 from media_indexer.processor.analysis_scanner import AnalysisScanner
 from media_indexer.processor.core_pipeline import run_processing
 from media_indexer.processor.image_processor import ImageProcessorComponent
 from media_indexer.processor.statistics import StatisticsTracker
-from media_indexer.sidecar_generator import SidecarGenerator, get_sidecar_generator
 from media_indexer.utils.cancellation import CancellationManager
 from media_indexer.utils.file_utils import get_image_extensions
+
+# REQ-038: Lazy loading for optimal startup performance
+# Only import type hints at module level, actual imports happen when needed
+if TYPE_CHECKING:
+    from media_indexer.exif_extractor import EXIFExtractor
+    from media_indexer.face_detector import FaceDetector
+    from media_indexer.gpu_validator import GPUValidator
+    from media_indexer.object_detector import ObjectDetector
+    from media_indexer.pose_detector import PoseDetector
+    from media_indexer.sidecar_generator import SidecarGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +80,10 @@ class ImageProcessor:
         Raises:
             RuntimeError: If no GPU is available (REQ-006).
         """
-        # REQ-006: Validate GPU availability
-        self.gpu_validator: GPUValidator = get_gpu_validator()
+        # REQ-006, REQ-038: Validate GPU availability (lazy load to avoid importing torch at startup)
+        from media_indexer.gpu_validator import get_gpu_validator
+
+        self.gpu_validator: Any = get_gpu_validator()
         self.device = self.gpu_validator.get_device()
 
         # REQ-002: Setup input directory
@@ -106,13 +112,14 @@ class ImageProcessor:
         # REQ-012: Statistics tracking
         self.stats_tracker = StatisticsTracker()
 
-        # REQ-002: Initialize components (will be initialized later)
-        self.exif_extractor: EXIFExtractor | None = None
-        self.face_detector: FaceDetector | None = None
+        # REQ-002, REQ-038: Initialize components (will be initialized later via lazy loading)
+        # Use Any for type hints to avoid importing heavy modules at startup
+        self.exif_extractor: Any | None = None
+        self.face_detector: Any | None = None
         self.face_attribute_analyzer: Any | None = None
-        self.object_detector: ObjectDetector | None = None
-        self.pose_detector: PoseDetector | None = None
-        self.sidecar_generator: SidecarGenerator | None = None
+        self.object_detector: Any | None = None
+        self.pose_detector: Any | None = None
+        self.sidecar_generator: Any | None = None
 
         # REQ-025: Initialize database if specified
         self.database_path: Path | None = database_path
@@ -176,18 +183,23 @@ class ImageProcessor:
         Initialize all processing components.
 
         REQ-002: Initialize EXIF, face, object, pose detectors and sidecar generator.
+        REQ-038: Lazy loading for optimal startup performance.
         """
         logger.info("REQ-002: Initializing components...")
 
-        # REQ-003: Initialize EXIF extractor
+        # REQ-003, REQ-038: Initialize EXIF extractor (lazy load)
         try:
+            from media_indexer.exif_extractor import get_exif_extractor
+
             self.exif_extractor = get_exif_extractor()
             logger.info("REQ-003: EXIF extractor initialized")
         except Exception as e:
             logger.warning(f"REQ-003: EXIF extractor not available: {e}")
 
-        # REQ-007: Initialize face detector
+        # REQ-007, REQ-038: Initialize face detector (lazy load to avoid importing torch/cv2 at startup)
         try:
+            from media_indexer.face_detector import get_face_detector
+
             self.face_detector = get_face_detector(self.device)
             logger.info("REQ-007: Face detector initialized")
         except Exception as e:
@@ -202,22 +214,28 @@ class ImageProcessor:
             except Exception as e:
                 logger.warning(f"REQ-081: Face attribute analyzer unavailable: {e}")
 
-        # REQ-008: Initialize object detector
+        # REQ-008, REQ-038: Initialize object detector (lazy load to avoid importing torch/ultralytics at startup)
         try:
+            from media_indexer.object_detector import get_object_detector
+
             self.object_detector = get_object_detector(self.device, "yolo12x.pt")
             logger.info("REQ-008: Object detector initialized")
         except Exception as e:
             logger.warning(f"REQ-008: Object detector not available: {e}")
 
-        # REQ-009: Initialize pose detector
+        # REQ-009, REQ-038: Initialize pose detector (lazy load to avoid importing torch/ultralytics at startup)
         try:
+            from media_indexer.pose_detector import get_pose_detector
+
             self.pose_detector = get_pose_detector(self.device, "yolo11x-pose.pt")
             logger.info("REQ-009: Pose detector initialized")
         except Exception as e:
             logger.warning(f"REQ-009: Pose detector not available: {e}")
 
-        # REQ-004: Initialize sidecar generator
+        # REQ-004, REQ-038: Initialize sidecar generator (lazy load)
         try:
+            from media_indexer.sidecar_generator import get_sidecar_generator
+
             self.sidecar_generator = get_sidecar_generator()
             logger.info("REQ-004: Sidecar generator initialized")
         except Exception as e:

@@ -18,10 +18,6 @@ import torch
 from media_indexer.raw_converter import get_raw_image_source, load_image_to_array
 from media_indexer.utils.image_utils import normalize_bbox
 from media_indexer.utils.model_utils import download_model_if_needed
-from media_indexer.utils.suppression import setup_suppression
-
-# REQ-016: Suppress ONNX Runtime and OpenCV verbose output
-setup_suppression()
 
 try:
     from ultralytics import YOLO
@@ -325,6 +321,7 @@ def get_face_detector(
     Factory function to get face detector instance.
 
     REQ-007: Factory function for face detection.
+    REQ-038: Lazy loading for optimal startup performance.
 
     Args:
         device: GPU device.
@@ -334,4 +331,9 @@ def get_face_detector(
     Returns:
         FaceDetector: Configured face detector.
     """
+    # REQ-016, REQ-038: Suppress ONNX Runtime and OpenCV verbose output only when needed
+    # (lazy load to avoid importing cv2 at startup)
+    from media_indexer.utils.suppression import setup_suppression
+
+    setup_suppression()
     return FaceDetector(device, model_path, model_path_v11)

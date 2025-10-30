@@ -5,11 +5,14 @@ REQ-024: Convert metadata between dict format and database entities.
 REQ-010: All code components directly linked to requirements.
 """
 
+import json
 import logging
 from datetime import datetime
 from typing import Any
 
 from media_indexer.db.exif import EXIFData
+from media_indexer.db.exif_tag import EXIFTag
+from media_indexer.db.exif_tag_value import EXIFTagValue
 from media_indexer.db.face import Face
 from media_indexer.db.hash_util import calculate_file_hash, get_file_size
 from media_indexer.db.image import Image
@@ -59,6 +62,10 @@ class MetadataConverter:
                 if embedding is not None:
                     face_kwargs["embedding"] = embedding
 
+                attributes = face_data.get("attributes")
+                if attributes is not None:
+                    face_kwargs["attributes"] = attributes
+
                 Face(**face_kwargs)
 
         # REQ-024: Store objects
@@ -89,12 +96,9 @@ class MetadataConverter:
 
                 Pose(**pose_kwargs)
 
-        # REQ-024: Store EXIF data
+        # REQ-024: Store EXIF data relationally
         if "exif" in metadata and metadata["exif"]:
-            EXIFData(
-                image=db_image,
-                data=metadata["exif"],
-            )
+            MetadataConverter._store_exif_relational(db_image, metadata["exif"])
 
         logger.debug(f"REQ-024: Stored metadata for {image_path}")
 
@@ -127,6 +131,7 @@ class MetadataConverter:
                     "bbox": face.bbox,
                     "embedding": face.embedding,
                     "model": face.model,
+                    "attributes": face.attributes,
                 }
             )
 
@@ -152,10 +157,8 @@ class MetadataConverter:
                 }
             )
 
-        # Add EXIF data
-        if db_image.exif_data:
-            exif = db_image.exif_data
-            metadata["exif"] = exif.data  # Extract from JSON blob
+        # Add EXIF data (convert from relational to dict)
+        metadata["exif"] = MetadataConverter._exif_relational_to_dict(db_image)
 
         return metadata
 
@@ -206,3 +209,164 @@ class MetadataConverter:
         )
 
         return db_image
+
+    @staticmethod
+    def _store_exif_relational(db_image: Image, exif_dict: dict[str, Any]) -> None:
+        """Store EXIF data in relational format.
+
+        REQ-024: Convert EXIF dictionary to relational database entities.
+
+        Parameters
+        ----------
+        db_image : Image
+            Database Image entity.
+        exif_dict : dict[str, Any]
+            EXIF data dictionary.
+        """
+        import time
+
+        # Extract group from nested dicts (common EXIF structure)
+        # fast-exif-rs-py returns flat dict, but we try to infer groups from common patterns
+        extracted_at = time.time()
+
+        for tag_name, tag_value in exif_dict.items():
+            if tag_value is None:
+                continue
+
+            # Infer group from tag name patterns
+            group = MetadataConverter._infer_exif_group(tag_name)
+
+            # Get or create tag
+            tag = EXIFTag.get_or_create(name=tag_name, group=group)
+
+            # Convert value to appropriate format
+            value_text = str(tag_value)
+            value_numeric: float | None = None
+            value_json: dict[str, Any] | None = None
+
+            # Try to extract numeric value
+            if isinstance(tag_value, (int, float)):
+                value_numeric = float(tag_value)
+            elif isinstance(tag_value, str):
+                # Try to parse as number
+                try:
+                    if "." in tag_value:
+                        value_numeric = float(tag_value)
+                    else:
+                        value_numeric = float(int(tag_value))
+                except (ValueError, TypeError):
+                    pass
+
+            # Store complex values (arrays, objects) as JSON
+            if isinstance(tag_value, (list, dict)):
+                value_json = tag_value
+                value_text = json.dumps(tag_value)
+
+            # Create tag value
+            EXIFTagValue(
+                image=db_image,
+                tag=tag,
+                value_text=value_text,
+                value_numeric=value_numeric,
+                value_json=value_json,
+                extracted_at=extracted_at,
+            )
+
+    @staticmethod
+    def _infer_exif_group(tag_name: str) -> str | None:
+        """Infer EXIF group from tag name.
+
+        Parameters
+        ----------
+        tag_name : str
+            EXIF tag name.
+
+        Returns
+        -------
+        str | None
+            Inferred group name or None.
+        """
+        tag_upper = tag_name.upper()
+
+        # GPS tags
+        if tag_upper.startswith("GPS") or "LATITUDE" in tag_upper or "LONGITUDE" in tag_upper:
+            return "GPS"
+
+        # Common IFD0 tags
+        ifd0_tags = [
+            "IMAGE",
+            "MAKE",
+            "MODEL",
+            "ORIENTATION",
+            "XRESOLUTION",
+            "YRESOLUTION",
+            "RESOLUTIONUNIT",
+            "SOFTWARE",
+            "DATETIME",
+            "ARTIST",
+            "COPYRIGHT",
+        ]
+        if any(tag in tag_upper for tag in ifd0_tags):
+            return "IFD0"
+
+        # Common EXIF sub-IFD tags
+        exif_tags = [
+            "EXPOSURE",
+            "FOCAL",
+            "APERTURE",
+            "ISO",
+            "SHUTTER",
+            "WHITEBALANCE",
+            "FLASH",
+            "METERING",
+            "FOCUS",
+        ]
+        if any(tag in tag_upper for tag in exif_tags):
+            return "EXIF"
+
+        # Interoperability
+        if "INTEROP" in tag_upper:
+            return "Interop"
+
+        return None
+
+    @staticmethod
+    def _exif_relational_to_dict(db_image: Image) -> dict[str, Any] | None:
+        """Convert relational EXIF data to dictionary.
+
+        REQ-024: Convert relational EXIF entities to dictionary format.
+
+        Parameters
+        ----------
+        db_image : Image
+            Database Image entity.
+
+        Returns
+        -------
+        dict[str, Any] | None
+            EXIF data dictionary or None if no EXIF data exists.
+        """
+        tag_values = EXIFTagValue.get_by_image(db_image)
+        if not tag_values:
+            return None
+
+        exif_dict: dict[str, Any] = {}
+        for tag_value in tag_values:
+            tag_name = tag_value.tag.name
+
+            # Prefer JSON for complex values, then numeric, then text
+            if tag_value.value_json is not None:
+                exif_dict[tag_name] = tag_value.value_json
+            elif tag_value.value_numeric is not None:
+                # Try to preserve integer if it was originally an integer
+                if isinstance(tag_value.value_numeric, float):
+                    if tag_value.value_numeric.is_integer():
+                        exif_dict[tag_name] = int(tag_value.value_numeric)
+                    else:
+                        exif_dict[tag_name] = tag_value.value_numeric
+                else:
+                    exif_dict[tag_name] = tag_value.value_numeric
+            else:
+                exif_dict[tag_name] = tag_value.value_text
+
+        return exif_dict if exif_dict else None

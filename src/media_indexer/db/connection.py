@@ -56,6 +56,8 @@ class DatabaseConnection:
             # Import models to register them with the database
             # This must be done after creating Database instance but before binding
             from media_indexer.db.exif import EXIFData  # noqa: F401
+            from media_indexer.db.exif_tag import EXIFTag  # noqa: F401
+            from media_indexer.db.exif_tag_value import EXIFTagValue  # noqa: F401
             from media_indexer.db.face import Face  # noqa: F401
             from media_indexer.db.image import Image  # noqa: F401
             from media_indexer.db.object import Object  # noqa: F401
@@ -86,12 +88,8 @@ class DatabaseConnection:
                 # Set busy timeout (retry if locked, 5 seconds)
                 connection.execute("PRAGMA busy_timeout=5000;")
 
-            # REQ-024: Generate database schema (creates tables if they don't exist)
-            db.generate_mapping(create_tables=True)
-            logger.info("REQ-024: Database schema generated")
-
-            # REQ-024, REQ-087: Run migrations to update existing schema
-            # This must be done after generate_mapping to ensure tables exist
+            # REQ-024, REQ-087: Run migrations BEFORE generate_mapping to ensure schema is up to date
+            # This prevents PonyORM from failing when accessing tables with missing columns
             import sqlite3
 
             # Get raw SQLite connection for migrations
@@ -102,6 +100,11 @@ class DatabaseConnection:
                 run_migrations(raw_conn)
             finally:
                 raw_conn.close()
+
+            # REQ-024: Generate database schema (creates tables if they don't exist)
+            # After migrations, schema should match models
+            db.generate_mapping(create_tables=True)
+            logger.info("REQ-024: Database schema generated")
 
             # REQ-066: Verify tables were created by making a test connection
             from pony.orm import db_session

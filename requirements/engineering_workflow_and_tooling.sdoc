@@ -2,7 +2,7 @@
 MID: REQ-DOC-ENG
 TITLE: Engineering Workflow and Tooling Requirements
 
-[SECTION]
+[[SECTION]]
 TITLE: Project Configuration and Dependencies
 
 [REQUIREMENT]
@@ -20,7 +20,9 @@ UID: REQ-073
 STATEMENT: The build tooling SHALL provide an automated script that downloads, patches, and installs dlib with CUDA support using the local GPU compute capability so that face recognition pipelines can rely on GPU-enabled dlib without manual intervention.
 COMMENT: Manual rebuilding of dlib to enable CUDA is error-prone and time consuming, requiring developers to remember architecture flags and patch upstream CMake files. Automating the process ensures consistent GPU-enabled builds across environments, reduces onboarding friction, and guarantees that downstream components depending on dlib's CUDA kernels operate with expected performance. This requirement formalizes the scripted installation workflow so it can be validated, version-controlled, and reused in CI pipelines.
 
-[SECTION]
+[[/SECTION]]
+
+[[SECTION]]
 TITLE: Version Control and Commit Process
 
 [REQUIREMENT]
@@ -58,7 +60,9 @@ UID: REQ-065
 STATEMENT: When determining the model version for commit attribution, the system SHALL use the most specific available model identifier. If an exact version identifier is available (e.g., from CURSOR_MODEL environment variable or system information), that specific version SHALL be used. Otherwise, the best available approximation SHALL be used, but MUST distinguish between different model families (e.g., Claude Sonnet 3.5, ChatGPT-5, GPT-4, etc.).
 COMMENT: Accurate model attribution requires precise version identification, not generic names. This requirement: (1) Accuracy - specific versions enable exact reproduction of AI-assisted work; (2) Traceability - precise version tracking enables understanding of model capabilities; (3) Compliance - supports requirements for documenting AI tool usage; (4) Reproducibility - exact versions enable reproducing results; (5) Honesty - prevents misleading attribution with generic names. The hierarchy (exact version > approximation > family) ensures best available accuracy while preventing false precision. This requirement demonstrates commitment to accurate attribution - transparent AI use requires precise model identification.
 
-[SECTION]
+[[/SECTION]]
+
+[[SECTION]]
 TITLE: Command Safety and Environment Isolation
 
 [REQUIREMENT]
@@ -105,4 +109,6 @@ COMMENT: Explicit variable syntax prevents ambiguity and ensures correct Makefil
 UID: REQ-063
 STATEMENT: All makefiles SHALL use an actual file/folder where possible as a target. For example python -mvenv venv generates venv. Any target that depends on Python having the venv built shall use `venv` as a dependency so that the GNU make resolves everything correctly and in the right order.
 COMMENT: Using file-based targets enables Make's dependency resolution to work correctly. This requirement: (1) Dependency resolution - Make can determine if targets need rebuilding based on file timestamps; (2) Correct ordering - dependencies ensure targets build in correct order; (3) Efficiency - Make skips unnecessary rebuilds when dependencies are up-to-date; (4) Reliability - file-based targets prevent race conditions and incorrect builds; (5) Best practice - file-based targets are the standard Make pattern. The example (venv directory as target) illustrates the principle - Make can check if venv exists and rebuild only if needed. This requirement demonstrates deep understanding of Make - proper dependency management is essential for reliable builds.
+
+[[/SECTION]]
 
