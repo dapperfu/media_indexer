@@ -11,6 +11,7 @@ import json
 import logging
 import signal
 import threading
+import time
 from concurrent.futures import CancelledError, ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -31,6 +32,88 @@ logger = logging.getLogger(__name__)
 
 # REQ-015: Global cancellation flag for quick shutdown
 _shutdown_flag = threading.Event()
+
+
+def create_progress_bar_with_global_speed(
+    total: int,
+    desc: str,
+    unit: str = "item",
+    verbose: int = 20,
+) -> tqdm.tqdm | None:
+    """
+    Create a tqdm progress bar with global speed calculation.
+
+    REQ-012: Progress tracking with both instantaneous and global/average speed.
+
+    Args:
+        total: Total number of items to process.
+        desc: Description for the progress bar.
+        unit: Unit label for items (e.g., "file", "img").
+        verbose: Verbosity level (only create if >= 15).
+
+    Returns:
+        tqdm progress bar instance or None if verbosity is too low.
+    """
+    if verbose < 15:
+        return None
+
+    # REQ-012: Create progress bar with custom format showing both speeds
+    progress_bar = tqdm.tqdm(
+        total=total,
+        desc=desc,
+        unit=unit,
+        bar_format='{desc}: {bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt} inst, {postfix}]',
+    )
+
+    # Store start time for global speed calculation
+    progress_bar.start_time = time.time()  # type: ignore[attr-defined]
+    
+    # Store original update method
+    original_update = progress_bar.update
+
+    def update_with_global_speed(n: int = 1) -> None:
+        """Update progress bar with global speed calculation."""
+        # Call original update first
+        original_update(n)
+        # Calculate global speed: processed / elapsed_time
+        elapsed = time.time() - progress_bar.start_time  # type: ignore[attr-defined]
+        if elapsed > 0:
+            global_speed = progress_bar.n / elapsed
+            # Format speed nicely
+            if global_speed >= 1:
+                speed_str = f"{global_speed:.1f} {unit}/s"
+            else:
+                speed_str = f"{1/global_speed:.1f}s/{unit}"
+            # Store global speed string for use in postfix
+            progress_bar._global_speed_str = f"{speed_str} global"  # type: ignore[attr-defined]
+            # If there's a custom postfix, combine it with global speed
+            if hasattr(progress_bar, '_custom_postfix'):
+                combined = f"{progress_bar._custom_postfix} | {progress_bar._global_speed_str}"  # type: ignore[attr-defined]
+                progress_bar.set_postfix_str(combined, refresh=False)
+            else:
+                progress_bar.set_postfix_str(progress_bar._global_speed_str, refresh=False)  # type: ignore[attr-defined]
+    
+    # Override set_postfix_str to preserve global speed
+    original_set_postfix = progress_bar.set_postfix_str
+    
+    def set_postfix_with_global_speed(postfix: str | None = None, refresh: bool = True) -> None:
+        """Set postfix while preserving global speed."""
+        if postfix:
+            progress_bar._custom_postfix = postfix  # type: ignore[attr-defined]
+            if hasattr(progress_bar, '_global_speed_str'):
+                combined = f"{postfix} | {progress_bar._global_speed_str}"  # type: ignore[attr-defined]
+                original_set_postfix(combined, refresh=refresh)
+            else:
+                original_set_postfix(postfix, refresh=refresh)
+        else:
+            original_set_postfix(postfix, refresh=refresh)
+    
+    progress_bar.set_postfix_str = set_postfix_with_global_speed  # type: ignore[method-assign]
+
+    # Replace update method
+    progress_bar.update = update_with_global_speed  # type: ignore[method-assign]
+
+    return progress_bar
 
 
 def _import_single_sidecar(
@@ -225,14 +308,13 @@ def import_sidecars_to_database(
             logger.info("REQ-032: No sidecar files found to import")
             return
 
-        # REQ-012: Progress tracking with TQDM
-        # Show progress bars by default (WARNING level) and above, disable only at very verbose levels
-        progress_bar = tqdm.tqdm(
+        # REQ-012: Progress tracking with TQDM and global speed
+        progress_bar = create_progress_bar_with_global_speed(
             total=len(image_files),
             desc="Importing sidecars",
             unit="file",
-            bar_format='{desc}: {bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]',
-        ) if verbose >= 15 else None
+            verbose=verbose,
+        )
 
         # REQ-020: Process with parallel workers
         processed = 0
@@ -475,14 +557,13 @@ def export_database_to_sidecars(
             logger.info("REQ-033: No images found in database to export")
             return
 
-        # REQ-012: Progress tracking with TQDM
-        # Show progress bars by default (WARNING level) and above, disable only at very verbose levels
-        progress_bar = tqdm.tqdm(
+        # REQ-012: Progress tracking with TQDM and global speed
+        progress_bar = create_progress_bar_with_global_speed(
             total=len(image_paths),
             desc="Exporting sidecars",
             unit="file",
-            bar_format='{desc}: {bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]',
-        ) if verbose >= 15 else None
+            verbose=verbose,
+        )
 
         # REQ-020: Process with parallel workers
         processed = 0
