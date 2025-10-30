@@ -213,10 +213,16 @@ class ImageProcessor:
             try:
                 from media_indexer.analytics.face_attribute_analyzer import get_face_attribute_analyzer
 
-                self.face_attribute_analyzer = get_face_attribute_analyzer()
+                # REQ-081: DeepFace is required - initialization will raise RuntimeError if unavailable
+                self.face_attribute_analyzer = get_face_attribute_analyzer(face_detector=self.face_detector)
                 logger.info("REQ-081: Face attribute analyzer initialized")
+            except RuntimeError:
+                # Re-raise RuntimeError for DeepFace requirement (project shall not run if DeepFace unavailable)
+                raise
             except Exception as e:
-                logger.warning(f"REQ-081: Face attribute analyzer unavailable: {e}")
+                error_msg = f"REQ-081: Face attribute analyzer initialization failed: {e}"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg) from e
 
         # REQ-008, REQ-038: Initialize object detector (lazy load to avoid importing torch/ultralytics at startup)
         try:

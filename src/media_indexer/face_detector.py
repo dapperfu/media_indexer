@@ -29,11 +29,6 @@ try:
 except ImportError:
     insightface = None  # type: ignore[assignment, misc]
 
-try:
-    import face_recognition
-except ImportError:
-    face_recognition = None  # type: ignore[assignment, misc]
-
 logger = logging.getLogger(__name__)
 
 # Model download URLs
@@ -83,7 +78,7 @@ class FaceDetector:
         self.yolo_model: Any | None = None
         self.yolo_model_v11: Any | None = None
         self.insight_model: Any | None = None
-        self._face_recognition_available: bool = face_recognition is not None
+        self._face_recognition_available: bool | None = None  # Lazy-loaded
 
         # REQ-007: Initialize yolov8-face
         if YOLO is not None:
@@ -135,11 +130,6 @@ class FaceDetector:
 
         if self.yolo_model is None and self.yolo_model_v11 is None and self.insight_model is None:
             raise RuntimeError("REQ-007: Failed to load any face detection model")
-
-        if self._face_recognition_available:
-            logger.info("REQ-074: face_recognition embeddings enabled")
-        else:
-            logger.info("REQ-074: face_recognition library not available; skipping dlib embeddings")
 
     def detect_faces(self, image_path: Path) -> list[dict[str, Any]]:
         """
@@ -256,12 +246,23 @@ class FaceDetector:
                         bbox_absolute = face.bbox.tolist()
                         bbox_normalized = normalize_bbox(bbox_absolute, img_width, img_height)
 
+                        # REQ-081: Extract age, gender (sex), and emotion from InsightFace
+                        insightface_attrs: dict[str, Any] = {}
+                        if hasattr(face, "age") and face.age is not None:
+                            insightface_attrs["age"] = float(face.age)
+                        if hasattr(face, "gender") and face.gender is not None:
+                            # InsightFace gender: 0=female, 1=male
+                            insightface_attrs["sex"] = "male" if int(face.gender) == 1 else "female"
+                        # Note: InsightFace buffalo_l model doesn't provide emotion directly
+                        # Emotion would need a separate model, so we leave it empty for InsightFace
+
                         insight_results.append(
                             {
                                 "confidence": float(face.det_score),
                                 "bbox": bbox_normalized,
                                 "embedding": face.embedding.tolist() if hasattr(face, "embedding") else None,
                                 "model": "insightface",
+                                "insightface_attributes": insightface_attrs if insightface_attrs else None,
                             }
                         )
             except Exception as e:
@@ -271,36 +272,51 @@ class FaceDetector:
                 logger.debug(f"REQ-007: insightface traceback: {traceback.format_exc()}")
 
         face_recognition_results: list[dict[str, Any]] = []
-        if self._face_recognition_available:
+        # REQ-038: Lazy load face_recognition to avoid import during --help
+        if self._face_recognition_available is None:
             try:
-                fr_image = rgb_array
-                img_height, img_width = fr_image.shape[:2]
+                import face_recognition  # noqa: PLC0415
+                self._face_recognition_available = True
+            except ImportError:
+                self._face_recognition_available = False
+        
+        if self._face_recognition_available:
+            # Import here to avoid module-level import
+            try:
+                import face_recognition  # noqa: PLC0415
+            except ImportError:
+                logger.debug("REQ-074: face_recognition import failed during detection")
+                face_recognition_results = []
+            else:
                 try:
-                    fr_locations = face_recognition.face_locations(fr_image, model="cnn")  # type: ignore[attr-defined]
-                except Exception as cnn_exc:  # noqa: BLE001
-                    logger.debug(f"REQ-074: face_recognition CNN model failed ({cnn_exc}), falling back to HOG")
-                    fr_locations = face_recognition.face_locations(fr_image, model="hog")  # type: ignore[attr-defined]
+                    fr_image = rgb_array
+                    img_height, img_width = fr_image.shape[:2]
+                    try:
+                        fr_locations = face_recognition.face_locations(fr_image, model="cnn")  # type: ignore[attr-defined]
+                    except Exception as cnn_exc:  # noqa: BLE001
+                        logger.debug(f"REQ-074: face_recognition CNN model failed ({cnn_exc}), falling back to HOG")
+                        fr_locations = face_recognition.face_locations(fr_image, model="hog")  # type: ignore[attr-defined]
 
-                fr_encodings = face_recognition.face_encodings(fr_image, known_face_locations=fr_locations)  # type: ignore[attr-defined]
+                    fr_encodings = face_recognition.face_encodings(fr_image, known_face_locations=fr_locations)  # type: ignore[attr-defined]
 
-                for location, encoding in zip(fr_locations, fr_encodings, strict=False):
-                    top, right, bottom, left = location
-                    bbox_normalized = _clip_normalized_bbox(
-                        left / img_width,
-                        top / img_height,
-                        right / img_width,
-                        bottom / img_height,
-                    )
-                    face_recognition_results.append(
-                        {
-                            "confidence": 1.0,
-                            "bbox": bbox_normalized,
-                            "embedding": encoding.tolist(),
-                            "model": "face_recognition",
-                        }
-                    )
-            except Exception as exc:  # noqa: BLE001
-                logger.debug(f"REQ-074: face_recognition embeddings unavailable for {image_path}: {exc}")
+                    for location, encoding in zip(fr_locations, fr_encodings, strict=False):
+                        top, right, bottom, left = location
+                        bbox_normalized = _clip_normalized_bbox(
+                            left / img_width,
+                            top / img_height,
+                            right / img_width,
+                            bottom / img_height,
+                        )
+                        face_recognition_results.append(
+                            {
+                                "confidence": 1.0,
+                                "bbox": bbox_normalized,
+                                "embedding": encoding.tolist(),
+                                "model": "face_recognition",
+                            }
+                        )
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug(f"REQ-074: face_recognition embeddings unavailable for {image_path}: {exc}")
 
         # Combine results
         faces.extend(yolo_v8_results)

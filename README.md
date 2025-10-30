@@ -8,6 +8,7 @@ GPU-accelerated image analysis tool for extracting metadata, faces, objects, and
 - **Parallel processing** - Thread-based I/O with batch processing (default 4 images/batch for 12GB VRAM)
 - **EXIF extraction** - Fast EXIF parsing using fast-exif-rs-py
 - **Face detection** - Multi-model approach using insightface, YOLOv8-face, and YOLOv11-face
+- **Face attributes** - Age and emotion analysis using DeepFace (REQ-081, enabled by default)
 - **Dlib embeddings** - face_recognition 128-d vectors supplement InsightFace embeddings (REQ-074)
 - **Object detection** - YOLOv12x for comprehensive object detection
 - **Pose detection** - YOLOv11-pose for human pose estimation
@@ -88,6 +89,10 @@ media-indexer /path/to/images -vv     # DETAILED
 media-indexer /path/to/images -vvv    # VERBOSE
 media-indexer /path/to/images -vvvv   # TRACE (with TQDM)
 media-indexer /path/to/images -vvvvv # DEBUG
+
+# Face attribute analysis (enabled by default, REQ-081)
+media-indexer analyze /path/to/images                    # Face attributes enabled
+media-indexer analyze /path/to/images --no-face-attributes  # Disable face attributes
 ```
 
 ### Python Library

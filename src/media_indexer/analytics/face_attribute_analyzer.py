@@ -20,6 +20,17 @@ logger = logging.getLogger(__name__)
 
 try:  # pragma: no cover - import guard
     from deepface import DeepFace
+    
+    # REQ-081: Verify tf-keras is available (required by DeepFace with TensorFlow 2.20+)
+    try:
+        import tf_keras  # noqa: F401
+    except ImportError:
+        import warnings
+        warnings.warn(
+            "REQ-081: tf-keras package is required for DeepFace with TensorFlow 2.20+. "
+            "Please install tf-keras: pip install tf-keras",
+            UserWarning,
+        )
 
     _DEEPFACE_AVAILABLE = True
 except ImportError:  # pragma: no cover - handled at runtime
@@ -31,6 +42,7 @@ class AttributeSource(Enum):
     """Identify the origin of generated attributes."""
 
     DEEPFACE = auto()
+    INSIGHTFACE = auto()
     FALLBACK = auto()
 
 
@@ -68,12 +80,31 @@ class FaceAttributeResult:
 class FaceAttributeAnalyzer:
     """Analyze detected faces for age and emotion metadata (REQ-081)."""
 
-    def __init__(self) -> None:
-        """Construct the analyzer and verify DeepFace availability."""
+    def __init__(self, face_detector: Any | None = None) -> None:
+        """Construct the analyzer.
 
-        if not _DEEPFACE_AVAILABLE:
-            msg = "REQ-081: DeepFace dependency is missing; install deepface to enable face attributes."
-            raise RuntimeError(msg)
+        Parameters
+        ----------
+        face_detector : Any | None
+            Optional face detector instance for InsightFace fallback.
+            If provided and DeepFace unavailable, will use InsightFace attributes.
+
+        Raises
+        ------
+        RuntimeError
+            If DeepFace is unavailable or not working. DeepFace is required for REQ-081.
+        """
+        self.face_detector = face_detector
+        self._deepface_available = _DEEPFACE_AVAILABLE
+
+        if not self._deepface_available:
+            error_msg = (
+                "REQ-081: DeepFace is unavailable or not working. "
+                "DeepFace is required for face attribute analysis. "
+                "Please ensure deepface and tf-keras packages are installed."
+            )
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
 
     def annotate_faces(self, image_path: Path, detections: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Return enriched face metadata for the provided detections.
@@ -120,12 +151,42 @@ class FaceAttributeAnalyzer:
                 enriched_faces.append(self._attach_error(detection, "crop_prep_failed"))
                 continue
 
-            try:
-                result = self._run_deepface(prepared)
+            result: FaceAttributeResult | None = None
+
+            # REQ-081: DeepFace is required - always try it first
+            if self._deepface_available:
+                try:
+                    result = self._run_deepface(prepared)
+                except Exception as exc:  # noqa: BLE001
+                    # REQ-081: If DeepFace fails, log error but allow InsightFace fallback
+                    logger.warning("REQ-081: DeepFace analysis failed: %s", exc)
+                    result = None
+            else:
+                # This should not happen if initialization succeeded, but handle gracefully
+                logger.error("REQ-081: DeepFace unavailable during analysis (should have been caught at init)")
+                result = None
+
+            # REQ-081: Use InsightFace attributes if available (in addition to DeepFace)
+            # InsightFace provides age and sex, which can supplement DeepFace's age and emotion
+            if detection.get("model") == "insightface":
+                insightface_result = self._extract_insightface_attributes(detection)
+                if insightface_result is not None:
+                    # If DeepFace result exists, prefer DeepFace for emotion but use InsightFace age/sex if better
+                    # If DeepFace failed, use InsightFace result
+                    if result is None:
+                        result = insightface_result
+                    else:
+                        # Merge: prefer InsightFace age/sex if available, keep DeepFace emotion
+                        if insightface_result.age is not None:
+                            result.age = insightface_result.age
+                        # Note: sex is not in DeepFace result structure, so we add it to attributes dict later
+                        logger.debug("REQ-081: Merged InsightFace and DeepFace attributes")
+
+            # Apply result or attach error
+            if result is not None:
                 enriched_faces.append(self._apply_attributes(detection, result))
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("REQ-081: DeepFace analysis failed: %s", exc)
-                enriched_faces.append(self._attach_error(detection, "deepface_error"))
+            else:
+                enriched_faces.append(self._attach_error(detection, "attribute_extraction_failed"))
 
         return enriched_faces
 
@@ -174,9 +235,17 @@ class FaceAttributeAnalyzer:
         """Attach attribute data to a detection dictionary."""
 
         updated = detection.copy()
+        
+        # REQ-081: Include sex from InsightFace if available
+        sex = None
+        insightface_attrs = detection.get("insightface_attributes")
+        if insightface_attrs and isinstance(insightface_attrs, dict):
+            sex = insightface_attrs.get("sex")
+        
         updated["attributes"] = {
             "age": result.age,
             "age_confidence": result.age_confidence,
+            "sex": sex,  # REQ-081: InsightFace provides sex (male/female)
             "primary_emotion": result.primary_emotion,
             "emotion_confidence": result.emotion_confidence,
             "emotion_scores": result.emotion_scores,
@@ -266,10 +335,58 @@ class FaceAttributeAnalyzer:
         label = max(scores, key=scores.get)
         return label, scores[label]
 
+    def _extract_insightface_attributes(self, detection: dict[str, Any]) -> FaceAttributeResult | None:
+        """Extract age, sex, and emotion from InsightFace detection if available.
 
-def get_face_attribute_analyzer() -> FaceAttributeAnalyzer:
-    """Factory function returning a configured analyzer instance."""
+        REQ-081: Extract InsightFace attributes (age, sex) in addition to DeepFace.
+        Note: InsightFace buffalo_l model provides age and gender, but not emotion.
+        Emotion requires a separate model or DeepFace.
 
-    return FaceAttributeAnalyzer()
+        Parameters
+        ----------
+        detection : dict[str, Any]
+            Face detection dictionary from InsightFace model, containing
+            ``insightface_attributes`` key with age and sex.
+
+        Returns
+        -------
+        FaceAttributeResult | None
+            Attribute result with age/sex if available, None otherwise.
+        """
+        insightface_attrs = detection.get("insightface_attributes")
+        if not insightface_attrs or not isinstance(insightface_attrs, dict):
+            return None
+
+        age = self._safe_float(insightface_attrs.get("age"))
+        sex = insightface_attrs.get("sex")  # "male" or "female"
+        
+        # InsightFace doesn't provide emotion directly from buffalo_l model
+        # We set emotion scores to empty dict since InsightFace doesn't have emotion
+        emotion_scores: dict[str, float] = {}
+
+        return FaceAttributeResult(
+            age=age,
+            age_confidence=None,  # InsightFace doesn't provide confidence
+            primary_emotion=None,  # InsightFace doesn't provide emotion
+            emotion_confidence=None,
+            emotion_scores=emotion_scores,
+            source=AttributeSource.INSIGHTFACE,
+        )
+
+
+def get_face_attribute_analyzer(face_detector: Any | None = None) -> FaceAttributeAnalyzer:
+    """Factory function returning a configured analyzer instance.
+
+    Parameters
+    ----------
+    face_detector : Any | None
+        Optional face detector for InsightFace fallback support.
+
+    Returns
+    -------
+    FaceAttributeAnalyzer
+        Configured analyzer instance.
+    """
+    return FaceAttributeAnalyzer(face_detector=face_detector)
 
 
