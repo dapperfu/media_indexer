@@ -50,10 +50,16 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
             logger.debug(f"REQ-040: Converting RAW file {image_path} to numpy array using rawpy")
             # REQ-016: Suppress CR2 corruption messages from rawpy (printed to stderr)
             # Use os.devnull for C library output suppression
-            with open(os.devnull, 'w') as devnull:
-                with redirect_stderr(devnull):
-                    with rawpy.imread(str(image_path)) as raw:
-                        rgb = raw.postprocess()
+            # REQ-015: Handle KeyboardInterrupt gracefully to prevent crashes
+            try:
+                with open(os.devnull, 'w') as devnull:
+                    with redirect_stderr(devnull):
+                        with rawpy.imread(str(image_path)) as raw:
+                            rgb = raw.postprocess()
+            except KeyboardInterrupt:
+                # REQ-015: Handle interrupt during rawpy processing
+                logger.warning(f"REQ-015: RAW conversion interrupted for {image_path}")
+                raise
             
             # Convert to uint8 if needed
             if rgb.dtype != np.uint8:
@@ -62,6 +68,9 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
             logger.debug(f"REQ-040: Successfully converted RAW file {image_path} to array shape {rgb.shape}")
             return rgb, "RGB"
         
+        except KeyboardInterrupt:
+            # REQ-015: Re-raise KeyboardInterrupt to propagate to signal handler
+            raise
         except Exception as e:
             logger.debug(f"REQ-040: rawpy failed for {image_path}: {e}, trying PIL fallback")
     
@@ -70,12 +79,18 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
         logger.debug(f"REQ-040: Converting RAW file {image_path} to numpy array using PIL")
         # REQ-016: Suppress CR2 corruption messages from PIL (printed to stderr)
         # Use os.devnull for C library output suppression
-        with open(os.devnull, 'w') as devnull:
-            with redirect_stderr(devnull):
-                image = Image.open(str(image_path))
-                # Convert to RGB if needed
-                if image.mode != "RGB":
-                    image = image.convert("RGB")
+        # REQ-015: Handle KeyboardInterrupt gracefully
+        try:
+            with open(os.devnull, 'w') as devnull:
+                with redirect_stderr(devnull):
+                    image = Image.open(str(image_path))
+                    # Convert to RGB if needed
+                    if image.mode != "RGB":
+                        image = image.convert("RGB")
+        except KeyboardInterrupt:
+            # REQ-015: Handle interrupt during PIL processing
+            logger.warning(f"REQ-015: RAW conversion interrupted for {image_path}")
+            raise
         
         rgb_array = np.array(image)
         
@@ -86,6 +101,9 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
         logger.debug(f"REQ-040: Successfully converted RAW file {image_path} to array shape {rgb_array.shape} using PIL")
         return rgb_array, "RGB"
     
+    except KeyboardInterrupt:
+        # REQ-015: Re-raise KeyboardInterrupt to propagate to signal handler
+        raise
     except Exception as e:
         logger.warning(f"REQ-040: Failed to convert RAW file {image_path} with both rawpy and PIL: {e}")
         return None, "unknown"
