@@ -20,12 +20,16 @@ os.environ.setdefault("ORT_LOG_LEVEL", "3")  # 3 = ERROR level (suppress INFO/VE
 try:
     import cv2
     # Suppress all OpenCV warnings except errors
-    # Use cv2.utils.logging for newer OpenCV versions
-    if hasattr(cv2, 'utils') and hasattr(cv2.utils, 'logging'):
-        cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)
-    elif hasattr(cv2, 'setLogLevel'):
-        # Fallback for older OpenCV versions
-        cv2.setLogLevel(cv2.LOG_LEVEL_ERROR)
+    # OpenCV uses numeric log levels: 0=SILENT, 1=FATAL, 2=ERROR, 3=WARN, 4=INFO, 5=DEBUG, 6=VERBOSE
+    # Set to ERROR level (2) to suppress WARN and below
+    try:
+        cv2.setLogLevel(2)  # ERROR level
+    except (TypeError, AttributeError):
+        # Fallback: try with string constant if available
+        if hasattr(cv2, 'LOG_LEVEL_ERROR'):
+            cv2.setLogLevel(cv2.LOG_LEVEL_ERROR)
+        elif hasattr(cv2, 'utils') and hasattr(cv2.utils, 'logging'):
+            cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)
 except (ImportError, AttributeError):
     # cv2 not available or logging API not available
     pass

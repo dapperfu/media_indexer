@@ -6,6 +6,7 @@ REQ-010: All code components directly linked to requirements.
 """
 
 import logging
+import os
 import tempfile
 from contextlib import redirect_stderr
 from io import BytesIO, StringIO
@@ -48,10 +49,11 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
         try:
             logger.debug(f"REQ-040: Converting RAW file {image_path} to numpy array using rawpy")
             # REQ-016: Suppress CR2 corruption messages from rawpy (printed to stderr)
-            null_stream = StringIO()
-            with redirect_stderr(null_stream):
-                with rawpy.imread(str(image_path)) as raw:
-                    rgb = raw.postprocess()
+            # Use os.devnull for C library output suppression
+            with open(os.devnull, 'w') as devnull:
+                with redirect_stderr(devnull):
+                    with rawpy.imread(str(image_path)) as raw:
+                        rgb = raw.postprocess()
             
             # Convert to uint8 if needed
             if rgb.dtype != np.uint8:
@@ -67,12 +69,13 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
     try:
         logger.debug(f"REQ-040: Converting RAW file {image_path} to numpy array using PIL")
         # REQ-016: Suppress CR2 corruption messages from PIL (printed to stderr)
-        null_stream = StringIO()
-        with redirect_stderr(null_stream):
-            image = Image.open(str(image_path))
-            # Convert to RGB if needed
-            if image.mode != "RGB":
-                image = image.convert("RGB")
+        # Use os.devnull for C library output suppression
+        with open(os.devnull, 'w') as devnull:
+            with redirect_stderr(devnull):
+                image = Image.open(str(image_path))
+                # Convert to RGB if needed
+                if image.mode != "RGB":
+                    image = image.convert("RGB")
         
         rgb_array = np.array(image)
         
@@ -249,21 +252,22 @@ def load_image_to_array(image_path: Path) -> np.ndarray | None:
     # Fall back to PIL for all image types
     try:
         # REQ-016: Suppress corruption messages from PIL (printed to stderr)
-        null_stream = StringIO()
-        with redirect_stderr(null_stream):
-            image = Image.open(image_path)
-            # Convert to RGB if needed
-            if image.mode in ("RGBA", "LA", "P"):
-                # Create white background for alpha channel
-                if image.mode == "RGBA":
-                    rgb_image = Image.new("RGB", image.size, (255, 255, 255))
-                    rgb_image.paste(image, mask=image.split()[3])  # Use alpha channel as mask
-                else:
+        # Use os.devnull for C library output suppression
+        with open(os.devnull, 'w') as devnull:
+            with redirect_stderr(devnull):
+                image = Image.open(image_path)
+                # Convert to RGB if needed
+                if image.mode in ("RGBA", "LA", "P"):
+                    # Create white background for alpha channel
+                    if image.mode == "RGBA":
+                        rgb_image = Image.new("RGB", image.size, (255, 255, 255))
+                        rgb_image.paste(image, mask=image.split()[3])  # Use alpha channel as mask
+                    else:
+                        rgb_image = image.convert("RGB")
+                elif image.mode != "RGB":
                     rgb_image = image.convert("RGB")
-            elif image.mode != "RGB":
-                rgb_image = image.convert("RGB")
-            else:
-                rgb_image = image
+                else:
+                    rgb_image = image
         
         # Convert to numpy array
         rgb_array = np.array(rgb_image)

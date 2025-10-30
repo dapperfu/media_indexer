@@ -19,6 +19,23 @@ import torch
 # REQ-016: Suppress ONNX Runtime verbose output before importing insightface
 os.environ.setdefault("ORT_LOG_LEVEL", "3")  # 3 = ERROR level (suppress INFO/VERBOSE)
 
+# REQ-016: Suppress OpenCV warnings when cv2 is imported
+try:
+    # Suppress all OpenCV warnings except errors
+    # OpenCV uses numeric log levels: 0=SILENT, 1=FATAL, 2=ERROR, 3=WARN, 4=INFO, 5=DEBUG, 6=VERBOSE
+    # Set to ERROR level (2) to suppress WARN and below
+    try:
+        cv2.setLogLevel(2)  # ERROR level
+    except (TypeError, AttributeError):
+        # Fallback: try with string constant if available
+        if hasattr(cv2, 'LOG_LEVEL_ERROR'):
+            cv2.setLogLevel(cv2.LOG_LEVEL_ERROR)
+        elif hasattr(cv2, 'utils') and hasattr(cv2.utils, 'logging'):
+            cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)
+except (AttributeError):
+    # OpenCV logging API not available
+    pass
+
 try:
     from ultralytics import YOLO
 except ImportError:
@@ -254,7 +271,11 @@ class FaceDetector:
         if self.insight_model is not None:
             try:
                 # Load image for insightface
-                image = cv2.imread(str(image_path))
+                # REQ-016: Suppress OpenCV warnings and CR2 corruption messages during image reading
+                import os
+                with open(os.devnull, 'w') as devnull:
+                    with redirect_stderr(devnull):
+                        image = cv2.imread(str(image_path))
                 if image is None:
                     logger.debug(f"REQ-007: Could not load image {image_path} for insightface")
                 else:
