@@ -68,6 +68,7 @@ def create_progress_bar_with_global_speed(
     # Store start time for global speed calculation
     progress_bar.start_time = time.time()  # type: ignore[attr-defined]
     progress_bar._custom_postfix = ""  # type: ignore[attr-defined]
+    progress_bar._processed_count = 0  # type: ignore[attr-defined]
     
     # Store original methods BEFORE wrapping
     original_update = progress_bar.update
@@ -75,12 +76,14 @@ def create_progress_bar_with_global_speed(
 
     def update_with_global_speed(n: int = 1) -> None:
         """Update progress bar with global speed calculation."""
-        # Call original update first
+        # Increment our tracked count
+        progress_bar._processed_count += n  # type: ignore[attr-defined]
+        # Call original update
         original_update(n)
         # Calculate global speed: processed / elapsed_time
         elapsed = time.time() - progress_bar.start_time  # type: ignore[attr-defined]
-        if elapsed > 0 and progress_bar.n > 0:
-            global_speed = progress_bar.n / elapsed
+        if elapsed > 0 and progress_bar._processed_count > 0:  # type: ignore[attr-defined]
+            global_speed = progress_bar._processed_count / elapsed  # type: ignore[attr-defined]
             # Format speed nicely
             if global_speed >= 1:
                 speed_str = f"{global_speed:.1f} {unit}/s"
