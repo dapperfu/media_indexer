@@ -181,7 +181,7 @@ def export_database_to_sidecars(
 
     from media_indexer.db.connection import DatabaseConnection
     from media_indexer.db.image import Image
-    from media_indexer.sidecar_generator import SidecarGenerator
+    from media_indexer.sidecar_generator import get_sidecar_generator
 
     logger.info("REQ-033: Initializing database connection")
     db_conn = DatabaseConnection(database_path)
@@ -194,7 +194,7 @@ def export_database_to_sidecars(
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        sidecar_generator = SidecarGenerator(output_dir)
+        sidecar_generator = get_sidecar_generator()
 
         with db_session:
             images = list(Image.select())
