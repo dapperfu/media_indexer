@@ -57,50 +57,59 @@ class AvgSpeedColumn(ProgressColumn):
         return Text(f"[cyan]avg: 0.0 {self.unit}/s[/cyan]", style="progress.data.speed")
 
 
-class CurrentFileColumn(ProgressColumn):
+class MultiLineInfoColumn(ProgressColumn):
     """
-    Custom column to display current file on second line.
+    Custom column to display multi-line information (current file and detections).
 
-    REQ-012: Shows current file being processed.
+    REQ-012: Shows current file and detection results on separate lines below progress bar.
+    This column spans the full width and renders multiple lines.
     """
+
+    def __init__(self, show_detections: bool = False) -> None:
+        """
+        Initialize multi-line info column.
+
+        Args:
+            show_detections: If True, show detection information as well.
+        """
+        # Make this column span the full width by not specifying table_column
+        super().__init__(table_column=None)
+        self.show_detections = show_detections
 
     def render(self, task: Any) -> Text:
         """
-        Render current file name.
+        Render multi-line information.
 
         Args:
             task: Progress task.
 
         Returns:
-            Formatted text for current file.
+            Formatted text with current file and optionally detections.
         """
+        lines: list[str] = []
+        
         current_file = task.fields.get("current_file", "")
         if current_file:
-            return Text(f"\n[dim]{current_file}[/dim]")
-        return Text("")
-
-
-class DetectionsColumn(ProgressColumn):
-    """
-    Custom column to display detection information on third line.
-
-    REQ-012: Shows detection results (faces, objects, poses).
-    """
-
-    def render(self, task: Any) -> Text:
-        """
-        Render detection information.
-
-        Args:
-            task: Progress task.
-
-        Returns:
-            Formatted text for detections.
-        """
-        detections = task.fields.get("detections", "")
-        if detections:
-            return Text(f"\n[dim]{detections}[/dim]")
-        return Text("")
+            lines.append(current_file)
+        
+        if self.show_detections:
+            detections = task.fields.get("detections", "")
+            if detections:
+                lines.append(detections)
+        
+        if not lines:
+            return Text("")
+        
+        # Create Text with proper Rich markup - each line dimmed
+        # Use Text.from_markup or direct style application
+        text = Text()
+        for i, line in enumerate(lines):
+            if i > 0:
+                text.append("\n")
+            # Apply dim style directly - this renders properly as Rich markup
+            text.append(line, style="dim")
+        
+        return text
 
 
 class SpeedColumn(ProgressColumn):
@@ -192,42 +201,42 @@ def create_rich_progress_bar(
 
     # REQ-012: Create Rich progress bar with custom columns
     # REQ-015: Use custom columns to safely handle None values for speed and percentage
+    # Base columns for the progress bar line
+    base_columns = [
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        PercentageColumn(),
+        TextColumn("{task.completed}/{task.total}"),
+        TextColumn(f"{unit}"),
+        TimeElapsedColumn(),
+        TextColumn("<"),
+        TimeRemainingColumn(),
+        TextColumn("•"),
+        SpeedColumn(unit=unit),
+        TextColumn(f"{unit}/s"),
+        TextColumn("•"),
+        AvgSpeedColumn(unit=unit),
+    ]
+    
+    # Add multi-line info column if needed
     if show_detections:
         columns = [
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            PercentageColumn(),
-            TextColumn("{task.completed}/{task.total}"),
-            TextColumn(f"{unit}"),
-            TimeElapsedColumn(),
-            TextColumn("<"),
-            TimeRemainingColumn(),
-            TextColumn("•"),
-            SpeedColumn(unit=unit),
-            TextColumn(f"{unit}/s"),
-            TextColumn("•"),
-            AvgSpeedColumn(unit=unit),
-            CurrentFileColumn(),
-            DetectionsColumn(),
+            *base_columns,
+            MultiLineInfoColumn(show_detections=True),
         ]
     else:
         columns = [
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            PercentageColumn(),
-            TextColumn("{task.completed}/{task.total}"),
-            TextColumn(f"{unit}"),
-            TimeElapsedColumn(),
-            TextColumn("<"),
-            TimeRemainingColumn(),
-            TextColumn("•"),
-            SpeedColumn(unit=unit),
-            TextColumn(f"{unit}/s"),
-            TextColumn("•"),
-            AvgSpeedColumn(unit=unit),
+            *base_columns,
+            MultiLineInfoColumn(show_detections=False),
         ]
 
-    progress = Progress(*columns, console=console, transient=False)
+    # REQ-012: Create Progress with expand=True to allow multi-line columns
+    progress = Progress(
+        *columns,
+        console=console,
+        transient=False,
+        expand=True,
+    )
 
     # Store processed count and start time
     progress._processed_count = 0  # type: ignore[attr-defined]
