@@ -18,25 +18,27 @@ def setup_logging(verbose: int) -> None:
     Setup logging with multi-level verbosity.
 
     REQ-016: Implement verbosity levels:
-        -vvvv = DEBUG (10)
-        -vvv = TRACE (12)
-        -vv = VERBOSE (15)
-        -v = DETAILED (17)
-        default = INFO (20)
+        -vvvvv = DEBUG (10)
+        -vvvv = TRACE (12)
+        -vvv = VERBOSE (15)
+        -vv = DETAILED (17)
+        -v = INFO (20)
+        default = WARNING (30)
 
     Args:
         verbose: Verbosity level (lower = more verbose).
     """
     # REQ-016: Set up logging level based on verbosity
     level_map = {
-        10: logging.DEBUG,  # -vvvv
-        12: logging.DEBUG,  # -vvv (TRACE with TQDM)
-        15: logging.DEBUG,  # -vv (VERBOSE)
-        17: logging.INFO,  # -v (DETAILED)
-        20: logging.INFO,  # default (INFO)
+        10: logging.DEBUG,  # -vvvvv
+        12: logging.DEBUG,  # -vvvv (TRACE with TQDM)
+        15: logging.DEBUG,  # -vvv (VERBOSE)
+        17: logging.INFO,  # -vv (DETAILED)
+        20: logging.INFO,  # -v (INFO)
+        30: logging.WARNING,  # default (WARNING)
     }
 
-    log_level = level_map.get(verbose, logging.INFO)
+    log_level = level_map.get(verbose, logging.WARNING)
 
     # REQ-016: Configure logging
     logging.basicConfig(
@@ -45,9 +47,9 @@ def setup_logging(verbose: int) -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    # REQ-016: Suppress OpenCV warnings by default (when verbosity is INFO level)
+    # REQ-016: Suppress OpenCV warnings by default (when verbosity is WARNING level)
     # OpenCV warnings write directly to stderr and break tqdm progress bars
-    if verbose >= 20:  # Default INFO level and above
+    if verbose >= 20:  # WARNING level and above (including INFO)
         try:
             import cv2
             # Suppress all OpenCV warnings except errors
@@ -61,8 +63,10 @@ def setup_logging(verbose: int) -> None:
             # cv2 not available or logging API not available
             pass
 
-    # REQ-016: Disable tqdm if verbosity is too high (DEBUG level)
-    if verbose < 20:  # Only disable tqdm at DEBUG level (10) or below
+    # REQ-016: Disable tqdm if verbosity is too high (DEBUG/TRACE level)
+    # Progress bars show at INFO (20) and above (less verbose)
+    # Disable at DEBUG/TRACE levels where detailed output is preferred
+    if verbose < 17:  # Disable tqdm at VERBOSE (15), TRACE (12), DEBUG (10) levels
         import tqdm
 
         tqdm.tqdm.__init__ = lambda _self, *_args, **_kwargs: None  # type: ignore[method-assign, assignment]
@@ -86,7 +90,7 @@ def add_common_args(parser: argparse.ArgumentParser, include_db: bool = False) -
         "--verbose",
         action="count",
         default=0,
-        help="Increase verbosity (-v INFO, -vv DETAILED, -vvv VERBOSE, -vvvv TRACE with TQDM, -vvvvv DEBUG)",
+        help="Increase verbosity (-v INFO, -vv DETAILED, -vvv VERBOSE, -vvvv TRACE with TQDM, -vvvvv DEBUG). Default shows only warnings and errors.",
     )
 
     parser.add_argument(
@@ -230,6 +234,12 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Maximum number of images to process (for testing on small subsets) (REQ-038)",
     )
+    annotate_parser.add_argument(
+        "--workers",
+        type=int,
+        default=8,
+        help="Number of parallel workers for sidecar scanning (default: 8) (REQ-020)",
+    )
     
     # Duplicate all arguments for analyze subcommand (same as extract)
     analyze_parser.add_argument(
@@ -268,6 +278,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=None,
         help="Maximum number of images to process (for testing on small subsets) (REQ-038)",
+    )
+    analyze_parser.add_argument(
+        "--workers",
+        type=int,
+        default=8,
+        help="Number of parallel workers for sidecar scanning (default: 8) (REQ-020)",
     )
 
     # REQ-067: Database management subcommand group
@@ -430,6 +446,7 @@ def process_analyze(args: argparse.Namespace, verbose: int) -> int:
             disable_sidecar=args.no_sidecar,
             limit=args.limit,
             force=getattr(args, 'force', False),
+            scan_workers=getattr(args, 'workers', 8),
         )
         
         # REQ-031: Process images
@@ -617,13 +634,14 @@ def main() -> None:
     args = parse_args()
 
     # REQ-016: Convert verbose count to level
-    # 0 = 20 (INFO), 1 = 17 (DETAILED), 2 = 15 (VERBOSE), 3 = 12 (TRACE), 4+ = 10 (DEBUG)
+    # 0 = 30 (WARNING), 1 = 20 (INFO), 2 = 17 (DETAILED), 3 = 15 (VERBOSE), 4 = 12 (TRACE), 5+ = 10 (DEBUG)
     verbosity_map = {
-        0: 20,  # INFO
-        1: 17,  # DETAILED
-        2: 15,  # VERBOSE
-        3: 12,  # TRACE (with TQDM)
-        4: 10,  # DEBUG
+        0: 30,  # WARNING (default, quiet)
+        1: 20,  # INFO
+        2: 17,  # DETAILED
+        3: 15,  # VERBOSE
+        4: 12,  # TRACE (with TQDM)
+        5: 10,  # DEBUG
     }
     verbose = verbosity_map.get(args.verbose, 10)
 

@@ -53,6 +53,7 @@ class ImageProcessor:
         disable_sidecar: bool = False,
         limit: int | None = None,
         force: bool = False,
+        scan_workers: int = 8,
     ) -> None:
         """
         Initialize image processor.
@@ -62,6 +63,7 @@ class ImageProcessor:
         REQ-025: Support database storage.
         REQ-026: Support disabling sidecar generation.
         REQ-038: Support limiting number of images to process.
+        REQ-020: Parallel processing with configurable workers.
 
         Args:
             input_dir: Directory containing images to process (sidecar files created alongside).
@@ -71,6 +73,7 @@ class ImageProcessor:
             disable_sidecar: Disable sidecar generation when using database (REQ-026).
             limit: Maximum number of images to process (REQ-038).
             force: Force reprocessing even if analyses already exist (REQ-013).
+            scan_workers: Number of parallel workers for sidecar scanning (REQ-020).
 
         Raises:
             RuntimeError: If no GPU is available (REQ-006).
@@ -99,6 +102,9 @@ class ImageProcessor:
 
         # REQ-013: Force reprocessing flag
         self.force = force
+
+        # REQ-020: Workers for parallel sidecar scanning
+        self.scan_workers = scan_workers
 
         # REQ-012: Statistics tracking
         self.stats: dict[str, Any] = {
@@ -552,12 +558,52 @@ class ImageProcessor:
         images_to_process: list[tuple[Path, set[str]]] = []
         skipped_count = 0
         
-        for image_path in images:
-            needs_processing, missing_analyses = self._needs_processing(image_path)
-            if needs_processing:
-                images_to_process.append((image_path, missing_analyses))
+        # REQ-020: Parallel scanning with progress bar
+        scan_workers = min(self.scan_workers, len(images))  # Use configured workers for I/O-bound scanning
+        progress_bar = tqdm.tqdm(
+            total=len(images),
+            desc="Scanning sidecars",
+            unit="file",
+            bar_format='{desc}: {bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]',
+        ) if self.verbose <= 20 else None
+        
+        try:
+            if scan_workers == 1:
+                # Sequential scanning for small sets
+                for image_path in images:
+                    needs_processing, missing_analyses = self._needs_processing(image_path)
+                    if needs_processing:
+                        images_to_process.append((image_path, missing_analyses))
+                    else:
+                        skipped_count += 1
+                    if progress_bar:
+                        progress_bar.update(1)
             else:
-                skipped_count += 1
+                # REQ-020: Parallel scanning with thread pool
+                with ThreadPoolExecutor(max_workers=scan_workers) as executor:
+                    futures = {
+                        executor.submit(self._needs_processing, image_path): image_path
+                        for image_path in images
+                    }
+                    
+                    for future in as_completed(futures):
+                        image_path = futures[future]
+                        try:
+                            needs_processing, missing_analyses = future.result()
+                            if needs_processing:
+                                images_to_process.append((image_path, missing_analyses))
+                            else:
+                                skipped_count += 1
+                        except Exception as e:
+                            # If scanning fails, assume needs processing
+                            logger.debug(f"REQ-013: Failed to scan {image_path}: {e}")
+                            images_to_process.append((image_path, self._get_required_analyses()))
+                        finally:
+                            if progress_bar:
+                                progress_bar.update(1)
+        finally:
+            if progress_bar:
+                progress_bar.close()
         
         self.stats["skipped_images"] = skipped_count
         
