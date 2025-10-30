@@ -22,6 +22,7 @@ from media_indexer.db.exif import EXIFData
 from media_indexer.db.face import Face
 from media_indexer.db.hash_util import calculate_file_hash, get_file_size
 from media_indexer.db.image import Image
+from media_indexer.db.metadata_converter import MetadataConverter
 from media_indexer.db.object import Object
 from media_indexer.db.pose import Pose
 from media_indexer.processor.progress import create_rich_progress_bar
@@ -117,8 +118,13 @@ def _import_single_sidecar(
                         pose_kwargs["keypoints_conf"] = keypoints_conf
                     Pose(**pose_kwargs)
 
+            # Store EXIF using MetadataConverter (handles relational storage)
             if metadata.get("exif"):
-                EXIFData(image=db_image, data=metadata["exif"])
+                MetadataConverter.metadata_to_db_entities(
+                    str(image_file),
+                    db_image,
+                    {"exif": metadata["exif"]},
+                )
 
         if verbose <= 15:
             logger.info("REQ-032: Imported %s", image_file)

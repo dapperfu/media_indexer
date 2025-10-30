@@ -17,6 +17,7 @@ from pony.orm import db_session
 
 from media_indexer.db.connection import DatabaseConnection
 from media_indexer.db.image import Image
+from media_indexer.db.metadata_converter import MetadataConverter
 from media_indexer.processor.progress import create_rich_progress_bar
 from media_indexer.sidecar_generator import get_sidecar_generator
 
@@ -43,46 +44,8 @@ def _export_single_image(
                 logger.warning("REQ-033: Image not found in database: %s", image_path)
                 return False, 0
 
-            metadata: dict[str, Any] = {
-                "faces": [],
-                "objects": [],
-                "poses": [],
-                "exif": None,
-            }
-
-            for face in db_image.faces:
-                metadata["faces"].append(
-                    {
-                        "confidence": face.confidence,
-                        "bbox": face.bbox,
-                        "embedding": face.embedding,
-                        "model": face.model,
-                        "attributes": face.attributes,
-                    }
-                )
-
-            for obj in db_image.objects:
-                metadata["objects"].append(
-                    {
-                        "class_id": obj.class_id,
-                        "class_name": obj.class_name,
-                        "confidence": obj.confidence,
-                        "bbox": obj.bbox,
-                    }
-                )
-
-            for pose in db_image.poses:
-                metadata["poses"].append(
-                    {
-                        "confidence": pose.confidence,
-                        "keypoints": pose.keypoints,
-                        "bbox": pose.bbox,
-                        "keypoints_conf": pose.keypoints_conf,
-                    }
-                )
-
-            if db_image.exif_data:
-                metadata["exif"] = db_image.exif_data.data
+            # Use MetadataConverter to convert from relational format to dict
+            metadata = MetadataConverter.db_entities_to_metadata(db_image)
 
         image_path_obj = Path(image_path)
         sidecar_generator.generate_sidecar(image_path_obj, metadata)

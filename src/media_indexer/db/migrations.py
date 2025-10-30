@@ -132,10 +132,214 @@ class Migration002_AddDetectedAtToFaces(Migration):
             logger.debug("REQ-024: Migration 002 already applied (detected_at column exists)")
 
 
+class Migration003_AddRelationalEXIF(Migration):
+    """Migration 003: Add relational EXIF tables and migrate existing data.
+
+    REQ-024: Creates EXIFTag and EXIFTagValue tables and migrates existing
+    JSON EXIF data to relational format.
+    """
+
+    def __init__(self) -> None:
+        """Initialize migration."""
+        super().__init__(
+            version=3,
+            description="Add relational EXIF tables (EXIFTag, EXIFTagValue) and migrate existing data",
+        )
+
+    def upgrade(self, connection: Any) -> None:
+        """Create relational EXIF tables and migrate data.
+
+        Parameters
+        ----------
+        connection : Any
+            SQLite database connection.
+        """
+        cursor = connection.cursor()
+
+        # Check if EXIFTag table already exists
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='EXIFTag'"
+        )
+        if cursor.fetchone():
+            logger.debug("REQ-024: Migration 003 already applied (EXIFTag table exists)")
+            return
+
+        logger.info(
+            "REQ-024: Applying migration 003: Creating relational EXIF tables"
+        )
+
+        # Create EXIFTag table
+        cursor.execute(
+            """
+            CREATE TABLE EXIFTag (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                "group" TEXT,
+                description TEXT,
+                tag_type TEXT
+            )
+            """
+        )
+        cursor.execute("CREATE INDEX idx_exiftag_name ON EXIFTag(name)")
+        cursor.execute("CREATE INDEX idx_exiftag_group ON EXIFTag(\"group\")")
+
+        # Create EXIFTagValue table
+        cursor.execute(
+            """
+            CREATE TABLE EXIFTagValue (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                image INTEGER NOT NULL,
+                tag INTEGER NOT NULL,
+                value_text TEXT,
+                value_numeric REAL,
+                value_json TEXT,
+                extracted_at REAL,
+                FOREIGN KEY (image) REFERENCES Image(id) ON DELETE CASCADE,
+                FOREIGN KEY (tag) REFERENCES EXIFTag(id) ON DELETE CASCADE
+            )
+            """
+        )
+        cursor.execute("CREATE INDEX idx_exiftagvalue_image ON EXIFTagValue(image)")
+        cursor.execute("CREATE INDEX idx_exiftagvalue_tag ON EXIFTagValue(tag)")
+        cursor.execute("CREATE INDEX idx_exiftagvalue_text ON EXIFTagValue(value_text)")
+        cursor.execute("CREATE INDEX idx_exiftagvalue_numeric ON EXIFTagValue(value_numeric)")
+
+        connection.commit()
+
+        # Migrate existing EXIF data from JSON blob to relational format
+        logger.info("REQ-024: Migrating existing EXIF data to relational format")
+        cursor.execute("SELECT id, image, data FROM EXIFData WHERE data IS NOT NULL")
+        exif_records = cursor.fetchall()
+
+        migrated_count = 0
+        import json
+        import time
+
+        for exif_id, image_id, exif_json_str in exif_records:
+            try:
+                if isinstance(exif_json_str, str):
+                    exif_dict = json.loads(exif_json_str)
+                else:
+                    exif_dict = exif_json_str
+
+                if not isinstance(exif_dict, dict):
+                    continue
+
+                extracted_at = time.time()
+
+                for tag_name, tag_value in exif_dict.items():
+                    if tag_value is None:
+                        continue
+
+                    # Infer group
+                    group = self._infer_exif_group(tag_name)
+
+                    # Get or create tag
+                    cursor.execute(
+                        "SELECT id FROM EXIFTag WHERE name = ?",
+                        (tag_name,),
+                    )
+                    tag_row = cursor.fetchone()
+                    if tag_row:
+                        tag_id = tag_row[0]
+                    else:
+                        cursor.execute(
+                            "INSERT INTO EXIFTag (name, \"group\") VALUES (?, ?)",
+                            (tag_name, group),
+                        )
+                        tag_id = cursor.lastrowid
+
+                    # Convert value
+                    value_text = str(tag_value)
+                    value_numeric: float | None = None
+                    value_json: str | None = None
+
+                    if isinstance(tag_value, (int, float)):
+                        value_numeric = float(tag_value)
+                    elif isinstance(tag_value, str):
+                        try:
+                            if "." in tag_value:
+                                value_numeric = float(tag_value)
+                            else:
+                                value_numeric = float(int(tag_value))
+                        except (ValueError, TypeError):
+                            pass
+
+                    if isinstance(tag_value, (list, dict)):
+                        value_json = json.dumps(tag_value)
+                        value_text = value_json
+
+                    # Insert tag value
+                    cursor.execute(
+                        """
+                        INSERT INTO EXIFTagValue
+                        (image, tag, value_text, value_numeric, value_json, extracted_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (image_id, tag_id, value_text, value_numeric, value_json, extracted_at),
+                    )
+
+                migrated_count += 1
+            except Exception as e:
+                logger.warning(
+                    f"REQ-024: Failed to migrate EXIF data for image {image_id}: {e}"
+                )
+                continue
+
+        connection.commit()
+        logger.info(
+            f"REQ-024: Migration 003 completed - migrated {migrated_count} EXIF records"
+        )
+
+    @staticmethod
+    def _infer_exif_group(tag_name: str) -> str | None:
+        """Infer EXIF group from tag name."""
+        tag_upper = tag_name.upper()
+
+        if tag_upper.startswith("GPS") or "LATITUDE" in tag_upper or "LONGITUDE" in tag_upper:
+            return "GPS"
+
+        ifd0_tags = [
+            "IMAGE",
+            "MAKE",
+            "MODEL",
+            "ORIENTATION",
+            "XRESOLUTION",
+            "YRESOLUTION",
+            "RESOLUTIONUNIT",
+            "SOFTWARE",
+            "DATETIME",
+            "ARTIST",
+            "COPYRIGHT",
+        ]
+        if any(tag in tag_upper for tag in ifd0_tags):
+            return "IFD0"
+
+        exif_tags = [
+            "EXPOSURE",
+            "FOCAL",
+            "APERTURE",
+            "ISO",
+            "SHUTTER",
+            "WHITEBALANCE",
+            "FLASH",
+            "METERING",
+            "FOCUS",
+        ]
+        if any(tag in tag_upper for tag in exif_tags):
+            return "EXIF"
+
+        if "INTEROP" in tag_upper:
+            return "Interop"
+
+        return None
+
+
 # Registry of all migrations - add new migrations here
 MIGRATIONS: list[Migration] = [
     Migration001_AddFaceAttributes(),
     Migration002_AddDetectedAtToFaces(),
+    Migration003_AddRelationalEXIF(),
 ]
 
 
