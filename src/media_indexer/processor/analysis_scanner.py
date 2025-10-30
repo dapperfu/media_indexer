@@ -30,6 +30,7 @@ class AnalysisScanner:
         sidecar_generator: Any | None,
         disable_sidecar: bool,
         force: bool = False,
+        use_sidecars_for_existing: bool = False,
     ) -> None:
         """
         Initialize analysis scanner.
@@ -39,11 +40,13 @@ class AnalysisScanner:
             sidecar_generator: Optional sidecar generator.
             disable_sidecar: Whether sidecar generation is disabled.
             force: Whether to force reprocessing even if raw_conversion_failed flag is set.
+            use_sidecars_for_existing: Use sidecar files as source for existing data queries instead of database.
         """
         self.database_connection = database_connection
         self.sidecar_generator = sidecar_generator
         self.disable_sidecar = disable_sidecar
         self.force = force
+        self.use_sidecars_for_existing = use_sidecars_for_existing
 
     def find_sidecar_path(self, image_path: Path) -> Path | None:
         """
@@ -145,8 +148,40 @@ class AnalysisScanner:
         """
         existing: set[str] = set()
 
-        # REQ-025: Check database first if available
-        if self.database_connection:
+        # If use_sidecars_for_existing is set, check sidecars first
+        if self.use_sidecars_for_existing and not self.disable_sidecar:
+            sidecar_path = self.find_sidecar_path(image_path)
+            if sidecar_path and sidecar_path.exists():
+                try:
+                    metadata = read_sidecar_metadata(sidecar_path, self.sidecar_generator)
+
+                    # REQ-040: Check for raw_conversion_failed flag
+                    # If flag is set and force is False, skip processing by returning all required analyses
+                    if metadata.get("raw_conversion_failed") and not self.force:
+                        logger.debug(
+                            f"REQ-040: Skipping {image_path} - RAW conversion failed previously (use --force to retry)"
+                        )
+                        # Return all required analyses to indicate nothing needs processing
+                        return required_analyses.copy()
+
+                    # Use sidecar as primary source
+                    if metadata.get("exif"):
+                        existing.add("exif")
+                    if metadata.get("faces"):
+                        existing.add("faces")
+                    if metadata.get("objects"):
+                        existing.add("objects")
+                    if metadata.get("poses"):
+                        existing.add("poses")
+
+                    # If all analyses are in sidecar, return early (don't check database)
+                    if len(existing) == len(required_analyses):
+                        return existing
+                except Exception as e:
+                    logger.debug(f"REQ-013: Failed to read sidecar for {image_path}: {e}")
+
+        # REQ-025: Check database if not using sidecars as primary source
+        if self.database_connection and not self.use_sidecars_for_existing:
             try:
                 from media_indexer.db.image import Image as DBImage
 
@@ -169,8 +204,8 @@ class AnalysisScanner:
             except Exception as e:
                 logger.debug(f"REQ-025: Database check failed for {image_path}: {e}")
 
-        # Also check sidecar files (complement database, not replace)
-        if not self.disable_sidecar:
+        # Also check sidecar files (complement database, not replace) when not using sidecars as primary
+        if not self.disable_sidecar and not self.use_sidecars_for_existing:
             sidecar_path = self.find_sidecar_path(image_path)
             if sidecar_path and sidecar_path.exists():
                 try:

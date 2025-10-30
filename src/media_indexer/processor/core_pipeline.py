@@ -174,61 +174,72 @@ def process_image_batches(
 # ---------------------------------------------------------------------------
 
 
+def _process_image_for_collection(
+    processor: ImageProcessor,
+    image_path: Path,
+    existing: set[str],
+    required: set[str],
+    context: RichProgressContext | None,
+    cancellation_manager: CancellationManager,
+    images_to_process: list[tuple[Path, set[str]]],
+) -> int:
+    """Process a single image for collection, returning 1 if skipped, 0 otherwise."""
+    if cancellation_manager.is_cancelled():
+        logger.warning("REQ-015: Processing interrupted by user")
+        return 0
+    missing = required - existing
+    if missing:
+        images_to_process.append((image_path, missing))
+    _advance_progress(context, image_path.name)
+    return 0 if missing else 1
+
 def _collect_with_database(
     processor: ImageProcessor,
     images: list[Path],
     cancellation_manager: CancellationManager,
 ) -> tuple[list[tuple[Path, set[str]]], int]:
     """Collect images requiring processing when database storage is enabled."""
-
-    context = _init_rich_context(
-        total=len(images),
-        desc="Querying database",
-        unit="file",
-        verbose=processor.verbose,
-    )
-
+    desc = "Querying sidecars" if processor.use_sidecars_for_existing else "Querying database"
+    context = _init_rich_context(total=len(images), desc=desc, unit="file", verbose=processor.verbose)
     images_to_process: list[tuple[Path, set[str]]] = []
     skipped_count = 0
     batch_size = max(1, min(_DB_QUERY_BATCH_SIZE, len(images)))
     required = processor._get_required_analyses()
 
     try:
-        for start in range(0, len(images), batch_size):
-            if cancellation_manager.is_cancelled():
-                logger.warning("REQ-015: Processing interrupted by user")
-                break
-
-            batch = images[start : start + batch_size]
-            db_analyses = processor.analysis_scanner.get_existing_analyses_from_database_batch(batch)
-
-            for image_path in batch:
+        if processor.use_sidecars_for_existing and not processor.disable_sidecar:
+            for image_path in images:
+                sidecar_existing = _load_sidecar_metadata(processor, image_path, required, cancellation_manager)
+                if sidecar_existing is None:
+                    skipped_count += 1
+                    _advance_progress(context, image_path.name)
+                    continue
+                existing = sidecar_existing.copy()
+                if len(existing) < len(required) and processor.database_connection:
+                    db_analyses = processor.analysis_scanner.get_existing_analyses_from_database_batch([image_path])
+                    existing.update(db_analyses.get(str(image_path), set()))
+                skipped_count += _process_image_for_collection(
+                    processor, image_path, existing, required, context, cancellation_manager, images_to_process
+                )
+        else:
+            for start in range(0, len(images), batch_size):
                 if cancellation_manager.is_cancelled():
                     logger.warning("REQ-015: Processing interrupted by user")
                     break
-
-                existing = set(db_analyses.get(str(image_path), set()))
-
-                if not processor.disable_sidecar:
-                    sidecar_existing = _load_sidecar_metadata(
-                        processor,
-                        image_path,
-                        required,
-                        cancellation_manager,
+                batch = images[start : start + batch_size]
+                db_analyses = processor.analysis_scanner.get_existing_analyses_from_database_batch(batch)
+                for image_path in batch:
+                    existing = set(db_analyses.get(str(image_path), set()))
+                    if not processor.disable_sidecar:
+                        sidecar_existing = _load_sidecar_metadata(processor, image_path, required, cancellation_manager)
+                        if sidecar_existing is None:
+                            skipped_count += 1
+                            _advance_progress(context, image_path.name)
+                            continue
+                        existing.update(sidecar_existing)
+                    skipped_count += _process_image_for_collection(
+                        processor, image_path, existing, required, context, cancellation_manager, images_to_process
                     )
-                    if sidecar_existing is None:
-                        skipped_count += 1
-                        _advance_progress(context, image_path.name)
-                        continue
-                    existing.update(sidecar_existing)
-
-                missing = required - existing
-                if missing:
-                    images_to_process.append((image_path, missing))
-                else:
-                    skipped_count += 1
-
-                _advance_progress(context, image_path.name)
     finally:
         _stop_context(context)
 

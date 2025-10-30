@@ -102,6 +102,13 @@ def add_common_args(parser: argparse.ArgumentParser, include_db: bool = False) -
             help="Disable sidecar file generation when using --db (REQ-026)",
         )
 
+        # Option to use sidecars as source for existing data queries
+        parser.add_argument(
+            "--use-sidecars-for-existing",
+            action="store_true",
+            help="Use sidecar files as source for existing data queries instead of database (useful when sidecars are more complete)",
+        )
+
 
 def parse_args() -> argparse.Namespace:
     """

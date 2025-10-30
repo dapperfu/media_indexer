@@ -107,6 +107,7 @@ def process_analyze(args: argparse.Namespace, verbose: int) -> int:
                 force=getattr(args, "force", False),
                 scan_workers=getattr(args, "workers", 8),
                 enable_face_attributes=not getattr(args, "no_face_attributes", False),
+                use_sidecars_for_existing=getattr(args, "use_sidecars_for_existing", False),
             )
 
             stats = processor.process()

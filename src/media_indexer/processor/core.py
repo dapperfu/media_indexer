@@ -55,6 +55,7 @@ class ImageProcessor:
         force: bool = False,
         scan_workers: int = 8,
         enable_face_attributes: bool = True,
+        use_sidecars_for_existing: bool = False,
     ) -> None:
         """
         Initialize image processor.
@@ -76,6 +77,7 @@ class ImageProcessor:
             force: Force reprocessing even if analyses already exist.
             scan_workers: Number of parallel workers for sidecar scanning.
             enable_face_attributes: Enable DeepFace age/emotion enrichment (REQ-081, default True).
+            use_sidecars_for_existing: Use sidecar files as source for existing data queries instead of database.
 
         Raises:
             RuntimeError: If no GPU is available (REQ-006).
@@ -108,6 +110,7 @@ class ImageProcessor:
         # REQ-020: Workers for parallel sidecar scanning
         self.scan_workers = scan_workers
         self.enable_face_attributes = enable_face_attributes
+        self.use_sidecars_for_existing = use_sidecars_for_existing
 
         # REQ-012: Statistics tracking
         self.stats_tracker = StatisticsTracker()
@@ -143,6 +146,7 @@ class ImageProcessor:
             None,  # Will be set after initialization
             self.disable_sidecar,
             self.force,
+            self.use_sidecars_for_existing,
         )
 
         # REQ-086: Propagate disable_sidecar flag to downstream components
