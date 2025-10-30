@@ -16,6 +16,20 @@ from pathlib import Path
 # REQ-016: Suppress ONNX Runtime verbose output before any imports
 os.environ.setdefault("ORT_LOG_LEVEL", "3")  # 3 = ERROR level (suppress INFO/VERBOSE)
 
+# REQ-016: Suppress OpenCV warnings globally (applied early before any imports)
+try:
+    import cv2
+    # Suppress all OpenCV warnings except errors
+    # Use cv2.utils.logging for newer OpenCV versions
+    if hasattr(cv2, 'utils') and hasattr(cv2.utils, 'logging'):
+        cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)
+    elif hasattr(cv2, 'setLogLevel'):
+        # Fallback for older OpenCV versions
+        cv2.setLogLevel(cv2.LOG_LEVEL_ERROR)
+except (ImportError, AttributeError):
+    # cv2 not available or logging API not available
+    pass
+
 
 def setup_logging(verbose: int) -> None:
     """
@@ -51,21 +65,8 @@ def setup_logging(verbose: int) -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    # REQ-016: Suppress OpenCV warnings by default (when verbosity is WARNING level)
-    # OpenCV warnings write directly to stderr and break tqdm progress bars
-    if verbose >= 20:  # WARNING level and above (including INFO)
-        try:
-            import cv2
-            # Suppress all OpenCV warnings except errors
-            # Use cv2.utils.logging for newer OpenCV versions
-            if hasattr(cv2, 'utils') and hasattr(cv2.utils, 'logging'):
-                cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)
-            elif hasattr(cv2, 'setLogLevel'):
-                # Fallback for older OpenCV versions
-                cv2.setLogLevel(cv2.LOG_LEVEL_ERROR)
-        except (ImportError, AttributeError):
-            # cv2 not available or logging API not available
-            pass
+    # REQ-016: OpenCV warnings are suppressed globally at module import time
+    # (see top of file for OpenCV warning suppression)
 
     # REQ-016: Disable tqdm if verbosity is too high (DEBUG/TRACE level)
     # Progress bars show at INFO (20) and above (less verbose)

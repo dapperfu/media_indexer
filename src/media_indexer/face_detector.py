@@ -7,6 +7,8 @@ REQ-010: All code components directly linked to requirements.
 
 import logging
 import os
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from pathlib import Path
 from typing import Any
 from urllib.request import urlretrieve
@@ -100,7 +102,10 @@ class FaceDetector:
                 logger.info(f"REQ-007: Loading YOLOv8 face model from {model_path}")
                 # Download if needed
                 actual_path = download_model_if_needed(model_path, YOLOV8N_FACE_URL)
-                self.yolo_model = YOLO(str(actual_path))
+                # REQ-016: Suppress YOLO model summary output during initialization
+                null_stream = StringIO()
+                with redirect_stdout(null_stream), redirect_stderr(null_stream):
+                    self.yolo_model = YOLO(str(actual_path))
                 logger.info("REQ-007: YOLOv8 face model loaded successfully")
             except Exception as e:
                 logger.warning(f"REQ-007: Failed to load YOLOv8 face model: {e}")
@@ -111,7 +116,10 @@ class FaceDetector:
                 logger.info(f"REQ-007: Loading YOLOv11 face model from {model_path_v11}")
                 # Download if needed
                 actual_path = download_model_if_needed(model_path_v11, YOLOV11N_FACE_URL)
-                self.yolo_model_v11 = YOLO(str(actual_path))
+                # REQ-016: Suppress YOLO model summary output during initialization
+                null_stream = StringIO()
+                with redirect_stdout(null_stream), redirect_stderr(null_stream):
+                    self.yolo_model_v11 = YOLO(str(actual_path))
                 logger.info("REQ-007: YOLOv11 face model loaded successfully")
             except Exception as e:
                 logger.warning(f"REQ-007: Failed to load YOLOv11 face model: {e}")

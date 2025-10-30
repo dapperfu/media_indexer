@@ -6,6 +6,8 @@ REQ-010: All code components directly linked to requirements.
 """
 
 import logging
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from pathlib import Path
 from typing import Any
 from urllib.request import urlretrieve
@@ -83,7 +85,10 @@ class PoseDetector:
             logger.debug(f"REQ-009: Model cache: {cache.yolo_cache}")
             # Download model if needed
             actual_path = download_model_if_needed(model_path, YOLO11X_POSE_URL)
-            self.model: YOLO = YOLO(str(actual_path))
+            # REQ-016: Suppress YOLO model summary output during initialization
+            null_stream = StringIO()
+            with redirect_stdout(null_stream), redirect_stderr(null_stream):
+                self.model: YOLO = YOLO(str(actual_path))
             logger.info("REQ-009: YOLOv11-pose model loaded successfully")
         except Exception as e:
             error_msg = f"REQ-009: Failed to load YOLOv11-pose model: {e}"
