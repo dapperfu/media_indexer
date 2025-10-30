@@ -2,7 +2,7 @@
 MID: REQ-DOC-DB
 TITLE: Database and Storage Requirements
 
-[SECTION]
+[[SECTION]]
 TITLE: Database Architecture
 
 [REQUIREMENT]
@@ -30,7 +30,9 @@ UID: REQ-028
 STATEMENT: The database schema shall be designed to support efficient querying by face embeddings, object classes, pose keypoints, and EXIF tags without requiring schema changes for new query patterns.
 COMMENT: Future-proof schema design prevents costly migrations when new query patterns emerge. The requirement ensures: (1) Extensibility - schema can accommodate new query types without structural changes; (2) Index optimization - proper indexing strategy supports the specified query types efficiently; (3) Query flexibility - supports both exact matches and similarity searches (e.g., face embedding similarity); (4) Performance - schema design considers query performance, not just data storage; (5) Migration avoidance - prevents breaking changes that would require database reconstruction. The explicit query types (embeddings, classes, keypoints, tags) represent the core use cases: face similarity search, object class filtering, pose-based queries, and EXIF-based temporal/spatial queries. This requirement demonstrates forward-thinking architecture - designing for known requirements while ensuring extensibility for unknown future needs.
 
-[SECTION]
+[[/SECTION]]
+
+[[SECTION]]
 TITLE: Storage Modes and Conversion
 
 [REQUIREMENT]
@@ -42,6 +44,11 @@ COMMENT: Database storage provides centralized querying capabilities distinct fr
 UID: REQ-026
 STATEMENT: The tool shall support the --no-sidecar flag to disable sidecar file generation when using database storage mode.
 COMMENT: Some users prefer database-only storage for simplicity or disk space reasons. The --no-sidecar flag provides: (1) Storage efficiency - avoids duplicate metadata storage (database + sidecar files), reducing disk usage; (2) Simplified workflow - users who only query via database don't need sidecar files; (3) Performance - eliminating sidecar file I/O reduces processing overhead slightly; (4) Use case support - enterprise deployments may prefer centralized database storage over distributed sidecar files. The flag is only meaningful when --db is specified (database mode), making it a conditional option. This requirement demonstrates understanding of different user preferences - some want redundancy (database + sidecar), others want efficiency (database only). Providing both options maximizes user satisfaction.
+
+[REQUIREMENT]
+UID: REQ-086
+STATEMENT: The --no-sidecar configuration SHALL propagate to every runtime component so that initializing the processing pipeline never omits the disable_sidecar parameter required by downstream modules and avoids runtime failures in database-only mode.
+COMMENT: Propagating the disable-sidecar flag through construction of `AnalysisScanner`, `ImageProcessorComponent`, and related helpers guarantees that the system honours REQ-026 without raising initialization errors. When this plumbing is incomplete, the GPU workers crash before processing begins, violating REQ-015's resilience goals and blocking database-only workflows. Ensuring each component receives the explicit disable flag keeps behaviour consistent, prevents accidental sidecar writes, and maintains reliability for large batch runs started with `--db --no-sidecar`.
 
 [REQUIREMENT]
 UID: REQ-027
@@ -63,7 +70,9 @@ UID: REQ-034
 STATEMENT: The 'convert' subcommand shall provide --direction flag with values 'to-db' (import sidecar to database) and 'to-sidecar' (export database to sidecar).
 COMMENT: Explicit direction specification prevents ambiguity and makes conversion operations clear and intentional. The flag design provides: (1) Clarity - direction is explicit, not inferred from arguments or context; (2) Safety - prevents accidental conversion in wrong direction; (3) Discoverability - users can see available conversion directions via help; (4) Extensibility - new directions (e.g., 'to-json', 'to-csv') can be added without breaking existing usage; (5) Validation - direction flag enables validation of required arguments for each direction. The two values ('to-db', 'to-sidecar') cover bidirectional conversion between the two primary storage formats. This requirement demonstrates UX design thinking - making operations explicit and discoverable reduces user errors and improves usability.
 
-[SECTION]
+[[/SECTION]]
+
+[[SECTION]]
 TITLE: Database Initialization and Operations
 
 [REQUIREMENT]
@@ -75,4 +84,11 @@ COMMENT: Database initialization validation prevents data corruption and ensures
 UID: REQ-067
 STATEMENT: Database management operations SHALL be organized under a 'db' command group with subcommands: 'stats' (display database statistics), 'init' (initialize database), 'search' (search for images), and 'clean' (remove orphaned records). The CLI syntax SHALL be 'media-indexer db <subcommand>'.
 COMMENT: Organizing database operations under a command group provides clear separation and intuitive CLI structure. This requirement: (1) Organization - groups related database operations together; (2) Discoverability - users can explore database commands via 'db --help'; (3) Consistency - follows established CLI patterns (git, docker, kubectl); (4) Extensibility - new database operations can be added as subcommands; (5) User experience - clear command structure improves usability. The subcommands cover essential database operations: stats (monitoring), init (setup), search (querying), and clean (maintenance). This requirement demonstrates UX design thinking - organizing commands logically improves discoverability and usability.
+
+[REQUIREMENT]
+UID: REQ-087
+STATEMENT: The database SHALL support forward migration of existing databases to accommodate schema changes. When connecting to an existing database, the system SHALL automatically detect schema version differences and apply necessary migrations to bring the database schema up to date. The migration system SHALL be easily extendable to support future schema changes without requiring manual database reconstruction.
+COMMENT: Forward migration support ensures that users can upgrade the tool without losing their existing database data. This requirement: (1) Backward compatibility - existing databases continue to work after code updates; (2) Automatic migration - users don't need to manually reconstruct databases when schema changes; (3) Data preservation - migrations preserve existing data while adding new columns or tables; (4) Version tracking - schema version is tracked to prevent reapplication of migrations; (5) Extensibility - new migrations can be added by creating migration classes, making the system easily maintainable. The migration system automatically runs on database connection, ensuring seamless upgrades. This requirement demonstrates understanding of production database management - schema evolution is inevitable, and tools must support it gracefully to avoid user frustration and data loss.
+
+[[/SECTION]]
 

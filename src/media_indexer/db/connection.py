@@ -86,9 +86,22 @@ class DatabaseConnection:
                 # Set busy timeout (retry if locked, 5 seconds)
                 connection.execute("PRAGMA busy_timeout=5000;")
 
-            # REQ-024: Generate database schema
+            # REQ-024: Generate database schema (creates tables if they don't exist)
             db.generate_mapping(create_tables=True)
             logger.info("REQ-024: Database schema generated")
+
+            # REQ-024, REQ-087: Run migrations to update existing schema
+            # This must be done after generate_mapping to ensure tables exist
+            import sqlite3
+
+            # Get raw SQLite connection for migrations
+            raw_conn = sqlite3.connect(str(self.database_path))
+            try:
+                from media_indexer.db.migrations import run_migrations
+
+                run_migrations(raw_conn)
+            finally:
+                raw_conn.close()
 
             # REQ-066: Verify tables were created by making a test connection
             from pony.orm import db_session
