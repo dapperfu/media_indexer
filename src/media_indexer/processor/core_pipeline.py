@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from media_indexer.processor.object_emoji import get_object_emoji
 from media_indexer.processor.progress import create_rich_progress_bar
 from media_indexer.raw_converter import cleanup_temp_files
 from media_indexer.utils.cancellation import CancellationManager
@@ -468,11 +469,29 @@ def _format_detection_summary(detections: dict[str, Any]) -> str:
     faces = detections.get("faces", 0)
     objects = detections.get("objects", 0)
     poses = detections.get("poses", 0)
+    object_class_counts = detections.get("object_class_counts", {})
 
     if faces:
         parts.append(f"{faces} face{'s' if faces != 1 else ''}")
     if objects:
-        parts.append(f"{objects} object{'s' if objects != 1 else ''}")
+        detail = ""
+        if isinstance(object_class_counts, dict) and object_class_counts:
+            sorted_classes = sorted(
+                object_class_counts.items(),
+                key=lambda item: (-item[1], item[0]),
+            )[:3]
+            labels: list[str] = []
+            for label, count in sorted_classes:
+                emoji = get_object_emoji(label)
+                display_label = label.replace("_", " ")
+                snippet = f"{emoji} {display_label}" if emoji else display_label
+                if count > 1:
+                    snippet = f"{snippet}×{count}"
+                labels.append(snippet)
+            if labels:
+                detail = f" ({', '.join(labels)})"
+
+        parts.append(f"{objects} object{'s' if objects != 1 else ''}{detail}")
     if poses:
         parts.append(f"{poses} pose{'s' if poses != 1 else ''}")
 

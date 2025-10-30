@@ -6,6 +6,7 @@ REQ-010: All code components directly linked to requirements.
 """
 
 import logging
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -82,17 +83,13 @@ class ImageProcessorComponent:
             existing_metadata: dict[str, Any] = {}
             if sidecar_path and sidecar_path.exists():
                 try:
-                    existing_metadata = read_sidecar_metadata(
-                        sidecar_path, self.sidecar_generator
-                    )
+                    existing_metadata = read_sidecar_metadata(sidecar_path, self.sidecar_generator)
                 except Exception as e:
                     logger.debug(f"REQ-013: Failed to read existing sidecar: {e}")
 
             # Start with existing metadata or new dict
             metadata: dict[str, Any] = (
-                existing_metadata.copy()
-                if existing_metadata
-                else {"image_path": str(image_path)}
+                existing_metadata.copy() if existing_metadata else {"image_path": str(image_path)}
             )
             detection_results: dict[str, Any] = {}
 
@@ -102,17 +99,13 @@ class ImageProcessorComponent:
                 source_path = get_raw_image_source(image_path)
                 if source_path is None:
                     # RAW conversion failed - mark in sidecar and skip processing
-                    logger.warning(
-                        f"REQ-040: RAW conversion failed for {image_path}, marking in sidecar"
-                    )
+                    logger.warning(f"REQ-040: RAW conversion failed for {image_path}, marking in sidecar")
                     metadata["raw_conversion_failed"] = True
                     # Still save the sidecar with the flag
                     if not self.disable_sidecar and self.sidecar_generator is not None:
                         try:
                             self.sidecar_generator.generate_sidecar(image_path, metadata)
-                            logger.debug(
-                                f"REQ-040: Updated sidecar with raw_conversion_failed flag for {image_path}"
-                            )
+                            logger.debug(f"REQ-040: Updated sidecar with raw_conversion_failed flag for {image_path}")
                         except Exception as e:
                             logger.error(f"REQ-004: Sidecar generation failed: {e}")
                     return True, detection_results
@@ -147,6 +140,14 @@ class ImageProcessorComponent:
                     objects = self.object_detector.detect_objects(image_path)
                     metadata["objects"] = objects
                     detection_results["objects"] = len(objects)
+                    if objects:
+                        class_counts = Counter(
+                            obj.get("class_name", "").strip().lower()
+                            for obj in objects
+                            if obj.get("class_name")
+                        )
+                        if class_counts:
+                            detection_results["object_class_counts"] = dict(class_counts)
                 except Exception as e:
                     logger.debug(f"REQ-008: Object detection failed: {e}")
                     detection_results["objects"] = 0
@@ -170,9 +171,7 @@ class ImageProcessorComponent:
             # REQ-027: Generate/update sidecar if not disabled
             if not self.disable_sidecar and self.sidecar_generator is not None:
                 try:
-                    generated_path = self.sidecar_generator.generate_sidecar(
-                        image_path, metadata
-                    )
+                    self.sidecar_generator.generate_sidecar(image_path, metadata)
                     logger.debug(f"REQ-027: Generated/updated sidecar for {image_path}")
                 except Exception as e:
                     logger.error(f"REQ-004: Sidecar generation failed: {e}")
@@ -191,9 +190,7 @@ class ImageProcessorComponent:
             logger.error(f"REQ-015: Error processing {image_path}: {e}")
             return False, {}
 
-    def store_to_database(
-        self, image_path: Path, metadata: dict[str, Any]
-    ) -> bool:
+    def store_to_database(self, image_path: Path, metadata: dict[str, Any]) -> bool:
         """
         Store image metadata to database.
 
@@ -223,9 +220,7 @@ class ImageProcessorComponent:
                 # Check if image already exists in database
                 existing_image = DBImage.get_by_path(str(image_path))
                 if existing_image:
-                    logger.debug(
-                        f"REQ-024: Image {image_path} already exists in database, skipping"
-                    )
+                    logger.debug(f"REQ-024: Image {image_path} already exists in database, skipping")
                     return True
 
                 # REQ-024: Create Image entity using converter
@@ -236,9 +231,7 @@ class ImageProcessorComponent:
                 )
 
                 # REQ-024: Store metadata using converter
-                MetadataConverter.metadata_to_db_entities(
-                    str(image_path), db_image, metadata
-                )
+                MetadataConverter.metadata_to_db_entities(str(image_path), db_image, metadata)
 
                 logger.debug(f"REQ-025: Stored metadata for {image_path} in database")
                 return True
@@ -246,4 +239,3 @@ class ImageProcessorComponent:
         except Exception as e:
             logger.error(f"REQ-025: Failed to store to database: {e}")
             return False
-
