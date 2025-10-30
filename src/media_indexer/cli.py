@@ -330,11 +330,10 @@ def parse_args() -> argparse.Namespace:
         help="Conversion direction: 'to-db' (import sidecar to database) or 'to-sidecar' (export database to sidecar) (REQ-034)",
     )
     convert_parser.add_argument(
-        "-o",
-        "--output-dir",
-        type=Path,
-        default=None,
-        help="Output directory for sidecar files (when direction=to-sidecar)",
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of parallel workers for processing (default: 1) (REQ-020)",
     )
 
     args = parser.parse_args()
@@ -565,10 +564,12 @@ def process_convert(args: argparse.Namespace, verbose: int) -> int:
         try:
             from media_indexer.sidecar_converter import import_sidecars_to_database
 
+            workers = getattr(args, 'workers', 1)
             import_sidecars_to_database(
                 input_dir=args.input_dir,
                 database_path=args.db,
                 verbose=verbose,
+                workers=workers,
             )
             logging.info("REQ-032: Sidecar import to database completed successfully")
             return 0
@@ -591,10 +592,12 @@ def process_convert(args: argparse.Namespace, verbose: int) -> int:
         try:
             from media_indexer.sidecar_converter import export_database_to_sidecars
 
+            workers = getattr(args, 'workers', 1)
             export_database_to_sidecars(
                 database_path=args.db,
                 output_dir=None,  # None means sidecar files go next to image files
                 verbose=verbose,
+                workers=workers,
             )
             logging.info("REQ-033: Database export to sidecar completed successfully")
             return 0
