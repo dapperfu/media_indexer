@@ -21,6 +21,9 @@ from typing import Any
 
 import image_sidecar_rust
 import tqdm
+from rich.console import Console
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+from rich.text import Text
 
 # REQ-022: Import database modules
 from media_indexer.db.connection import DatabaseConnection
@@ -34,6 +37,78 @@ from media_indexer.raw_converter import cleanup_temp_files
 from media_indexer.sidecar_generator import SidecarGenerator, get_sidecar_generator
 
 logger = logging.getLogger(__name__)
+console = Console()
+
+
+def create_rich_progress_bar(
+    total: int,
+    desc: str,
+    unit: str = "item",
+    verbose: int = 20,
+    show_detections: bool = False,
+) -> Progress | None:
+    """
+    Create a Rich progress bar with multi-line support for detection information.
+
+    REQ-012: Progress tracking with both instantaneous and global/average speed.
+    Supports multi-line display for detection information.
+
+    Args:
+        total: Total number of items to process.
+        desc: Description for the progress bar.
+        unit: Unit label for items (e.g., "file", "img").
+        verbose: Verbosity level (only create if >= 15).
+        show_detections: If True, add a second line for detection information.
+
+    Returns:
+        Rich Progress instance or None if verbosity is too low.
+    """
+    if verbose < 15:
+        return None
+
+    # REQ-012: Create Rich progress bar with custom columns
+    if show_detections:
+        columns = [
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TextColumn("{task.completed}/{task.total}"),
+            TextColumn(f"{unit}"),
+            TimeElapsedColumn(),
+            TextColumn("<"),
+            TimeRemainingColumn(),
+            TextColumn("•"),
+            TextColumn("[progress.speed]{task.speed:>8.1f}"),
+            TextColumn(f"{unit}/s"),
+            TextColumn("•"),
+            TextColumn("[cyan]avg: {task.fields[avg_speed]}[/cyan]"),
+            TextColumn("\n[dim]{task.fields[current_file]}[/dim]"),
+            TextColumn("\n[dim]{task.fields[detections]}[/dim]"),
+        ]
+    else:
+        columns = [
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TextColumn("{task.completed}/{task.total}"),
+            TextColumn(f"{unit}"),
+            TimeElapsedColumn(),
+            TextColumn("<"),
+            TimeRemainingColumn(),
+            TextColumn("•"),
+            TextColumn("[progress.speed]{task.speed:>8.1f}"),
+            TextColumn(f"{unit}/s"),
+            TextColumn("•"),
+            TextColumn("[cyan]avg: {task.fields[avg_speed]}[/cyan]"),
+        ]
+
+    progress = Progress(*columns, console=console, transient=False)
+    
+    # Store processed count and start time
+    progress._processed_count = 0  # type: ignore[attr-defined]
+    progress._start_time = time.time()  # type: ignore[attr-defined]
+    
+    return progress
 
 
 def create_progress_bar_with_global_speed(
@@ -730,13 +805,34 @@ class ImageProcessor:
                 parts.append(f"{detections['poses']} pose{'s' if detections['poses'] != 1 else ''}")
             return ", ".join(parts) if parts else "no detections"
         
-        # REQ-012: Progress tracking with TQDM and global speed
-        progress_bar = create_progress_bar_with_global_speed(
-            total=len(images_to_process),
-            desc="Processing images",
-            unit="img",
-            verbose=self.verbose,
-        )
+        # REQ-012: Progress tracking with Rich for multi-line detection info
+        use_rich = self.verbose >= 15
+        if use_rich:
+            progress = create_rich_progress_bar(
+                total=len(images_to_process),
+                desc="Processing images",
+                unit="img",
+                verbose=self.verbose,
+                show_detections=True,
+            )
+            progress_bar = None
+            task_id = progress.add_task(
+                "Processing images",
+                total=len(images_to_process),
+                current_file="",
+                detections="",
+                avg_speed="0.0 img/s",
+            )
+            progress.start()
+        else:
+            progress = None
+            progress_bar = create_progress_bar_with_global_speed(
+                total=len(images_to_process),
+                desc="Processing images",
+                unit="img",
+                verbose=self.verbose,
+            )
+            task_id = None
 
         # REQ-020: Process images in batches with threading for I/O
         try:
@@ -763,8 +859,24 @@ class ImageProcessor:
                                     img_name = "..." + img_name[-47:]
                                 det_summary = format_detection_summary(detections)
                                 
-                                if progress_bar:
-                                    # Show image name and detections
+                                if use_rich and progress:
+                                    # Update Rich progress bar with multi-line info
+                                    elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
+                                    progress._processed_count += 1  # type: ignore[attr-defined]
+                                    if elapsed > 0:
+                                        avg_speed = progress._processed_count / elapsed  # type: ignore[attr-defined]
+                                        avg_str = f"{avg_speed:.1f} img/s"
+                                    else:
+                                        avg_str = "0.0 img/s"
+                                    progress.update(
+                                        task_id,
+                                        advance=1,
+                                        current_file=f"📷 {img_name}",
+                                        detections=f"  👤 {det_summary}" if det_summary else "  ✓ Processed",
+                                        avg_speed=avg_str,
+                                    )
+                                elif progress_bar:
+                                    # Show image name and detections (tqdm fallback)
                                     progress_bar.set_description(f"Image: {img_name}")
                                     progress_bar.set_postfix_str(f"Detected: {det_summary}", refresh=False)
                                     progress_bar.update(1)
@@ -773,7 +885,22 @@ class ImageProcessor:
                                 img_name = image_path.name
                                 if len(img_name) > 50:
                                     img_name = "..." + img_name[-47:]
-                                if progress_bar:
+                                if use_rich and progress:
+                                    elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
+                                    progress._processed_count += 1  # type: ignore[attr-defined]
+                                    if elapsed > 0:
+                                        avg_speed = progress._processed_count / elapsed  # type: ignore[attr-defined]
+                                        avg_str = f"{avg_speed:.1f} img/s"
+                                    else:
+                                        avg_str = "0.0 img/s"
+                                    progress.update(
+                                        task_id,
+                                        advance=1,
+                                        current_file=f"📷 {img_name}",
+                                        detections="  ❌ ERROR",
+                                        avg_speed=avg_str,
+                                    )
+                                elif progress_bar:
                                     progress_bar.set_description(f"Image: {img_name}")
                                     progress_bar.set_postfix_str("ERROR", refresh=False)
                                     progress_bar.update(1)
@@ -783,12 +910,29 @@ class ImageProcessor:
                             img_name = image_path.name
                             if len(img_name) > 50:
                                 img_name = "..." + img_name[-47:]
-                            if progress_bar:
+                            if use_rich and progress:
+                                elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
+                                progress._processed_count += 1  # type: ignore[attr-defined]
+                                if elapsed > 0:
+                                    avg_speed = progress._processed_count / elapsed  # type: ignore[attr-defined]
+                                    avg_str = f"{avg_speed:.1f} img/s"
+                                else:
+                                    avg_str = "0.0 img/s"
+                                progress.update(
+                                    task_id,
+                                    advance=1,
+                                    current_file=f"📷 {img_name}",
+                                    detections=f"  ❌ FAILED: {str(e)[:50]}",
+                                    avg_speed=avg_str,
+                                )
+                            elif progress_bar:
                                 progress_bar.set_description(f"Image: {img_name}")
                                 progress_bar.set_postfix_str("FAILED", refresh=False)
                                 progress_bar.update(1)
         finally:
-            if progress_bar:
+            if use_rich and progress:
+                progress.stop()
+            elif progress_bar:
                 progress_bar.close()
 
         # REQ-012: Final statistics
