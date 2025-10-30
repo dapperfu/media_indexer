@@ -9,8 +9,12 @@ REQ-067: Database management operations organized under 'db' command group.
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
+
+# REQ-016: Suppress ONNX Runtime verbose output before any imports
+os.environ.setdefault("ORT_LOG_LEVEL", "3")  # 3 = ERROR level (suppress INFO/VERBOSE)
 
 
 def setup_logging(verbose: int) -> None:

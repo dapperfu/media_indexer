@@ -6,12 +6,16 @@ REQ-010: All code components directly linked to requirements.
 """
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 from urllib.request import urlretrieve
 
 import cv2
 import torch
+
+# REQ-016: Suppress ONNX Runtime verbose output before importing insightface
+os.environ.setdefault("ORT_LOG_LEVEL", "3")  # 3 = ERROR level (suppress INFO/VERBOSE)
 
 try:
     from ultralytics import YOLO
@@ -116,10 +120,20 @@ class FaceDetector:
         if insightface is not None:
             try:
                 logger.info("REQ-007: Loading insightface model")
-                # Use buffalo_l model (best accuracy with embeddings)
-                self.insight_model = insightface.app.FaceAnalysis(name='buffalo_l')
-                # Prepare for GPU execution
-                self.insight_model.prepare(ctx_id=0, det_size=(640, 640))
+                # REQ-016: Suppress InsightFace verbose output (ONNX Runtime and print statements)
+                import warnings
+                from contextlib import redirect_stderr, redirect_stdout
+                from io import StringIO
+                
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    # Suppress InsightFace's print statements by redirecting stdout and stderr temporarily
+                    null_stream = StringIO()
+                    with redirect_stdout(null_stream), redirect_stderr(null_stream):
+                        # Use buffalo_l model (best accuracy with embeddings)
+                        self.insight_model = insightface.app.FaceAnalysis(name='buffalo_l')
+                        # Prepare for GPU execution
+                        self.insight_model.prepare(ctx_id=0, det_size=(640, 640))
                 logger.info("REQ-007: insightface model loaded successfully")
             except Exception as e:
                 logger.warning(f"REQ-007: Failed to load insightface model: {e}")

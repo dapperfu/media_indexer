@@ -6,7 +6,13 @@ Pre-download models to central cache location.
 
 import argparse
 import logging
+import os
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from pathlib import Path
+
+# REQ-016: Suppress ONNX Runtime verbose output before any imports
+os.environ.setdefault("ORT_LOG_LEVEL", "3")  # 3 = ERROR level (suppress INFO/VERBOSE)
 
 from media_indexer.model_cache import ModelCache
 
@@ -57,7 +63,10 @@ def download_models(args: argparse.Namespace) -> None:
         try:
             import insightface
 
-            insightface.app.FaceAnalysis(providers=["CUDAExecutionProvider"])
+            # REQ-016: Suppress InsightFace verbose output during download
+            null_stream = StringIO()
+            with redirect_stdout(null_stream), redirect_stderr(null_stream):
+                insightface.app.FaceAnalysis(providers=["CUDAExecutionProvider"])
             logger.info(f"InsightFace models downloaded to {cache.insightface_cache}")
         except Exception as e:
             logger.error(f"Failed to download InsightFace models: {e}")
