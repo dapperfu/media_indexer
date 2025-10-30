@@ -4,9 +4,8 @@ Main Image Processor
 REQ-002: Process all images in collection and generate sidecar files.
 REQ-006: GPU-only operation enforcement.
 REQ-010: All code components directly linked to requirements.
-REQ-011: Checkpoint/resume functionality.
 REQ-012: Progress tracking and statistics.
-REQ-013: Idempotent processing.
+REQ-013: Idempotent processing using sidecar files.
 REQ-015: Robust error handling.
 REQ-016: Multi-level verbosity logging.
 """
@@ -41,21 +40,19 @@ class ImageProcessor:
     Main image processor orchestrating all components.
 
     REQ-002: Process images and generate sidecar files with metadata.
-    REQ-011: Support checkpointing and resuming.
     REQ-012: Track progress and statistics.
-    REQ-013: Implement idempotent processing.
+    REQ-013: Implement idempotent processing using sidecar files.
     """
 
     def __init__(
         self,
         input_dir: Path,
-        output_dir: Path | None = None,
-        checkpoint_file: Path | None = None,
         verbose: int = 20,
         batch_size: int = 1,
         database_path: Path | None = None,
         disable_sidecar: bool = False,
         limit: int | None = None,
+        force: bool = False,
     ) -> None:
         """
         Initialize image processor.
@@ -67,14 +64,13 @@ class ImageProcessor:
         REQ-038: Support limiting number of images to process.
 
         Args:
-            input_dir: Directory containing images to process.
-            output_dir: Directory for sidecar files (defaults to input_dir).
-            checkpoint_file: Path to checkpoint file (REQ-011).
+            input_dir: Directory containing images to process (sidecar files created alongside).
             verbose: Verbosity level (REQ-016).
             batch_size: Batch size for processing (REQ-014).
             database_path: Path to database file (REQ-025).
             disable_sidecar: Disable sidecar generation when using database (REQ-026).
             limit: Maximum number of images to process (REQ-038).
+            force: Force reprocessing even if analyses already exist (REQ-013).
 
         Raises:
             RuntimeError: If no GPU is available (REQ-006).
@@ -83,19 +79,9 @@ class ImageProcessor:
         self.gpu_validator: GPUValidator = get_gpu_validator()
         self.device = self.gpu_validator.get_device()
 
-        # REQ-002: Setup input/output directories (resolve to absolute paths)
+        # REQ-002: Setup input directory (resolve to absolute path)
+        # Sidecar files are always created alongside image files
         self.input_dir: Path = Path(input_dir).resolve()
-        if output_dir is None:
-            self.output_dir: Path = self.input_dir
-        else:
-            self.output_dir = Path(output_dir).resolve()
-
-        # REQ-011: Setup checkpoint file (resolve to absolute path)
-        if checkpoint_file:
-            self.checkpoint_file: Path = Path(checkpoint_file).resolve()
-        else:
-            self.checkpoint_file: Path = Path(".checkpoint.json").resolve()
-        self.processed_files: set[str] = set()
 
         # REQ-016: Setup verbosity
         self.verbose = verbose
@@ -111,6 +97,9 @@ class ImageProcessor:
         if self.limit:
             logger.info(f"REQ-038: Limiting processing to {self.limit} images")
 
+        # REQ-013: Force reprocessing flag
+        self.force = force
+
         # REQ-012: Statistics tracking
         self.stats: dict[str, Any] = {
             "total_images": 0,
@@ -122,7 +111,7 @@ class ImageProcessor:
         }
         self.stats_lock: Lock = Lock()  # For thread-safe stat updates
 
-        # REQ-002: Initialize components
+        # REQ-002: Initialize components (will be initialized later)
         self.exif_extractor: EXIFExtractor | None = None
         self.face_detector: FaceDetector | None = None
         self.object_detector: ObjectDetector | None = None
@@ -145,39 +134,136 @@ class ImageProcessor:
         if self.disable_sidecar:
             logger.info("REQ-026: Sidecar generation disabled")
 
-        # REQ-011: Load checkpoint if exists
-        self._load_checkpoint()
+    def _find_sidecar_path(self, image_path: Path) -> Path | None:
+        """
+        Find sidecar file path for an image.
 
-    def _load_checkpoint(self) -> None:
+        REQ-013: Find sidecar file to check if analysis already exists.
+        Sidecar files are always located next to the image file.
+
+        Args:
+            image_path: Path to the image file.
+
+        Returns:
+            Path to sidecar file if found, None otherwise.
         """
-        Load checkpoint file (REQ-011).
+        image_path_resolved = Path(image_path).resolve()
+        
+        # Sidecar files are always next to the image file
+        sidecar_path = image_path_resolved.with_suffix(image_path_resolved.suffix + '.json')
+        
+        if sidecar_path.exists():
+            return sidecar_path
+        
+        return None
+
+    def _get_required_analyses(self) -> set[str]:
         """
-        if self.checkpoint_file.exists():
-            logger.info(f"REQ-011: Loading checkpoint from {self.checkpoint_file}")
+        Get set of required analyses based on initialized components.
+
+        REQ-013: Determine which analyses should be performed.
+
+        Returns:
+            Set of analysis types: 'exif', 'faces', 'objects', 'poses'.
+        """
+        required: set[str] = set()
+        if self.exif_extractor is not None:
+            required.add('exif')
+        if self.face_detector is not None:
+            required.add('faces')
+        if self.object_detector is not None:
+            required.add('objects')
+        if self.pose_detector is not None:
+            required.add('poses')
+        return required
+
+    def _get_existing_analyses(self, image_path: Path) -> set[str]:
+        """
+        Get set of analyses already present in sidecar file or database.
+
+        REQ-013: Check sidecar file and database to determine what analyses exist.
+
+        Args:
+            image_path: Path to the image file.
+
+        Returns:
+            Set of analysis types present: 'exif', 'faces', 'objects', 'poses'.
+        """
+        existing: set[str] = set()
+        
+        # REQ-025: Check database first if available
+        if self.database_connection:
             try:
-                with open(self.checkpoint_file) as f:
-                    data = json.load(f)
-                    self.processed_files = set(data.get("processed_files", []))
-                    self.stats.update(data.get("stats", {}))
-                    logger.info(f"REQ-011: Loaded {len(self.processed_files)} processed files from checkpoint")
-            except Exception as e:
-                logger.warning(f"REQ-011: Failed to load checkpoint: {e}")
+                from pony.orm import db_session
 
-    def _save_checkpoint(self) -> None:
+                from media_indexer.db.image import Image as DBImage
+
+                with db_session:
+                    db_image = DBImage.get_by_path(str(image_path))
+                    if db_image:
+                        # Check if analyses exist in database
+                        if db_image.faces and len(db_image.faces) > 0:
+                            existing.add('faces')
+                        if db_image.objects and len(db_image.objects) > 0:
+                            existing.add('objects')
+                        if db_image.poses and len(db_image.poses) > 0:
+                            existing.add('poses')
+                        if db_image.exif_data is not None:
+                            existing.add('exif')
+                        
+                        # If all analyses are in database, return early
+                        if len(existing) == len(self._get_required_analyses()):
+                            return existing
+            except Exception as e:
+                logger.debug(f"REQ-025: Database check failed for {image_path}: {e}")
+        
+        # Also check sidecar files (complement database, not replace)
+        if not self.disable_sidecar:
+            sidecar_path = self._find_sidecar_path(image_path)
+            if sidecar_path and sidecar_path.exists():
+                try:
+                    if self.sidecar_generator:
+                        metadata = self.sidecar_generator.read_sidecar(sidecar_path)
+                    else:
+                        # Fallback: read JSON directly
+                        with open(sidecar_path) as f:
+                            metadata = json.load(f)
+                    
+                    # Add analyses from sidecar (union with database)
+                    if metadata.get('exif'):
+                        existing.add('exif')
+                    if metadata.get('faces'):
+                        existing.add('faces')
+                    if metadata.get('objects'):
+                        existing.add('objects')
+                    if metadata.get('poses'):
+                        existing.add('poses')
+                except Exception as e:
+                    logger.debug(f"REQ-013: Failed to read sidecar for {image_path}: {e}")
+        
+        return existing
+
+    def _needs_processing(self, image_path: Path) -> tuple[bool, set[str]]:
         """
-        Save checkpoint file (REQ-011).
+        Determine if image needs processing and which analyses are needed.
+
+        REQ-013: Check if image needs processing based on existing sidecar data.
+
+        Args:
+            image_path: Path to the image file.
+
+        Returns:
+            Tuple of (needs_processing, missing_analyses).
         """
-        try:
-            checkpoint_data = {
-                "processed_files": list(self.processed_files),
-                "stats": self.stats,
-            }
-            with open(self.checkpoint_file, "w") as f:
-                json.dump(checkpoint_data, f)
-            if self.verbose <= 12:  # TRACE level
-                logger.debug(f"REQ-011: Saved checkpoint to {self.checkpoint_file}")
-        except Exception as e:
-            logger.warning(f"REQ-011: Failed to save checkpoint: {e}")
+        if self.force:
+            required = self._get_required_analyses()
+            return True, required
+        
+        required = self._get_required_analyses()
+        existing = self._get_existing_analyses(image_path)
+        missing = required - existing
+        
+        return len(missing) > 0, missing
 
     def _initialize_components(self) -> None:
         """
@@ -215,7 +301,7 @@ class ImageProcessor:
 
         # REQ-004: Initialize sidecar generator
         try:
-            self.sidecar_generator = get_sidecar_generator(self.output_dir)
+            self.sidecar_generator = get_sidecar_generator()
             logger.info("REQ-004: Sidecar generator initialized")
         except Exception as e:
             logger.warning(f"REQ-004: Sidecar generator not available: {e}")
@@ -348,54 +434,44 @@ class ImageProcessor:
             logger.error(f"REQ-025: Failed to store to database: {e}")
             return False
 
-    def _process_single_image(self, image_path: Path) -> tuple[bool, dict[str, Any]]:
+    def _process_single_image(self, image_path: Path, missing_analyses: set[str]) -> tuple[bool, dict[str, Any]]:
         """
         Process a single image (REQ-002, REQ-015).
 
         Args:
             image_path: Path to image file.
+            missing_analyses: Set of analysis types to perform.
 
         Returns:
             Tuple of (success, detection_results). detection_results contains counts of faces, objects, poses.
         """
-        # REQ-013: Check if already processed (idempotent)
-        # REQ-025: Check database if using database storage
-        if self.database_connection:
-            try:
-                from pony.orm import db_session
-
-                from media_indexer.db.image import Image as DBImage
-
-                with db_session:
-                    existing_image = DBImage.get_by_path(str(image_path))
-                    if existing_image:
-                        logger.debug(f"REQ-013: Image {image_path} already exists in database, skipping")
-                        self.stats["skipped_images"] += 1
-                        return True, {}
-            except Exception as e:
-                logger.warning(f"REQ-025: Database check failed: {e}")
-
-        # Check for sidecar in output directory - image-sidecar-rust uses .json extension
-        sidecar_path = self.output_dir / (image_path.name + '.json')
-
-        if sidecar_path.exists():
-            logger.debug(f"REQ-013: Skipping already processed {image_path}")
-            self.stats["skipped_images"] += 1
-            return True, {}
-
         try:
-            metadata: dict[str, Any] = {"image_path": str(image_path)}
+            # Load existing metadata from sidecar if it exists
+            existing_metadata: dict[str, Any] = {}
+            sidecar_path = self._find_sidecar_path(image_path)
+            if sidecar_path and sidecar_path.exists():
+                try:
+                    if self.sidecar_generator:
+                        existing_metadata = self.sidecar_generator.read_sidecar(sidecar_path)
+                    else:
+                        with open(sidecar_path) as f:
+                            existing_metadata = json.load(f)
+                except Exception as e:
+                    logger.debug(f"REQ-013: Failed to read existing sidecar: {e}")
+            
+            # Start with existing metadata or new dict
+            metadata: dict[str, Any] = existing_metadata.copy() if existing_metadata else {"image_path": str(image_path)}
             detection_results: dict[str, Any] = {}
 
-            # REQ-003: Extract EXIF
-            if self.exif_extractor is not None:
+            # REQ-003: Extract EXIF if needed
+            if 'exif' in missing_analyses and self.exif_extractor is not None:
                 try:
                     metadata["exif"] = self.exif_extractor.extract_from_path(image_path)
                 except Exception as e:
                     logger.debug(f"REQ-003: EXIF extraction failed: {e}")
 
-            # REQ-007: Detect faces
-            if self.face_detector is not None:
+            # REQ-007: Detect faces if needed
+            if 'faces' in missing_analyses and self.face_detector is not None:
                 try:
                     faces = self.face_detector.detect_faces(image_path)
                     metadata["faces"] = faces
@@ -404,8 +480,8 @@ class ImageProcessor:
                     logger.debug(f"REQ-007: Face detection failed: {e}")
                     detection_results["faces"] = 0
 
-            # REQ-008: Detect objects
-            if self.object_detector is not None:
+            # REQ-008: Detect objects if needed
+            if 'objects' in missing_analyses and self.object_detector is not None:
                 try:
                     objects = self.object_detector.detect_objects(image_path)
                     metadata["objects"] = objects
@@ -414,8 +490,8 @@ class ImageProcessor:
                     logger.debug(f"REQ-008: Object detection failed: {e}")
                     detection_results["objects"] = 0
 
-            # REQ-009: Detect poses
-            if self.pose_detector is not None:
+            # REQ-009: Detect poses if needed
+            if 'poses' in missing_analyses and self.pose_detector is not None:
                 try:
                     poses = self.pose_detector.detect_poses(image_path)
                     metadata["poses"] = poses
@@ -430,23 +506,21 @@ class ImageProcessor:
                 if not db_success:
                     logger.error(f"REQ-025: Failed to store {image_path} to database")
 
-            # REQ-027: Generate sidecar if not disabled
+            # REQ-027: Generate/update sidecar if not disabled
             if not self.disable_sidecar and self.sidecar_generator is not None:
                 try:
                     sidecar_path = self.sidecar_generator.generate_sidecar(image_path, metadata)
-                    logger.debug(f"REQ-027: Generated sidecar for {image_path}")
+                    logger.debug(f"REQ-027: Generated/updated sidecar for {image_path}")
                 except Exception as e:
                     logger.error(f"REQ-004: Sidecar generation failed: {e}")
                     if self.database_connection:
                         # If using database, sidecar failure is not fatal
-                        self.processed_files.add(str(image_path))
                         return True, detection_results
                     else:
                         return False, {}
             elif self.disable_sidecar:
                 logger.debug(f"REQ-026: Skipping sidecar generation for {image_path}")
 
-            self.processed_files.add(str(image_path))
             return True, detection_results
 
         except Exception as e:
@@ -458,27 +532,55 @@ class ImageProcessor:
         """
         Process all images with parallel/batch processing (REQ-002, REQ-012, REQ-014, REQ-020).
 
+        REQ-013: Scan sidecar files to determine which analyses are needed.
+
         Returns:
             Dictionary with processing statistics.
         """
         logger.info(f"REQ-002: Starting image processing with batch size {self.batch_size}")
 
-        # Initialize components
+        # Initialize components first (needed to determine required analyses)
         self._initialize_components()
 
         # Get image files
         images = self._get_image_files()
         self.stats["total_images"] = len(images)
-        logger.info(f"REQ-002: Found {len(images)} images to process")
+        logger.info(f"REQ-002: Found {len(images)} images")
 
-        # Filter out already processed images
-        images_to_process = [img for img in images if str(img) not in self.processed_files]
-
+        # REQ-013: Scan sidecar files and determine which images need processing
+        logger.info("REQ-013: Scanning sidecar files to determine required analyses...")
+        images_to_process: list[tuple[Path, set[str]]] = []
+        skipped_count = 0
+        
+        for image_path in images:
+            needs_processing, missing_analyses = self._needs_processing(image_path)
+            if needs_processing:
+                images_to_process.append((image_path, missing_analyses))
+            else:
+                skipped_count += 1
+        
+        self.stats["skipped_images"] = skipped_count
+        
+        # REQ-013: Show summary before processing
+        required_analyses = self._get_required_analyses()
+        analysis_names = {
+            'exif': 'EXIF',
+            'faces': 'faces',
+            'objects': 'objects',
+            'poses': 'poses'
+        }
+        required_str = ', '.join(analysis_names.get(a, a) for a in sorted(required_analyses))
+        logger.info(f"REQ-013: Required analyses: {required_str}")
+        logger.info(f"REQ-013: Already analyzed: {skipped_count} images")
+        logger.info(f"REQ-013: Needs processing: {len(images_to_process)} images")
+        
         if not images_to_process:
-            logger.info("REQ-013: All images already processed")
+            logger.info("REQ-013: All images already have complete analyses")
+            self.stats["end_time"] = datetime.now().isoformat()
+            self._print_statistics()
             return self.stats
 
-        # REQ-012: Progress tracking with TQDM if verbose level <= 12
+        # REQ-012: Progress tracking with TQDM if verbose level <= 20
         def format_detection_summary(detections: dict[str, Any]) -> str:
             """Format detection info for display."""
             parts = []
@@ -506,7 +608,10 @@ class ImageProcessor:
 
                 # REQ-015: Robust error handling with thread pool
                 with ThreadPoolExecutor(max_workers=self.batch_size) as executor:
-                    futures = {executor.submit(self._process_single_image, img): img for img in batch}
+                    futures = {
+                        executor.submit(self._process_single_image, img_path, missing): img_path 
+                        for img_path, missing in batch
+                    }
 
                     for future in as_completed(futures):
                         image_path = futures[future]
@@ -544,16 +649,9 @@ class ImageProcessor:
                                 progress_bar.set_description(f"Image: {img_name}")
                                 progress_bar.set_postfix_str("FAILED", refresh=False)
                                 progress_bar.update(1)
-
-                # REQ-011: Save checkpoint periodically
-                if self.stats["processed_images"] % 100 == 0:
-                    self._save_checkpoint()
         finally:
             if progress_bar:
                 progress_bar.close()
-
-        # REQ-011: Final checkpoint save
-        self._save_checkpoint()
 
         # REQ-012: Final statistics
         self.stats["end_time"] = datetime.now().isoformat()
