@@ -310,7 +310,7 @@ class ImageProcessor:
                 # REQ-012: Use Rich progress bar for multi-line display
                 use_rich_query = self.verbose >= 15
                 if use_rich_query:
-                    progress_query = create_rich_progress_bar(
+                    progress_query, display_query, live_query = create_rich_progress_bar(
                         total=len(images),
                         desc="Querying database",
                         unit="file",
@@ -320,13 +320,14 @@ class ImageProcessor:
                     task_id_query = progress_query.add_task(
                         "Querying database",
                         total=len(images),
-                        current_file="",
                         avg_speed="0.0 file/s",
                     )
-                    progress_query.start()
+                    live_query.start()
                     progress_bar_query = None
                 else:
                     progress_query = None
+                    display_query = None
+                    live_query = None
                     task_id_query = None
                     progress_bar_query = None
 
@@ -346,7 +347,7 @@ class ImageProcessor:
                             break
 
                         path_str = str(image_path)
-                        existing = db_analyses.get(path_str, set())
+                        existing = db_analyses.get(path_str, set()).copy()  # Copy to avoid modifying shared set
 
                         # Also check sidecar files if not disabled
                         if not self.disable_sidecar:
@@ -366,7 +367,7 @@ class ImageProcessor:
                                             f"REQ-040: Skipping {image_path} - RAW conversion failed previously (use --force to retry)"
                                         )
                                         skipped_count += 1
-                                        if use_rich_query and progress_query:
+                                        if use_rich_query and progress_query and display_query:
                                             elapsed = time.time() - progress_query._start_time  # type: ignore[attr-defined]
                                             progress_query._processed_count += 1  # type: ignore[attr-defined]
                                             if elapsed > 0:
@@ -380,9 +381,13 @@ class ImageProcessor:
                                             progress_query.update(
                                                 task_id_query,
                                                 advance=1,
+                                                avg_speed=avg_str,
+                                            )
+                                            display_query.update_info(
                                                 current_file=f"📁 {img_name}",
                                                 avg_speed=avg_str,
                                             )
+                                            live_query.update(display_query)
                                         continue
 
                                     # Add analyses from sidecar (union with database)
@@ -406,7 +411,7 @@ class ImageProcessor:
                         else:
                             skipped_count += 1
 
-                        if use_rich_query and progress_query:
+                        if use_rich_query and progress_query and display_query:
                             elapsed = time.time() - progress_query._start_time  # type: ignore[attr-defined]
                             progress_query._processed_count += 1  # type: ignore[attr-defined]
                             if elapsed > 0:
@@ -420,12 +425,16 @@ class ImageProcessor:
                             progress_query.update(
                                 task_id_query,
                                 advance=1,
+                                avg_speed=avg_str,
+                            )
+                            display_query.update_info(
                                 current_file=f"📁 {img_name}",
                                 avg_speed=avg_str,
                             )
+                            live_query.update(display_query)
                 finally:
-                    if use_rich_query and progress_query:
-                        progress_query.stop()
+                    if use_rich_query and live_query:
+                        live_query.stop()
                     elif progress_bar_query:
                         progress_bar_query.close()
             else:
@@ -435,7 +444,7 @@ class ImageProcessor:
                 # REQ-012: Use Rich progress bar for multi-line display
                 use_rich_scan = self.verbose >= 15
                 if use_rich_scan:
-                    progress_scan = create_rich_progress_bar(
+                    progress_scan, display_scan, live_scan = create_rich_progress_bar(
                         total=len(images),
                         desc="Scanning sidecars",
                         unit="file",
@@ -445,13 +454,14 @@ class ImageProcessor:
                     task_id_scan = progress_scan.add_task(
                         "Scanning sidecars",
                         total=len(images),
-                        current_file="",
                         avg_speed="0.0 file/s",
                     )
-                    progress_scan.start()
+                    live_scan.start()
                     progress_bar_scan = None
                 else:
                     progress_scan = None
+                    display_scan = None
+                    live_scan = None
                     task_id_scan = None
                     progress_bar_scan = None
 
@@ -471,7 +481,7 @@ class ImageProcessor:
                                 images_to_process.append((image_path, missing_analyses))
                             else:
                                 skipped_count += 1
-                            if use_rich_scan and progress_scan:
+                            if use_rich_scan and progress_scan and display_scan:
                                 elapsed = time.time() - progress_scan._start_time  # type: ignore[attr-defined]
                                 progress_scan._processed_count += 1  # type: ignore[attr-defined]
                                 if elapsed > 0:
@@ -485,9 +495,13 @@ class ImageProcessor:
                                 progress_scan.update(
                                     task_id_scan,
                                     advance=1,
+                                    avg_speed=avg_str,
+                                )
+                                display_scan.update_info(
                                     current_file=f"📁 {img_name}",
                                     avg_speed=avg_str,
                                 )
+                                live_scan.update(display_scan)
                     else:
                         # REQ-020: Parallel scanning with thread pool
                         executor: ThreadPoolExecutor | None = None
@@ -529,7 +543,7 @@ class ImageProcessor:
                                         (image_path, self._get_required_analyses())
                                     )
                                 finally:
-                                    if use_rich_scan and progress_scan:
+                                    if use_rich_scan and progress_scan and display_scan:
                                         elapsed = time.time() - progress_scan._start_time  # type: ignore[attr-defined]
                                         progress_scan._processed_count += 1  # type: ignore[attr-defined]
                                         if elapsed > 0:
@@ -543,9 +557,13 @@ class ImageProcessor:
                                         progress_scan.update(
                                             task_id_scan,
                                             advance=1,
+                                            avg_speed=avg_str,
+                                        )
+                                        display_scan.update_info(
                                             current_file=f"📁 {img_name}",
                                             avg_speed=avg_str,
                                         )
+                                        live_scan.update(display_scan)
                         finally:
                             if executor:
                                 if cancellation_manager.is_cancelled():
@@ -556,8 +574,8 @@ class ImageProcessor:
                     logger.warning("REQ-015: Processing interrupted by user")
                     cancellation_manager.cancel()
                 finally:
-                    if use_rich_scan and progress_scan:
-                        progress_scan.stop()
+                    if use_rich_scan and live_scan:
+                        live_scan.stop()
                     elif progress_bar_scan:
                         progress_bar_scan.close()
 
@@ -606,7 +624,7 @@ class ImageProcessor:
             # REQ-016: Use Rich when verbose >= 15 for progress display
             use_rich = self.verbose >= 15
             if use_rich:
-                progress = create_rich_progress_bar(
+                progress, display, live = create_rich_progress_bar(
                     total=len(images_to_process),
                     desc="Processing images",
                     unit="img",
@@ -617,14 +635,14 @@ class ImageProcessor:
                 task_id = progress.add_task(
                     "Processing images",
                     total=len(images_to_process),
-                    current_file="",
-                    detections="",
                     avg_speed="0.0 img/s",
                 )
-                progress.start()
+                live.start()
             else:
                 # No progress bar when verbose < 15
                 progress = None
+                display = None
+                live = None
                 progress_bar = None
                 task_id = None
 
@@ -672,7 +690,7 @@ class ImageProcessor:
                                         img_name = "..." + img_name[-47:]
                                     det_summary = format_detection_summary(detections)
 
-                                    if use_rich and progress:
+                                    if use_rich and progress and display:
                                         elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
                                         progress._processed_count += 1  # type: ignore[attr-defined]
                                         if elapsed > 0:
@@ -685,12 +703,16 @@ class ImageProcessor:
                                         progress.update(
                                             task_id,
                                             advance=1,
+                                            avg_speed=avg_str,
+                                        )
+                                        display.update_info(
                                             current_file=f"📷 {img_name}",
                                             detections=f"  👤 {det_summary}"
                                             if det_summary
                                             else "  ✓ Processed",
                                             avg_speed=avg_str,
                                         )
+                                        live.update(display)
                                     elif progress_bar:
                                         progress_bar.set_description(
                                             f"Image: {img_name}"
@@ -704,7 +726,7 @@ class ImageProcessor:
                                     img_name = image_path.name
                                     if len(img_name) > 50:
                                         img_name = "..." + img_name[-47:]
-                                    if use_rich and progress:
+                                    if use_rich and progress and display:
                                         elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
                                         progress._processed_count += 1  # type: ignore[attr-defined]
                                         if elapsed > 0:
@@ -717,10 +739,14 @@ class ImageProcessor:
                                         progress.update(
                                             task_id,
                                             advance=1,
+                                            avg_speed=avg_str,
+                                        )
+                                        display.update_info(
                                             current_file=f"📷 {img_name}",
                                             detections="  ❌ ERROR",
                                             avg_speed=avg_str,
                                         )
+                                        live.update(display)
                                     elif progress_bar:
                                         progress_bar.set_description(
                                             f"Image: {img_name}"
@@ -737,7 +763,7 @@ class ImageProcessor:
                                 img_name = image_path.name
                                 if len(img_name) > 50:
                                     img_name = "..." + img_name[-47:]
-                                if use_rich and progress:
+                                if use_rich and progress and display:
                                     elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
                                     progress._processed_count += 1  # type: ignore[attr-defined]
                                     if elapsed > 0:
@@ -750,10 +776,14 @@ class ImageProcessor:
                                     progress.update(
                                         task_id,
                                         advance=1,
+                                        avg_speed=avg_str,
+                                    )
+                                    display.update_info(
                                         current_file=f"📷 {img_name}",
                                         detections=f"  ❌ FAILED: {str(e)[:50]}",
                                         avg_speed=avg_str,
                                     )
+                                    live.update(display)
                                 elif progress_bar:
                                     progress_bar.set_description(f"Image: {img_name}")
                                     progress_bar.set_postfix_str(
@@ -775,8 +805,8 @@ class ImageProcessor:
                 logger.warning("REQ-015: Processing interrupted by user")
                 cancellation_manager.cancel()
             finally:
-                if use_rich and progress:
-                    progress.stop()
+                if use_rich and live:
+                    live.stop()
                 elif progress_bar:
                     progress_bar.close()
 

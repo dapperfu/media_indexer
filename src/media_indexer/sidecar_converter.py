@@ -229,7 +229,7 @@ def import_sidecars_to_database(
         # REQ-012: Progress tracking with Rich for multi-line display
         use_rich = verbose >= 15
         if use_rich:
-            progress = create_rich_progress_bar(
+            progress, display, live = create_rich_progress_bar(
                 total=len(image_files),
                 desc="Importing sidecars",
                 unit="file",
@@ -239,13 +239,14 @@ def import_sidecars_to_database(
             task_id = progress.add_task(
                 "Importing sidecars",
                 total=len(image_files),
-                current_file="",
                 avg_speed="0.0 file/s",
             )
-            progress.start()
+            live.start()
             progress_bar = None
         else:
             progress = None
+            display = None
+            live = None
             task_id = None
             progress_bar = None
 
@@ -269,7 +270,7 @@ def import_sidecars_to_database(
                         processed += items_processed
                     else:
                         errors += 1
-                    if use_rich and progress:
+                    if use_rich and progress and display:
                         elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
                         progress._processed_count += 1  # type: ignore[attr-defined]
                         if elapsed > 0:
@@ -283,9 +284,13 @@ def import_sidecars_to_database(
                         progress.update(
                             task_id,
                             advance=1,
+                            avg_speed=avg_str,
+                        )
+                        display.update_info(
                             current_file=f"📁 {img_name}",
                             avg_speed=avg_str,
                         )
+                        live.update(display)
             else:
                 # REQ-020: Parallel processing with thread pool
                 executor = ThreadPoolExecutor(max_workers=workers)
@@ -324,7 +329,7 @@ def import_sidecars_to_database(
                             errors += 1
                             logger.error(f"REQ-032: Unexpected error processing {image_file}: {e}")
                         finally:
-                            if use_rich and progress:
+                            if use_rich and progress and display:
                                 elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
                                 progress._processed_count += 1  # type: ignore[attr-defined]
                                 if elapsed > 0:
@@ -338,9 +343,13 @@ def import_sidecars_to_database(
                                 progress.update(
                                     task_id,
                                     advance=1,
+                                    avg_speed=avg_str,
+                                )
+                                display.update_info(
                                     current_file=f"📁 {img_name}",
                                     avg_speed=avg_str,
                                 )
+                                live.update(display)
                 finally:
                     # REQ-015: Shutdown executor quickly when interrupted
                     if executor:
@@ -525,7 +534,7 @@ def export_database_to_sidecars(
         # REQ-012: Progress tracking with Rich for multi-line display
         use_rich = verbose >= 15
         if use_rich:
-            progress = create_rich_progress_bar(
+            progress, display, live = create_rich_progress_bar(
                 total=len(image_paths),
                 desc="Exporting sidecars",
                 unit="file",
@@ -535,13 +544,14 @@ def export_database_to_sidecars(
             task_id = progress.add_task(
                 "Exporting sidecars",
                 total=len(image_paths),
-                current_file="",
                 avg_speed="0.0 file/s",
             )
-            progress.start()
+            live.start()
             progress_bar = None
         else:
             progress = None
+            display = None
+            live = None
             task_id = None
             progress_bar = None
 
@@ -565,7 +575,7 @@ def export_database_to_sidecars(
                         processed += items_processed
                     else:
                         errors += 1
-                    if use_rich and progress:
+                    if use_rich and progress and display:
                         elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
                         progress._processed_count += 1  # type: ignore[attr-defined]
                         if elapsed > 0:
@@ -579,9 +589,13 @@ def export_database_to_sidecars(
                         progress.update(
                             task_id,
                             advance=1,
+                            avg_speed=avg_str,
+                        )
+                        display.update_info(
                             current_file=f"📁 {img_name}",
                             avg_speed=avg_str,
                         )
+                        live.update(display)
             else:
                 # REQ-020: Parallel processing with thread pool
                 executor = ThreadPoolExecutor(max_workers=workers)
@@ -620,7 +634,7 @@ def export_database_to_sidecars(
                             errors += 1
                             logger.error(f"REQ-033: Unexpected error processing {image_path}: {e}")
                         finally:
-                            if use_rich and progress:
+                            if use_rich and progress and display:
                                 elapsed = time.time() - progress._start_time  # type: ignore[attr-defined]
                                 progress._processed_count += 1  # type: ignore[attr-defined]
                                 if elapsed > 0:
@@ -634,9 +648,13 @@ def export_database_to_sidecars(
                                 progress.update(
                                     task_id,
                                     advance=1,
+                                    avg_speed=avg_str,
+                                )
+                                display.update_info(
                                     current_file=f"📁 {img_name}",
                                     avg_speed=avg_str,
                                 )
+                                live.update(display)
                 finally:
                     # REQ-015: Shutdown executor quickly when interrupted
                     if executor:

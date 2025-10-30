@@ -9,7 +9,8 @@ import logging
 import time
 from typing import Any
 
-from rich.console import Console
+from rich.console import Console, RenderableType
+from rich.live import Live
 from rich.progress import (
     BarColumn,
     Progress,
@@ -61,59 +62,65 @@ class AvgSpeedColumn(ProgressColumn):
         return text
 
 
-class MultiLineInfoColumn(ProgressColumn):
+class MultiLineProgressDisplay:
     """
-    Custom column to display multi-line information (current file and detections).
+    Custom renderable that combines Progress bar with multi-line info below it.
 
-    REQ-012: Shows current file and detection results on separate lines below progress bar.
-    This column spans the full width and renders multiple lines.
+    REQ-012: Shows progress bar with current file and detections on separate lines.
+    Uses Rich's Live display pattern for proper multi-line rendering.
     """
 
-    def __init__(self, show_detections: bool = False) -> None:
+    def __init__(self, progress: Progress, show_detections: bool = False) -> None:
         """
-        Initialize multi-line info column.
+        Initialize multi-line progress display.
 
         Args:
-            show_detections: If True, show detection information as well.
+            progress: Rich Progress instance.
+            show_detections: If True, show detection information.
         """
-        # Make this column span the full width by not specifying table_column
-        super().__init__(table_column=None)
+        self.progress = progress
         self.show_detections = show_detections
+        self.current_file: str = ""
+        self.detections: str = ""
+        self.avg_speed: str = "0.0"
 
-    def render(self, task: Any) -> Text:
+    def __rich__(self) -> RenderableType:
         """
-        Render multi-line information.
-
-        Args:
-            task: Progress task.
+        Render the multi-line display.
 
         Returns:
-            Formatted text with current file and optionally detections.
+            Renderable containing progress bar and info lines.
         """
-        lines: list[str] = []
+        from rich.console import Group
+
+        # Create info lines below progress bar
+        info_lines: list[RenderableType] = [self.progress]
         
-        current_file = task.fields.get("current_file", "")
-        if current_file:
-            lines.append(current_file)
+        if self.current_file or self.detections:
+            info_text = Text()
+            if self.current_file:
+                info_text.append(self.current_file, style="dim")
+            if self.show_detections and self.detections:
+                if self.current_file:
+                    info_text.append("\n")
+                info_text.append(self.detections, style="dim")
+            if len(info_text) > 0:
+                info_lines.append(info_text)
         
-        if self.show_detections:
-            detections = task.fields.get("detections", "")
-            if detections:
-                lines.append(detections)
-        
-        if not lines:
-            return Text("")
-        
-        # Create Text with proper Rich markup - each line dimmed
-        # Use Text.from_markup or direct style application
-        text = Text()
-        for i, line in enumerate(lines):
-            if i > 0:
-                text.append("\n")
-            # Apply dim style directly - this renders properly as Rich markup
-            text.append(line, style="dim")
-        
-        return text
+        return Group(*info_lines)
+
+    def update_info(self, current_file: str = "", detections: str = "", avg_speed: str = "0.0") -> None:
+        """
+        Update the info lines.
+
+        Args:
+            current_file: Current file being processed.
+            detections: Detection information.
+            avg_speed: Average processing speed.
+        """
+        self.current_file = current_file
+        self.detections = detections
+        self.avg_speed = avg_speed
 
 
 class SpeedColumn(ProgressColumn):
@@ -180,12 +187,12 @@ def create_rich_progress_bar(
     unit: str = "item",
     verbose: int = 20,
     show_detections: bool = False,
-) -> Progress | None:
+) -> tuple[Progress, MultiLineProgressDisplay, Live] | tuple[None, None, None]:
     """
-    Create a Rich progress bar with multi-line support.
+    Create a Rich progress bar with multi-line support using Live display.
 
     REQ-012: Progress tracking with both instantaneous and global/average speed.
-    Supports multi-line display for detection information.
+    Supports multi-line display for detection information using Rich's Live display.
 
     Args:
         total: Total number of items to process.
@@ -195,15 +202,14 @@ def create_rich_progress_bar(
         show_detections: If True, add a second line for detection information.
 
     Returns:
-        Rich Progress instance or None if verbosity is too low.
+        Tuple of (Progress instance, MultiLineProgressDisplay, Live instance) or (None, None, None).
     """
     if verbose < 15:
-        return None
+        return None, None, None
 
     # REQ-012: Create Rich progress bar with custom columns
     # REQ-015: Use custom columns to safely handle None values for speed and percentage
-    # Base columns for the progress bar line
-    base_columns = [
+    columns = [
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
         PercentageColumn(),
@@ -218,30 +224,22 @@ def create_rich_progress_bar(
         TextColumn("•"),
         AvgSpeedColumn(unit=unit),
     ]
-    
-    # Add multi-line info column if needed
-    if show_detections:
-        columns = [
-            *base_columns,
-            MultiLineInfoColumn(show_detections=True),
-        ]
-    else:
-        columns = [
-            *base_columns,
-            MultiLineInfoColumn(show_detections=False),
-        ]
 
-    # REQ-012: Create Progress with expand=True to allow multi-line columns
     progress = Progress(
         *columns,
         console=console,
         transient=False,
-        expand=True,
     )
+
+    # Create multi-line display wrapper
+    display = MultiLineProgressDisplay(progress, show_detections=show_detections)
+
+    # Create Live display for proper multi-line rendering
+    live = Live(display, console=console, refresh_per_second=10, screen=False)
 
     # Store processed count and start time
     progress._processed_count = 0  # type: ignore[attr-defined]
     progress._start_time = time.time()  # type: ignore[attr-defined]
 
-    return progress
+    return progress, display, live
 
