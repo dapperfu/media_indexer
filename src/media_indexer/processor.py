@@ -25,6 +25,7 @@ from rich.console import Console
 from rich.progress import (
     BarColumn,
     Progress,
+    ProgressColumn,
     SpinnerColumn,
     TextColumn,
     TimeElapsedColumn,
@@ -45,6 +46,43 @@ from media_indexer.sidecar_generator import SidecarGenerator, get_sidecar_genera
 
 logger = logging.getLogger(__name__)
 console = Console()
+
+
+class AvgSpeedColumn(ProgressColumn):
+    """Custom column to display average speed safely."""
+    
+    def __init__(self, unit: str = "item") -> None:
+        super().__init__()
+        self.unit = unit
+    
+    def render(self, task: Any) -> Text:
+        """Render average speed safely."""
+        avg_speed = task.fields.get("avg_speed", "0.0")
+        if avg_speed:
+            return Text(f"[cyan]avg: {avg_speed}[/cyan]", style="progress.data.speed")
+        return Text(f"[cyan]avg: 0.0 {self.unit}/s[/cyan]", style="progress.data.speed")
+
+
+class CurrentFileColumn(ProgressColumn):
+    """Custom column to display current file on second line."""
+    
+    def render(self, task: Any) -> Text:
+        """Render current file name."""
+        current_file = task.fields.get("current_file", "")
+        if current_file:
+            return Text(f"\n[dim]{current_file}[/dim]")
+        return Text("")
+
+
+class DetectionsColumn(ProgressColumn):
+    """Custom column to display detection information on third line."""
+    
+    def render(self, task: Any) -> Text:
+        """Render detection information."""
+        detections = task.fields.get("detections", "")
+        if detections:
+            return Text(f"\n[dim]{detections}[/dim]")
+        return Text("")
 
 
 def create_rich_progress_bar(
@@ -74,6 +112,7 @@ def create_rich_progress_bar(
         return None
 
     # REQ-012: Create Rich progress bar with custom columns
+    # Use custom columns to safely handle None values
     if show_detections:
         columns = [
             TextColumn("[progress.description]{task.description}"),
@@ -85,12 +124,12 @@ def create_rich_progress_bar(
             TextColumn("<"),
             TimeRemainingColumn(),
             TextColumn("•"),
-            TextColumn("[progress.speed]{task.speed:>8.1f}"),
+            TextColumn("[progress.speed]{task.speed:>8.1f}", style="progress.speed"),
             TextColumn(f"{unit}/s"),
             TextColumn("•"),
-            TextColumn("[cyan]avg: {task.fields[avg_speed]}[/cyan]"),
-            TextColumn("\n[dim]{task.fields[current_file]}[/dim]"),
-            TextColumn("\n[dim]{task.fields[detections]}[/dim]"),
+            AvgSpeedColumn(unit=unit),
+            CurrentFileColumn(),
+            DetectionsColumn(),
         ]
     else:
         columns = [
@@ -103,10 +142,10 @@ def create_rich_progress_bar(
             TextColumn("<"),
             TimeRemainingColumn(),
             TextColumn("•"),
-            TextColumn("[progress.speed]{task.speed:>8.1f}"),
+            TextColumn("[progress.speed]{task.speed:>8.1f}", style="progress.speed"),
             TextColumn(f"{unit}/s"),
             TextColumn("•"),
-            TextColumn("[cyan]avg: {task.fields[avg_speed]}[/cyan]"),
+            AvgSpeedColumn(unit=unit),
         ]
 
     progress = Progress(*columns, console=console, transient=False)
