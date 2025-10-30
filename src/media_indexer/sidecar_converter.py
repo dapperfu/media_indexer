@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import tqdm
 from pony.orm import db_session
 
 from media_indexer.db.connection import DatabaseConnection
@@ -191,44 +192,61 @@ def import_sidecars_to_database(
             logger.info("REQ-032: No sidecar files found to import")
             return
 
+        # REQ-012: Progress tracking with TQDM if verbose level <= 20
+        progress_bar = tqdm.tqdm(
+            total=len(image_files),
+            desc="Importing sidecars",
+            unit="file",
+            bar_format='{desc}: {bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]',
+        ) if verbose <= 20 else None
+
         # REQ-020: Process with parallel workers
         processed = 0
         errors = 0
 
-        if workers == 1:
-            # Sequential processing for single worker
-            for image_file in image_files:
-                success, items_processed = _import_single_sidecar(
-                    image_file, database_path, verbose
-                )
-                if success:
-                    processed += items_processed
-                else:
-                    errors += 1
-        else:
-            # REQ-020: Parallel processing with thread pool
-            with ThreadPoolExecutor(max_workers=workers) as executor:
-                futures = {
-                    executor.submit(
-                        _import_single_sidecar,
-                        image_file,
-                        database_path,
-                        verbose,
-                    ): image_file
-                    for image_file in image_files
-                }
-
-                for future in as_completed(futures):
-                    image_file = futures[future]
-                    try:
-                        success, items_processed = future.result()
-                        if success:
-                            processed += items_processed
-                        else:
-                            errors += 1
-                    except Exception as e:
+        try:
+            if workers == 1:
+                # Sequential processing for single worker
+                for image_file in image_files:
+                    success, items_processed = _import_single_sidecar(
+                        image_file, database_path, verbose
+                    )
+                    if success:
+                        processed += items_processed
+                    else:
                         errors += 1
-                        logger.error(f"REQ-032: Unexpected error processing {image_file}: {e}")
+                    if progress_bar:
+                        progress_bar.update(1)
+            else:
+                # REQ-020: Parallel processing with thread pool
+                with ThreadPoolExecutor(max_workers=workers) as executor:
+                    futures = {
+                        executor.submit(
+                            _import_single_sidecar,
+                            image_file,
+                            database_path,
+                            verbose,
+                        ): image_file
+                        for image_file in image_files
+                    }
+
+                    for future in as_completed(futures):
+                        image_file = futures[future]
+                        try:
+                            success, items_processed = future.result()
+                            if success:
+                                processed += items_processed
+                            else:
+                                errors += 1
+                        except Exception as e:
+                            errors += 1
+                            logger.error(f"REQ-032: Unexpected error processing {image_file}: {e}")
+                        finally:
+                            if progress_bar:
+                                progress_bar.update(1)
+        finally:
+            if progress_bar:
+                progress_bar.close()
 
         logger.info(f"REQ-032: Import completed - {processed} imported, {errors} errors")
 
@@ -375,44 +393,61 @@ def export_database_to_sidecars(
             logger.info("REQ-033: No images found in database to export")
             return
 
+        # REQ-012: Progress tracking with TQDM if verbose level <= 20
+        progress_bar = tqdm.tqdm(
+            total=len(image_paths),
+            desc="Exporting sidecars",
+            unit="file",
+            bar_format='{desc}: {bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]',
+        ) if verbose <= 20 else None
+
         # REQ-020: Process with parallel workers
         processed = 0
         errors = 0
 
-        if workers == 1:
-            # Sequential processing for single worker
-            for image_path in image_paths:
-                success, items_processed = _export_single_image(
-                    image_path, database_path, verbose
-                )
-                if success:
-                    processed += items_processed
-                else:
-                    errors += 1
-        else:
-            # REQ-020: Parallel processing with thread pool
-            with ThreadPoolExecutor(max_workers=workers) as executor:
-                futures = {
-                    executor.submit(
-                        _export_single_image,
-                        image_path,
-                        database_path,
-                        verbose,
-                    ): image_path
-                    for image_path in image_paths
-                }
-
-                for future in as_completed(futures):
-                    image_path = futures[future]
-                    try:
-                        success, items_processed = future.result()
-                        if success:
-                            processed += items_processed
-                        else:
-                            errors += 1
-                    except Exception as e:
+        try:
+            if workers == 1:
+                # Sequential processing for single worker
+                for image_path in image_paths:
+                    success, items_processed = _export_single_image(
+                        image_path, database_path, verbose
+                    )
+                    if success:
+                        processed += items_processed
+                    else:
                         errors += 1
-                        logger.error(f"REQ-033: Unexpected error processing {image_path}: {e}")
+                    if progress_bar:
+                        progress_bar.update(1)
+            else:
+                # REQ-020: Parallel processing with thread pool
+                with ThreadPoolExecutor(max_workers=workers) as executor:
+                    futures = {
+                        executor.submit(
+                            _export_single_image,
+                            image_path,
+                            database_path,
+                            verbose,
+                        ): image_path
+                        for image_path in image_paths
+                    }
+
+                    for future in as_completed(futures):
+                        image_path = futures[future]
+                        try:
+                            success, items_processed = future.result()
+                            if success:
+                                processed += items_processed
+                            else:
+                                errors += 1
+                        except Exception as e:
+                            errors += 1
+                            logger.error(f"REQ-033: Unexpected error processing {image_path}: {e}")
+                        finally:
+                            if progress_bar:
+                                progress_bar.update(1)
+        finally:
+            if progress_bar:
+                progress_bar.close()
 
         logger.info(f"REQ-033: Export completed - {processed} exported, {errors} errors")
 
