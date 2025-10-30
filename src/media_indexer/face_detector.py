@@ -15,7 +15,7 @@ import cv2
 import torch
 
 from media_indexer.raw_converter import get_raw_image_source, load_image_to_array
-from media_indexer.utils import setup_suppression
+from media_indexer.utils.suppression import setup_suppression
 from media_indexer.utils.image_utils import normalize_bbox
 from media_indexer.utils.model_utils import download_model_if_needed
 
