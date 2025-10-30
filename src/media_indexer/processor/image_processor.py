@@ -36,6 +36,7 @@ class ImageProcessorComponent:
         sidecar_generator: Any | None,
         database_connection: Any | None,
         disable_sidecar: bool,
+        face_attribute_analyzer: Any | None = None,
     ) -> None:
         """
         Initialize image processor component.
@@ -48,9 +49,11 @@ class ImageProcessorComponent:
             sidecar_generator: Optional sidecar generator.
             database_connection: Optional database connection.
             disable_sidecar: Whether sidecar generation is disabled.
+            face_attribute_analyzer: Optional face attribute analyzer (REQ-081).
         """
         self.exif_extractor = exif_extractor
         self.face_detector = face_detector
+        self.face_attribute_analyzer = face_attribute_analyzer
         self.object_detector = object_detector
         self.pose_detector = pose_detector
         self.sidecar_generator = sidecar_generator
@@ -128,6 +131,8 @@ class ImageProcessorComponent:
             if "faces" in missing_analyses and self.face_detector is not None:
                 try:
                     faces = self.face_detector.detect_faces(image_path)
+                    if self.face_attribute_analyzer is not None:
+                        faces = self.face_attribute_analyzer.annotate_faces(image_path, faces)
                     metadata["faces"] = faces
                     detection_results["faces"] = len(faces)
                 except Exception as e:

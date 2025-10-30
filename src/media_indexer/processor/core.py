@@ -50,6 +50,7 @@ class ImageProcessor:
         limit: int | None = None,
         force: bool = False,
         scan_workers: int = 8,
+        enable_face_attributes: bool = True,
     ) -> None:
         """
         Initialize image processor.
@@ -70,6 +71,7 @@ class ImageProcessor:
             limit: Maximum number of images to process (REQ-038).
             force: Force reprocessing even if analyses already exist.
             scan_workers: Number of parallel workers for sidecar scanning.
+            enable_face_attributes: Enable DeepFace age/emotion enrichment (REQ-081, default True).
 
         Raises:
             RuntimeError: If no GPU is available (REQ-006).
@@ -99,6 +101,7 @@ class ImageProcessor:
 
         # REQ-020: Workers for parallel sidecar scanning
         self.scan_workers = scan_workers
+        self.enable_face_attributes = enable_face_attributes
 
         # REQ-012: Statistics tracking
         self.stats_tracker = StatisticsTracker()
@@ -106,6 +109,7 @@ class ImageProcessor:
         # REQ-002: Initialize components (will be initialized later)
         self.exif_extractor: EXIFExtractor | None = None
         self.face_detector: FaceDetector | None = None
+        self.face_attribute_analyzer: Any | None = None
         self.object_detector: ObjectDetector | None = None
         self.pose_detector: PoseDetector | None = None
         self.sidecar_generator: SidecarGenerator | None = None
@@ -137,14 +141,14 @@ class ImageProcessor:
         # REQ-086: Propagate disable_sidecar flag to downstream components
         # Initialize image processor component
         self.image_processor = ImageProcessorComponent(
-            None,  # Will be set after initialization
-            None,
-            None,
-            None,
-            None,
-            None,  # Will be set after initialization
+            None,  # exif_extractor - will be set after initialization
+            None,  # face_detector - will be set after initialization
+            None,  # object_detector - will be set after initialization
+            None,  # pose_detector - will be set after initialization
+            None,  # sidecar_generator - will be set after initialization
             self.database_connection,
             self.disable_sidecar,
+            None,  # face_attribute_analyzer - will be set after initialization (optional)
         )
 
     def _get_required_analyses(self) -> set[str]:
@@ -189,6 +193,15 @@ class ImageProcessor:
         except Exception as e:
             logger.warning(f"REQ-007: Face detector not available: {e}")
 
+        if self.enable_face_attributes and self.face_detector is not None:
+            try:
+                from media_indexer.analytics.face_attribute_analyzer import get_face_attribute_analyzer
+
+                self.face_attribute_analyzer = get_face_attribute_analyzer()
+                logger.info("REQ-081: Face attribute analyzer initialized")
+            except Exception as e:
+                logger.warning(f"REQ-081: Face attribute analyzer unavailable: {e}")
+
         # REQ-008: Initialize object detector
         try:
             self.object_detector = get_object_detector(self.device, "yolo12x.pt")
@@ -214,6 +227,7 @@ class ImageProcessor:
         self.analysis_scanner.sidecar_generator = self.sidecar_generator
         self.image_processor.exif_extractor = self.exif_extractor
         self.image_processor.face_detector = self.face_detector
+        self.image_processor.face_attribute_analyzer = self.face_attribute_analyzer
         self.image_processor.object_detector = self.object_detector
         self.image_processor.pose_detector = self.pose_detector
         self.image_processor.sidecar_generator = self.sidecar_generator
