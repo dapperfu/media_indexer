@@ -49,4 +49,3 @@ def read_sidecar_metadata(
     except Exception as e:
         logger.error(f"REQ-004: Failed to read sidecar {sidecar_path}: {e}")
         raise
-

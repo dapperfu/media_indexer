@@ -1,0 +1,88 @@
+[DOCUMENT]
+MID: REQ-DOC-CLI
+TITLE: CLI and Observability Requirements
+
+[SECTION]
+TITLE: Progress Visibility and Logging
+
+[REQUIREMENT]
+UID: REQ-012
+STATEMENT: The tool shall provide real-time progress tracking with statistics including processing speed (images/sec, MB/sec), estimated time to completion (ETA), and a final summary report.
+COMMENT: Long-running batch jobs require visibility into progress for operational planning and user confidence. Real-time progress tracking provides: (1) Operational visibility - administrators can monitor processing health and detect stalls or performance degradation; (2) Resource planning - processing speed metrics enable estimation of completion times for different collection sizes; (3) User confidence - seeing progress prevents user anxiety about whether the system is working, especially for multi-day jobs; (4) Performance optimization - processing speed metrics help identify bottlenecks and optimize batch sizes or GPU utilization; (5) Billing accuracy - cloud cost estimation requires understanding processing duration. The dual metrics (images/sec and MB/sec) account for varying image sizes - processing 1MP images is faster than 50MP images. ETA calculation enables users to plan around completion times. The final summary report provides post-processing verification (total images processed, errors encountered, processing time). This requirement demonstrates user-centric design thinking - recognizing that users need visibility, not just raw processing power.
+
+[REQUIREMENT]
+UID: REQ-016
+STATEMENT: The tool shall implement multi-level verbosity logging with support for verbose flags (-v through -vvvv): -vvvvv for DEBUG level (10), -vvvv for TRACE level with TQDM progress bars (12), -vvv for VERBOSE level with detailed processing info (15), -vv for DETAILED file-by-file processing (17), -v for INFO level (20), and default WARNING level (30) showing only warnings and errors. Structured logging shall be configured with file destination options.
+COMMENT: Different users need different levels of detail: developers debugging issues need verbose output, while production operators need minimal noise. The multi-level verbosity system provides: (1) Progressive detail - each verbosity level adds more information, enabling users to find their preferred detail level; (2) Developer productivity - DEBUG/TRACE levels enable detailed troubleshooting without code changes; (3) Production operations - WARNING level minimizes log noise in production environments; (4) User experience - default WARNING level provides clean output for normal users, while verbose options satisfy power users; (5) Performance visibility - different levels show different performance metrics (file-level vs batch-level vs summary). The TQDM progress bars at TRACE level provide visual feedback for long-running operations. Structured logging (JSON format) enables log aggregation and analysis tools (ELK stack, Splunk) for enterprise deployments. File destination options allow logging to files for later analysis, separate from console output. This requirement demonstrates understanding of observability best practices - production systems need configurable logging appropriate for different use cases.
+
+[REQUIREMENT]
+UID: REQ-069
+STATEMENT: Output suppression utilities SHALL provide context-managed redirection of both stdout and stderr so that verbosity controls (REQ-016) silence third-party libraries only within the intended scope without leaking file descriptors or mutating global handlers.
+COMMENT: Reliable suppression is essential for the CLI logging contract. If stdout/stderr are not redirected together, noisy native dependencies (OpenCV, ONNX Runtime) can still spam the console, undermining REQ-016. Proper use of context managers eliminates global side effects, guarantees deterministic teardown even on exceptions, and prevents descriptor leaks that can exhaust process resources during long-running jobs.
+
+[REQUIREMENT]
+UID: REQ-076
+STATEMENT: The progress display shall retain and visibly surface recent warning and error messages within the live progress interface so brief console output does not obscure actionable issues.
+COMMENT: During GPU-intensive processing runs, warning and error messages can flash past as the live progress bar refreshes the terminal, making diagnostics difficult. Persisting the most recent noteworthy events directly beneath the progress bar ensures operators can review failures without scrolling back through logs, aligns with production observability practices, and prevents transient console updates from hiding critical alerts while maintaining the concise Rich-based UI required for long sessions.
+
+[REQUIREMENT]
+UID: REQ-077
+STATEMENT: Object detection summaries in the live progress display shall include representative emoji icons for the leading detected classes so operators can identify key categories without reading verbose text.
+COMMENT: Dense textual summaries slow situational awareness when thousands of images are processed. Mapping detected object classes to familiar emoji condenses the same information into a scannable glyph-based line, allowing users to recognise patterns (“⚽ sports ball”, “🚗 car”) instantly. This mirrors dashboard best practices where iconography communicates state faster than prose while keeping console output compact for long-running jobs.
+
+[SECTION]
+TITLE: Configuration Management
+
+[REQUIREMENT]
+UID: REQ-017
+STATEMENT: The tool shall support configuration file (YAML/TOML) for batch processing settings with CLI argument override capability.
+COMMENT: Configuration files enable reproducible processing configurations and reduce command-line complexity. The requirements include: (1) Reproducibility - configuration files enable exact reproduction of processing runs, critical for debugging and auditing; (2) Complexity management - batch processing has many options (batch size, model selection, output formats), and configuration files are more manageable than long command lines; (3) Version control - configuration files can be version-controlled, enabling tracking of processing configurations over time; (4) Team collaboration - teams can share standard configurations; (5) CLI override - argument overrides enable one-off adjustments without editing configuration files. YAML/TOML support provides flexibility (YAML is human-readable, TOML is more structured). This requirement demonstrates understanding of configuration management best practices - separating configuration from code, enabling reproducibility, and supporting both scripted and interactive usage patterns. For enterprise deployments, configuration files enable standardization across processing runs.
+
+[REQUIREMENT]
+UID: REQ-064
+STATEMENT: The tool shall provide a CLI command to emit a default configuration file with all available options and their descriptions, enabling users to understand the syntax and use it as a template without creating configuration files from scratch.
+COMMENT: Configuration file generation improves user experience by eliminating guesswork. This requirement: (1) Discoverability - users can see all available options without reading documentation; (2) Template generation - provides starting point for custom configurations; (3) Documentation - emitted config serves as inline documentation; (4) Error prevention - reduces syntax errors by providing correct template; (5) User experience - eliminates need to create config files manually. The requirement complements REQ-017 (configuration file support) by enabling easy configuration file creation. This requirement demonstrates user-centric design - making tools easy to use is as important as making them powerful.
+
+[REQUIREMENT]
+UID: REQ-038
+STATEMENT: All imports in the CLI module shall be lazy-loaded (imported only when the specific command is executed) to minimize startup time for the media-indexer command. Imports of heavy dependencies (torch, ultralytics, image-sidecar-rust) shall not occur until the command actually needs them.
+COMMENT: CLI startup time directly impacts user experience and perceived performance. Lazy loading provides: (1) Fast startup - CLI commands appear instantly, even when heavy dependencies aren't needed; (2) Better UX - users can run help commands without waiting for GPU libraries to load; (3) Resource efficiency - heavy dependencies (PyTorch, CUDA) only load when actually needed; (4) Error handling - dependency errors surface only when relevant commands are executed; (5) Development experience - faster iteration cycles during CLI development. The explicit mention of heavy dependencies (torch, ultralytics, image-sidecar-rust) identifies the specific performance bottlenecks being addressed. This requirement demonstrates attention to user experience details - fast startup times are often overlooked but significantly impact perceived quality.
+
+[SECTION]
+TITLE: CLI Structure and Controls
+
+[REQUIREMENT]
+UID: REQ-018
+STATEMENT: The tool shall support image format filtering to specify which image formats to process, defaulting to common formats (JPEG, PNG, TIFF, RAW).
+COMMENT: Image format filtering enables users to exclude unwanted formats or focus on specific formats. This provides: (1) Processing efficiency - skipping unwanted formats (e.g., GIF animations, WebP) saves processing time and GPU resources; (2) Use case support - users may only need to process RAW files or only JPEG files; (3) Format support - not all formats may be supported by all detection models, so filtering prevents errors; (4) Incremental processing - users can process formats separately (e.g., JPEG first, then RAW); (5) Default safety - defaulting to common formats ensures reasonable behavior for typical use cases. The explicit format list (JPEG, PNG, TIFF, RAW) covers the vast majority of photography use cases while excluding edge cases (GIF, BMP, proprietary formats) that may not be well-supported. This requirement demonstrates user-centric design - providing control while maintaining sensible defaults.
+
+[REQUIREMENT]
+UID: REQ-029
+STATEMENT: The tool shall support subcommand-based CLI operation with commands: extract (extract features from images), annotate (add features to images), and convert (migrate data between sidecar and database formats).
+COMMENT: Subcommand-based CLI architecture provides clear separation of concerns and intuitive user interface. The design offers: (1) Clarity - each subcommand has a single, well-defined purpose; (2) Discoverability - users can explore available commands via help system; (3) Extensibility - new functionality can be added as new subcommands without cluttering the main command; (4) Parameter isolation - each subcommand can have its own argument set without conflicts; (5) Professional UX - follows conventions established by tools like git, docker, kubectl. The three subcommands cover the core workflows: extract (initial processing), annotate (adding metadata to existing images), and convert (data migration between storage formats). This requirement demonstrates UX design thinking - recognizing that different user workflows require different command interfaces, and subcommands provide the right abstraction level.
+
+[REQUIREMENT]
+UID: REQ-030
+STATEMENT: The 'extract' subcommand shall process images and extract features including faces, objects, poses, and EXIF data, storing results in sidecar files and/or database as specified by configuration.
+COMMENT: The extract subcommand implements the core functionality defined in REQ-002. The explicit feature list (faces, objects, poses, EXIF) ensures completeness - all metadata types are extracted in a single pass. The storage flexibility (sidecar and/or database) reflects REQ-025 through REQ-027, allowing users to choose their preferred storage approach. This requirement establishes extract as the primary processing workflow, distinct from annotate (which adds to existing metadata) and convert (which migrates between formats). The requirement demonstrates systematic feature design - breaking complex functionality into clear, testable subcommands.
+
+[REQUIREMENT]
+UID: REQ-031
+STATEMENT: The 'annotate' subcommand shall process images and add features (faces, objects, poses, EXIF data) as annotations, storing results in sidecar files and/or database as specified by configuration.
+COMMENT: The annotate subcommand enables incremental metadata updates without full reprocessing. This provides: (1) Model updates - when new detection models are released, users can re-annotate with new models without reprocessing EXIF data; (2) Selective processing - users can add specific metadata types (e.g., only faces) to existing images; (3) Manual corrections - enables adding manually curated annotations alongside AI-detected features; (4) Cost efficiency - avoids reprocessing expensive operations (EXIF extraction) when only detection models need updating; (5) Workflow support - supports workflows where metadata is added incrementally over time. The distinction from extract (which processes everything) provides users with fine-grained control over processing workflows. This requirement demonstrates understanding of real-world usage patterns - initial processing is different from ongoing maintenance and updates.
+
+[REQUIREMENT]
+UID: REQ-035
+STATEMENT: The tool shall maintain backwards compatibility with legacy CLI usage where subcommands are not explicitly specified, automatically defaulting to the extract subcommand.
+COMMENT: Backwards compatibility protects existing user workflows and scripts from breaking when CLI architecture evolves. This provides: (1) User protection - existing scripts and workflows continue to work without modification; (2) Gradual migration - users can adopt subcommand syntax at their own pace; (3) Simplicity - default behavior (extract) matches most common use case; (4) Script compatibility - shell scripts and automation don't require immediate updates; (5) User experience - maintains familiar command syntax for existing users. The default to extract reflects that extraction is the primary workflow (REQ-002), making the default behavior intuitive. This requirement demonstrates understanding of production system evolution - breaking changes hurt users, and backwards compatibility is essential for professional software.
+
+[REQUIREMENT]
+UID: REQ-039
+STATEMENT: The tool shall support a --limit flag to process only a specified number of images, enabling testing on small subsets before processing large image collections.
+COMMENT: Testing and validation on large-scale systems requires the ability to operate on sample datasets. The --limit flag provides: (1) Development efficiency - developers can test changes on small datasets (e.g., 10 images) before full runs; (2) Cost control - cloud GPU users can validate processing on small samples before committing to expensive full runs; (3) Debugging - isolated issues can be reproduced on manageable datasets; (4) Validation - users can verify processing behavior on samples before processing entire collections; (5) Performance testing - enables benchmarking on controlled dataset sizes. This requirement demonstrates understanding of software development workflows - large-scale systems require testing strategies that don't require full-scale runs for every change. For enterprise customers, the ability to validate on samples reduces operational risk.
+
+[REQUIREMENT]
+UID: REQ-078
+STATEMENT: The CLI subcommands (extract, annotate, analyze, convert) shall accept multiple input directories or files as positional arguments, enabling batch processing of multiple directories in a single command invocation.
+COMMENT: Users often organize images across multiple directories (e.g., by year, event, or source). Processing multiple directories in a single command provides: (1) Operational efficiency - users can process entire collections without running separate commands for each directory; (2) Consistency - all directories are processed with identical parameters, ensuring uniform processing; (3) Workflow simplification - eliminates the need for shell loops or wrapper scripts; (4) Progress visibility - single command provides unified progress tracking across all directories; (5) Error handling - unified error reporting across all directories simplifies troubleshooting. The requirement supports both directory paths and individual file paths, accommodating flexible usage patterns. Shell glob expansion (e.g., /path/to/202*/) naturally provides multiple directories, making this feature essential for real-world usage scenarios. This requirement demonstrates understanding of practical CLI design - recognizing that users need to process collections organized across multiple directories efficiently.
+

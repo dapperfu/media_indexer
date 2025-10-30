@@ -96,12 +96,12 @@ class ObjectDetector:
                 boxes = result.boxes
                 # Get image dimensions for normalization
                 img_height, img_width = result.orig_shape
-                
+
                 for box in boxes:
                     class_id = int(box.cls.item())
                     confidence = float(box.conf.item())
                     class_name = result.names[class_id]
-                    
+
                     # Normalize bbox to percentages (0.0-1.0)
                     bbox_absolute = box.xyxy[0].cpu().numpy().tolist()
                     bbox_normalized = normalize_bbox(bbox_absolute, img_width, img_height)

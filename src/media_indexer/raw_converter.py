@@ -9,9 +9,7 @@ import logging
 import os
 import tempfile
 from contextlib import redirect_stderr
-from io import BytesIO, StringIO
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 from PIL import Image
@@ -35,6 +33,7 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
     """
     try:
         import rawpy
+
         rawpy_available = True
     except ImportError:
         logger.warning("REQ-040: rawpy not available, will use PIL fallback for RAW images")
@@ -52,28 +51,30 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
             # Use os.devnull for C library output suppression
             # REQ-015: Handle KeyboardInterrupt gracefully to prevent crashes
             try:
-                with open(os.devnull, 'w') as devnull:
-                    with redirect_stderr(devnull):
-                        with rawpy.imread(str(image_path)) as raw:
-                            rgb = raw.postprocess()
+                with (
+                    open(os.devnull, "w") as devnull,
+                    redirect_stderr(devnull),
+                    rawpy.imread(str(image_path)) as raw,
+                ):
+                    rgb = raw.postprocess()
             except KeyboardInterrupt:
                 # REQ-015: Handle interrupt during rawpy processing
                 logger.warning(f"REQ-015: RAW conversion interrupted for {image_path}")
                 raise
-            
+
             # Convert to uint8 if needed
             if rgb.dtype != np.uint8:
                 rgb = (rgb / 255.0 * 255).astype(np.uint8)
-            
+
             logger.debug(f"REQ-040: Successfully converted RAW file {image_path} to array shape {rgb.shape}")
             return rgb, "RGB"
-        
+
         except KeyboardInterrupt:
             # REQ-015: Re-raise KeyboardInterrupt to propagate to signal handler
             raise
         except Exception as e:
             logger.debug(f"REQ-040: rawpy failed for {image_path}: {e}, trying PIL fallback")
-    
+
     # Fall back to PIL (works for many CR2 files even when rawpy fails)
     try:
         logger.debug(f"REQ-040: Converting RAW file {image_path} to numpy array using PIL")
@@ -81,26 +82,30 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
         # Use os.devnull for C library output suppression
         # REQ-015: Handle KeyboardInterrupt gracefully
         try:
-            with open(os.devnull, 'w') as devnull:
-                with redirect_stderr(devnull):
-                    image = Image.open(str(image_path))
-                    # Convert to RGB if needed
-                    if image.mode != "RGB":
-                        image = image.convert("RGB")
+            with (
+                open(os.devnull, "w") as devnull,
+                redirect_stderr(devnull),
+            ):
+                image = Image.open(str(image_path))
+                # Convert to RGB if needed
+                if image.mode != "RGB":
+                    image = image.convert("RGB")
         except KeyboardInterrupt:
             # REQ-015: Handle interrupt during PIL processing
             logger.warning(f"REQ-015: RAW conversion interrupted for {image_path}")
             raise
-        
+
         rgb_array = np.array(image)
-        
+
         # Ensure uint8 dtype
         if rgb_array.dtype != np.uint8:
             rgb_array = rgb_array.astype(np.uint8)
-        
-        logger.debug(f"REQ-040: Successfully converted RAW file {image_path} to array shape {rgb_array.shape} using PIL")
+
+        logger.debug(
+            f"REQ-040: Successfully converted RAW file {image_path} to array shape {rgb_array.shape} using PIL"
+        )
         return rgb_array, "RGB"
-    
+
     except KeyboardInterrupt:
         # REQ-015: Re-raise KeyboardInterrupt to propagate to signal handler
         raise
@@ -122,10 +127,10 @@ def convert_raw_to_pil(image_path: Path) -> Image.Image | None:
         PIL Image or None on failure.
     """
     rgb_array, _ = convert_raw_to_array(image_path)
-    
+
     if rgb_array is None:
         return None
-    
+
     try:
         # Convert numpy array to PIL Image
         image = Image.fromarray(rgb_array)
@@ -149,34 +154,49 @@ def convert_raw_to_temp_jpeg(image_path: Path) -> Path | None:
         Path to temporary JPEG file or None on failure.
     """
     image = convert_raw_to_pil(image_path)
-    
+
     if image is None:
         return None
-    
+
     try:
         # Create temporary file
-        temp_file = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
-        temp_path = Path(temp_file.name)
-        temp_file.close()
-        
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_file:
+            temp_path = Path(temp_file.name)
+
         # Convert to RGB if needed (some cameras output RGBA)
         if image.mode in ("RGBA", "P"):
             image = image.convert("RGB")
-        
+
         # Save as JPEG
         image.save(temp_path, "JPEG", quality=95)
         logger.debug(f"REQ-040: Saved RAW conversion to {temp_path}")
         return temp_path
-    
+
     except Exception as e:
         logger.warning(f"REQ-040: Failed to create temporary JPEG from RAW: {e}")
         return None
 
 
-
-
 # Global registry for temporary files created during processing
 _temp_file_registry: set[Path] = set()
+
+
+def _remove_temp_file(temp_path: Path) -> None:
+    """Remove a temporary file if it exists.
+
+    Parameters
+    ----------
+    temp_path : Path
+        Path to the temporary file.
+    """
+
+    if not temp_path.exists():
+        return
+
+    try:
+        temp_path.unlink()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("REQ-040: Failed to remove temp file %s: %s", temp_path, exc)
 
 
 def register_temp_file(temp_path: Path) -> Path:
@@ -200,12 +220,8 @@ def cleanup_temp_files() -> None:
     REQ-040: Remove temporary files created for RAW conversion.
     """
     for temp_path in _temp_file_registry:
-        try:
-            if temp_path.exists():
-                temp_path.unlink()
-        except Exception as e:
-            logger.warning(f"REQ-040: Failed to remove temp file {temp_path}: {e}")
-    
+        _remove_temp_file(temp_path)
+
     _temp_file_registry.clear()
 
 
@@ -254,33 +270,31 @@ def load_image_to_array(image_path: Path) -> np.ndarray | None:
         rgb_array, _ = convert_raw_to_array(image_path)
         if rgb_array is not None:
             return rgb_array
-    
+
     # Fall back to PIL for all image types
     try:
         # REQ-016: Suppress corruption messages from PIL (printed to stderr)
         # Use os.devnull for C library output suppression
-        with open(os.devnull, 'w') as devnull:
-            with redirect_stderr(devnull):
-                image = Image.open(image_path)
-                # Convert to RGB if needed
-                if image.mode in ("RGBA", "LA", "P"):
-                    # Create white background for alpha channel
-                    if image.mode == "RGBA":
-                        rgb_image = Image.new("RGB", image.size, (255, 255, 255))
-                        rgb_image.paste(image, mask=image.split()[3])  # Use alpha channel as mask
-                    else:
-                        rgb_image = image.convert("RGB")
-                elif image.mode != "RGB":
-                    rgb_image = image.convert("RGB")
+        with open(os.devnull, "w") as devnull, redirect_stderr(devnull):
+            image = Image.open(image_path)
+            # Convert to RGB if needed
+            if image.mode in ("RGBA", "LA", "P"):
+                # Create white background for alpha channel
+                if image.mode == "RGBA":
+                    rgb_image = Image.new("RGB", image.size, (255, 255, 255))
+                    rgb_image.paste(image, mask=image.split()[3])  # Use alpha channel as mask
                 else:
-                    rgb_image = image
-        
+                    rgb_image = image.convert("RGB")
+            elif image.mode != "RGB":
+                rgb_image = image.convert("RGB")
+            else:
+                rgb_image = image
+
         # Convert to numpy array
         rgb_array = np.array(rgb_image)
         logger.debug(f"REQ-040: Loaded image {image_path} to array shape {rgb_array.shape}")
         return rgb_array
-    
+
     except Exception as e:
         logger.warning(f"REQ-040: Failed to load image {image_path}: {e}")
         return None
-

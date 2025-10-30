@@ -1,0 +1,83 @@
+[DOCUMENT]
+MID: REQ-DOC-GOV
+TITLE: Governance and Compliance Requirements
+
+[SECTION]
+TITLE: Documentation Standards
+
+[REQUIREMENT]
+UID: REQ-001
+STATEMENT: All requirements documentation shall be written in StrictDoc (.sdoc) format and the grammar of the requirements document shall be validated by the strictdoc tool.
+COMMENT: This requirement establishes a foundation of professional software engineering rigor by mandating a standardized, machine-validatable requirements format. StrictDoc was selected over alternatives (DOORS, ReqIF, Word documents) because it provides: (1) Text-based format enabling version control and diff tracking, critical for distributed teams and audit trails; (2) Tool-assisted grammar validation ensuring requirements maintain syntactic correctness and consistency; (3) Export capabilities to multiple formats (HTML, PDF, Excel) for stakeholder presentations; (4) Open-source nature eliminating vendor lock-in and licensing costs; (5) Traceability support enabling mapping from requirements to code to tests. The validation requirement ensures that requirement documents cannot be committed with syntax errors, maintaining document integrity throughout the project lifecycle. This demonstrates to investors that the company values formal requirements engineering practices over ad-hoc documentation, reducing project risk and enabling compliance with industry standards such as ISO/IEC/IEEE 29148.
+
+[REQUIREMENT]
+UID: REQ-036
+STATEMENT: All Python functions and files SHALL be documented to meet NumPy documentation standards as specified in the NumPy documentation style guide.
+COMMENT: Consistent documentation standards improve code maintainability and developer productivity. NumPy docstring format was selected because: (1) Industry standard - NumPy format is widely recognized and tool-supported; (2) Structured format - sections (Parameters, Returns, Examples) provide consistent organization; (3) Tool integration - documentation generators (Sphinx, pydoc) support NumPy format natively; (4) Type information - NumPy format accommodates type hints and parameter descriptions; (5) Examples - NumPy format encourages code examples in docstrings. The requirement applies to all functions and files, ensuring comprehensive documentation coverage. This requirement demonstrates commitment to code quality - well-documented code is maintainable, reduces onboarding time, and enables effective code reviews. For investors, comprehensive documentation signals professional development practices.
+
+[REQUIREMENT]
+UID: REQ-057
+STATEMENT: All python language scripts SHALL use full mypy typing.
+COMMENT: Type annotations improve code quality, enable static analysis, and enhance IDE support. This requirement: (1) Code quality - type annotations catch errors before runtime; (2) IDE support - enables better autocomplete and error detection in IDEs; (3) Documentation - types serve as inline documentation; (4) Refactoring safety - type checkers enable safe refactoring; (5) Team collaboration - types clarify function contracts for team members. "Full mypy typing" means type annotations throughout code, not just function signatures. This requirement demonstrates commitment to code quality - type annotations are essential for maintainable Python codebases, especially as codebases grow.
+
+[REQUIREMENT]
+UID: REQ-058
+STATEMENT: All python language scripts SHALL be documented such that they meet numpy style guidelines.
+COMMENT: Consistent documentation style improves code readability and maintainability. This requirement: (1) Consistency - all code follows the same documentation format; (2) Tool support - NumPy format is supported by documentation generators; (3) Readability - structured format improves readability of complex functions; (4) Standards compliance - NumPy format is an industry-standard Python docstring format; (5) Completeness - NumPy format encourages comprehensive documentation. This requirement complements REQ-036 and REQ-059 by emphasizing documentation style consistency. The requirement demonstrates commitment to documentation quality - good documentation is essential for code maintainability.
+
+[REQUIREMENT]
+UID: REQ-059
+STATEMENT: ALL functions and files in Python SHALL be documented to meet numpy documentation standards.
+COMMENT: Comprehensive documentation coverage ensures all code is understandable and maintainable. This requirement: (1) Completeness - ensures no undocumented code exists; (2) Onboarding - new developers can understand code through documentation; (3) Maintenance - documentation enables long-term code maintenance; (4) Quality assurance - undocumented code is a code smell indicating rushed development; (5) Professional practice - comprehensive documentation is standard in professional codebases. The "ALL" emphasis indicates this is a blanket requirement with no exceptions. This requirement demonstrates commitment to code quality - documentation is not optional, it's essential for maintainable software.
+
+[REQUIREMENT]
+UID: REQ-041
+STATEMENT: All StrictDoc (.sdoc) documents SHALL follow the StrictDoc grammar rules as defined at https://github.com/strictdoc-project/strictdoc/blob/main/strictdoc/backend/sdoc/grammar/grammar.py
+COMMENT: Grammar compliance ensures that StrictDoc documents are valid and can be processed by tools. This requirement: (1) Ensures validity - documents that don't follow grammar rules cannot be parsed or exported; (2) Tool compatibility - grammar-compliant documents work with all StrictDoc tools and future versions; (3) Automation support - enables automated validation in CI/CD pipelines; (4) Standardization - ensures consistency across all documentation; (5) Reference clarity - linking to the grammar source enables developers to understand exact requirements. The explicit URL reference ensures the requirement points to the authoritative grammar definition, preventing ambiguity. This requirement complements REQ-001 (StrictDoc format requirement) by specifying the exact grammar rules that must be followed.
+
+[REQUIREMENT]
+UID: REQ-042
+STATEMENT: All StrictDoc (.sdoc) documents SHALL not have C-style comments at the top of the file.
+COMMENT: C-style comments (/* */) are not part of the StrictDoc grammar and would cause parsing errors. This requirement ensures: (1) Grammar compliance - documents follow StrictDoc syntax rules without mixing comment styles; (2) Tool compatibility - StrictDoc parsers expect pure StrictDoc syntax without C-style comments; (3) Consistency - all documentation uses consistent comment syntax; (4) Parsing reliability - eliminates syntax ambiguity that could cause parsing failures; (5) Professional appearance - clean syntax without mixed comment styles presents a professional codebase. This requirement reflects understanding of language grammar constraints - mixing syntax styles breaks parsers and reduces tool compatibility.
+
+[REQUIREMENT]
+UID: REQ-043
+STATEMENT: All StrictDoc (.sdoc) documents SHALL be validated using the strictdoc CLI tool to ensure grammar compliance.
+COMMENT: Automated validation prevents invalid documents from entering the codebase and ensures grammar compliance. This requirement: (1) Prevents errors - catches syntax errors before they cause problems in CI/CD or documentation generation; (2) Enforces standards - ensures all documentation follows the same grammar rules; (3) CI/CD integration - enables automated validation in pre-commit hooks and CI pipelines; (4) Developer feedback - provides immediate feedback when documentation doesn't comply; (5) Quality assurance - ensures documentation can be processed by all StrictDoc tools. The validation requirement complements REQ-001 and REQ-041 by adding enforcement - not just specifying the format, but ensuring it's followed. This requirement demonstrates commitment to quality - automated validation prevents human error and ensures consistent documentation quality.
+
+[REQUIREMENT]
+UID: REQ-044
+STATEMENT: ALL notebooks must be generated programmatically from a .py script. The .py script shall have the same name as the .ipynb notebook and shall be the golden master for the notebook. If the notebooks need to be regenerated they are regenerated from the .py script.
+COMMENT: Notebooks (Jupyter/IPython) are difficult to version control due to JSON metadata and cell output. Using Python scripts as the source of truth provides: (1) Version control - Python scripts are clean, diff-friendly text files; (2) Reproducibility - scripts can be run to regenerate notebooks with identical results; (3) Code quality - Python scripts can be linted, type-checked, and tested like regular code; (4) Automation - notebooks can be regenerated automatically in CI/CD pipelines; (5) Collaboration - avoids merge conflicts from notebook JSON metadata. The "golden master" concept ensures scripts are the authoritative source, preventing divergence between scripts and notebooks. This requirement demonstrates understanding of data science workflow challenges and commitment to reproducible research practices.
+
+[SECTION]
+TITLE: Traceability and Governance
+
+[REQUIREMENT]
+UID: REQ-010
+STATEMENT: All code components shall be directly linked to specific requirements and labeled with the corresponding requirement ID (REQ-###).
+COMMENT: Requirements traceability is a fundamental principle of professional software engineering, enabling: (1) Impact analysis - when requirements change, developers can immediately identify affected code; (2) Verification - testers can verify that each requirement is implemented; (3) Compliance - demonstrates adherence to software engineering standards (ISO/IEC/IEEE 29148) expected by enterprise customers; (4) Documentation - code comments with requirement IDs serve as living documentation linking code to business needs; (5) Change management - enables tracking of which requirements drove which code changes over time. The explicit labeling requirement (REQ-### format) ensures consistency and enables automated traceability analysis. This practice demonstrates maturity in requirements engineering that distinguishes professional software companies from hobby projects. For investors reviewing code repositories, requirement traceability provides evidence of systematic development processes. For enterprise sales, this traceability supports compliance documentation and audit requirements common in regulated industries (healthcare, finance, government).
+
+[REQUIREMENT]
+UID: REQ-045
+STATEMENT: All code changes SHALL have an accompanying requirement in the requirements documentation. Requirements SHALL be tracked in StrictDoc format. When implementing new features or functionality, ensure the corresponding requirement exists or create it. All code MUST trace back to at least one requirement.
+COMMENT: Requirements traceability ensures that all code is justified by documented requirements, preventing scope creep and maintaining alignment with business goals. This requirement: (1) Prevents gold-plating - code must be justified by requirements, preventing unnecessary features; (2) Enables auditability - reviewers can verify code matches requirements; (3) Supports change management - requirement changes drive code changes, not the reverse; (4) Maintains focus - ensures development stays aligned with documented goals; (5) Professional practice - traceability is standard in regulated industries and enterprise software. The "MUST trace back" language is stronger than "SHALL" to emphasize the criticality of this practice. This requirement demonstrates mature software engineering practices - requirements-driven development distinguishes professional software companies from ad-hoc development.
+
+[REQUIREMENT]
+UID: REQ-068
+STATEMENT: All StrictDoc (.sdoc) documents SHALL have the tool (Cursor.AI) and model (Claude) listed in any Git commit message involving a StrictDoc.
+COMMENT: Attribution and auditability are critical for compliance and traceability in professional software development. This requirement ensures: (1) Tool transparency - commits clearly indicate when AI-assisted tools were used; (2) Model tracking - enables tracking of which AI models contributed to documentation; (3) Audit trail - provides complete history of who/what modified documentation; (4) Compliance - supports requirements for documenting AI tool usage in some regulated industries; (5) Reproducibility - enables understanding of tool/model context for documentation changes. The explicit mention of "Cursor.AI" and "Claude" ensures specific attribution rather than generic "AI assistance" claims. This requirement demonstrates commitment to transparency and auditability - critical for enterprise customers and regulatory compliance.
+
+[SECTION]
+TITLE: Quality Gates
+
+[REQUIREMENT]
+UID: REQ-072
+STATEMENT: All version-controlled text files SHALL contain no more than 500 lines, and a git pre-commit hook SHALL block commits that stage files exceeding this limit.
+COMMENT: Limiting file length enforces modular design and maintainability by encouraging developers to decompose oversized modules before committing changes. The automated pre-commit guard provides immediate feedback, preventing regressions as the codebase evolves. This aligns with professional engineering practices by ensuring architectural discipline, simplifying code reviews, and avoiding technical debt that accrues when monolithic files accumulate unnoticed.
+
+[REQUIREMENT]
+UID: REQ-075
+STATEMENT: The codebase SHALL remain free of Ruff lint violations as enforced by the make lint target to maintain coding standards, performance best practices, and developer productivity.
+COMMENT: Continuous lint compliance prevents stylistic drift, catches common bugs early, and enforces performance-conscious patterns (e.g., avoiding expensive constructs in hot loops). Aligning with the unified Ruff rule set ensures engineers share a consistent baseline, enabling faster reviews and safer refactoring while sustaining the project’s quality bar for new contributors.
+

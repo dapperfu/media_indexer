@@ -102,11 +102,11 @@ class PoseDetector:
 
                 for box, keypoint in zip(boxes, keypoints, strict=True):
                     confidence = float(box.conf.item())
-                    
+
                     # Normalize bbox to percentages (0.0-1.0)
                     bbox_absolute = box.xyxy[0].cpu().numpy().tolist()
                     bbox_normalized = normalize_bbox(bbox_absolute, img_width, img_height)
-                    
+
                     # Normalize keypoints to percentages (0.0-1.0)
                     keypoints_absolute = keypoint.xy[0].cpu().numpy().tolist()
                     keypoints_normalized = normalize_keypoints(keypoints_absolute, img_width, img_height)

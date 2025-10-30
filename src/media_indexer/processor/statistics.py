@@ -99,4 +99,3 @@ class StatisticsTracker:
             Statistics dictionary.
         """
         return self.stats.copy()
-

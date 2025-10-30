@@ -9,10 +9,15 @@ REQ-067: Database management operations organized under 'db' command group.
 
 import argparse
 import logging
-import os
 import sys
 from pathlib import Path
 
+from media_indexer.cli_handlers import (
+    process_analyze,
+    process_convert,
+    process_db,
+    process_extract,
+)
 from media_indexer.utils.suppression import setup_suppression
 
 # REQ-016: Suppress ONNX Runtime and OpenCV verbose output
@@ -132,9 +137,10 @@ def parse_args() -> argparse.Namespace:
         description="Extract features (faces, objects, poses, EXIF) from images.",
     )
     extract_parser.add_argument(
-        "input_dir",
+        "input_dirs",
         type=Path,
-        help="Input directory containing images to process",
+        nargs="+",
+        help="Input directories or files containing images to process (REQ-078)",
     )
     add_common_args(extract_parser, include_db=True)
     extract_parser.add_argument(
@@ -175,7 +181,7 @@ def parse_args() -> argparse.Namespace:
         help="Add features to images (REQ-031)",
         description="Process images and add features (faces, objects, poses, EXIF) as annotations.",
     )
-    
+
     # Analyze subcommand (alias for extract/annotate)
     analyze_parser = subparsers.add_parser(
         "analyze",
@@ -183,9 +189,10 @@ def parse_args() -> argparse.Namespace:
         description="Analyze images to extract features (faces, objects, poses, EXIF data).",
     )
     annotate_parser.add_argument(
-        "input_dir",
+        "input_dirs",
         type=Path,
-        help="Input directory containing images to process",
+        nargs="+",
+        help="Input directories or files containing images to process (REQ-078)",
     )
     add_common_args(annotate_parser, include_db=True)
     annotate_parser.add_argument(
@@ -225,12 +232,13 @@ def parse_args() -> argparse.Namespace:
         default=8,
         help="Number of parallel workers for sidecar scanning (default: 8) (REQ-020)",
     )
-    
+
     # Duplicate all arguments for analyze subcommand (same as extract)
     analyze_parser.add_argument(
-        "input_dir",
+        "input_dirs",
         type=Path,
-        help="Input directory containing images to process",
+        nargs="+",
+        help="Input directories or files containing images to process (REQ-078)",
     )
     add_common_args(analyze_parser, include_db=True)
     analyze_parser.add_argument(
@@ -285,13 +293,13 @@ def parse_args() -> argparse.Namespace:
     )
     # REQ-067: Create sub-subcommands under 'db'
     db_subparsers = db_parser.add_subparsers(dest="db_command")
-    
+
     # REQ-067: 'db stats' subcommand
-    stats_parser = db_subparsers.add_parser("stats", help="Display database statistics")
-    
+    db_subparsers.add_parser("stats", help="Display database statistics")
+
     # REQ-067: 'db init' subcommand
-    init_parser = db_subparsers.add_parser("init", help="Initialize database with required tables")
-    
+    db_subparsers.add_parser("init", help="Initialize database with required tables")
+
     # REQ-067: 'db search' subcommand
     search_parser = db_subparsers.add_parser("search", help="Search for images")
     search_parser.add_argument(
@@ -306,10 +314,10 @@ def parse_args() -> argparse.Namespace:
         default=10,
         help="Limit number of results",
     )
-    
+
     # REQ-067: 'db clean' subcommand
-    clean_parser = db_subparsers.add_parser("clean", help="Remove orphaned records")
-    
+    db_subparsers.add_parser("clean", help="Remove orphaned records")
+
     # REQ-032, REQ-033, REQ-034: Convert subcommand
     convert_parser = subparsers.add_parser(
         "convert",
@@ -317,9 +325,10 @@ def parse_args() -> argparse.Namespace:
         description="Migrate data between sidecar files and database storage.",
     )
     convert_parser.add_argument(
-        "input_dir",
+        "input_dirs",
         type=Path,
-        help="Input directory containing images or sidecar files",
+        nargs="+",
+        help="Input directories or files containing images or sidecar files (REQ-078)",
     )
     add_common_args(convert_parser, include_db=True)
     # REQ-034: Direction flag
@@ -345,267 +354,6 @@ def parse_args() -> argparse.Namespace:
         sys.exit(0)
 
     return args
-
-
-def process_extract(args: argparse.Namespace, verbose: int) -> int:
-    """
-    Handle extract subcommand (read from sidecars/database and export).
-    
-    REQ-030: Extract features from existing sidecar files and/or database.
-    
-    Args:
-        args: Parsed arguments.
-        verbose: Verbosity level.
-    
-    Returns:
-        Exit code (0 for success, non-zero for error).
-    """
-    # REQ-030: Validate that we have either input_dir or database
-    if not args.input_dir and not args.db:
-        logging.error("REQ-030: Either --input-dir or --db must be specified")
-        return 1
-    
-    if args.input_dir and not args.input_dir.exists():
-        logging.error(f"REQ-030: Input directory does not exist: {args.input_dir}")
-        return 1
-    
-    logging.info("REQ-030: Extracting features from sidecars/database")
-    logging.info(f"REQ-016: Verbosity level: {verbose}")
-    
-    # REQ-030: Initialize feature extractor (lazy import)
-    try:
-        from media_indexer.feature_extractor import FeatureExtractor
-        
-        extractor = FeatureExtractor(
-            input_dir=args.input_dir,
-            database_path=args.db,
-            output_dir=args.input_dir,  # Output to same directory as input
-        )
-        
-        # REQ-030: Extract features
-        stats = extractor.extract_features()
-        
-        # REQ-030: Exit with error code if there were errors
-        if stats["error_images"] > 0:
-            logging.warning(f"REQ-030: Completed with {stats['error_images']} errors")
-            return 1
-        else:
-            logging.info("REQ-030: Extraction completed successfully")
-            return 0
-    
-    except Exception as e:
-        logging.error(f"REQ-030: Extraction failed: {e}")
-        return 1
-
-
-def process_analyze(args: argparse.Namespace, verbose: int) -> int:
-    """
-    Handle analyze subcommand (analyze images and populate sidecars/database).
-    
-    REQ-031: Analyze images and extract features.
-    
-    Args:
-        args: Parsed arguments.
-        verbose: Verbosity level.
-    
-    Returns:
-        Exit code (0 for success, non-zero for error).
-    """
-    # REQ-031: Validate input directory
-    if not args.input_dir.exists():
-        logging.error(f"REQ-031: Input directory does not exist: {args.input_dir}")
-        return 1
-    
-    logging.info(f"REQ-031: Analyzing images from {args.input_dir}")
-    logging.info(f"REQ-016: Verbosity level: {verbose}")
-    
-    # REQ-031: Initialize processor (lazy import)
-    try:
-        from media_indexer.processor import ImageProcessor
-        
-        processor = ImageProcessor(
-            input_dir=args.input_dir,
-            verbose=verbose,
-            batch_size=args.batch_size,
-            database_path=args.db,
-            disable_sidecar=args.no_sidecar,
-            limit=args.limit,
-            force=getattr(args, 'force', False),
-            scan_workers=args.workers,
-        )
-        
-        # REQ-031: Process images
-        stats = processor.process()
-        
-        # REQ-012: Exit with error code if there were errors
-        if stats["error_images"] > 0:
-            logging.warning(f"REQ-012: Completed with {stats['error_images']} errors")
-            return 1
-        else:
-            logging.info("REQ-012: Processing completed successfully")
-            return 0
-    
-    except KeyboardInterrupt:
-        logging.warning("REQ-015: Processing interrupted by user")
-        return 130
-    except Exception as e:
-        logging.error(f"REQ-015: Processing failed: {e}")
-        return 1
-
-
-def process_db(args: argparse.Namespace, verbose: int) -> int:
-    """
-    Handle database management subcommand.
-    
-    REQ-067: Database management operations organized under 'db' command group.
-    
-    Args:
-        args: Parsed arguments.
-        verbose: Verbosity level.
-    
-    Returns:
-        Exit code (0 for success, non-zero for error).
-    """
-    # Validate database path
-    if not args.db:
-        logging.error("REQ-067: --db is required for db command")
-        return 1
-    
-    # Get the db subcommand
-    db_command = getattr(args, 'db_command', None)
-    
-    # REQ-067: Handle 'db init' subcommand
-    if db_command == "init":
-        try:
-            from media_indexer.db.connection import DatabaseConnection
-            
-            logging.info(f"REQ-067: Initializing database at {args.db}")
-            db_conn = DatabaseConnection(args.db)
-            db_conn.connect()
-            logging.info(f"REQ-067: Database initialized successfully at {args.db}")
-            return 0
-        except Exception as e:
-            logging.error(f"REQ-067: Database initialization failed: {e}")
-            return 1
-    
-    # For other commands, database must exist
-    if not args.db.exists():
-        logging.error(f"REQ-067: Database does not exist: {args.db}. Run 'media-indexer db init --db <path>' first.")
-        return 1
-    
-    try:
-        from media_indexer.db_manager import DatabaseManager
-        
-        db_manager = DatabaseManager(args.db)
-        
-        # REQ-067: Handle 'db stats' subcommand
-        if db_command == "stats":
-            db_manager.print_statistics()
-            return 0
-        
-        # REQ-067: Handle 'db search' subcommand
-        elif db_command == "search":
-            if not args.query:
-                logging.error("REQ-067: --query required for search command")
-                return 1
-            
-            limit = getattr(args, 'limit', 10)
-            results = db_manager.search_images(args.query, limit)
-            print(f"\n=== Search Results (showing {len(results)} of {limit}) ===")
-            for result in results:
-                print(f"\n{result['path']}")
-                print(f"  Faces: {result['faces']}, Objects: {result['objects']}, Poses: {result['poses']}")
-                print(f"  Size: {result['file_size']} bytes")
-                if result['width'] and result['height']:
-                    print(f"  Dimensions: {result['width']}x{result['height']}")
-            return 0
-        
-        # REQ-067: Handle 'db clean' subcommand
-        elif db_command == "clean":
-            logging.info("REQ-067: Cleaning database...")
-            stats = db_manager.clean_database()
-            print(f"\n=== Cleanup Statistics ===")
-            print(f"Images checked: {stats['images_checked']}")
-            print(f"Images removed: {stats['images_removed']}")
-            print(f"Files not found: {stats['files_not_found']}")
-            return 0
-        
-        else:
-            logging.error("REQ-067: No db subcommand specified. Use: stats, init, search, or clean")
-            return 1
-    
-    except Exception as e:
-        logging.error(f"REQ-067: Database command failed: {e}")
-        return 1
-
-
-def process_convert(args: argparse.Namespace, verbose: int) -> int:
-    """
-    Handle convert subcommand.
-
-    REQ-032, REQ-033, REQ-034: Convert between sidecar and database formats.
-
-    Args:
-        args: Parsed arguments.
-        verbose: Verbosity level.
-
-    Returns:
-        Exit code (0 for success, non-zero for error).
-    """
-    # REQ-034: Validate direction and setup
-    if args.direction == "to-db":
-        # REQ-032: Import sidecar files to database
-        if not args.db:
-            logging.error("REQ-032: --db required for to-db conversion")
-            return 1
-        if not args.input_dir.exists():
-            logging.error(f"REQ-032: Input directory does not exist: {args.input_dir}")
-            return 1
-
-        logging.info(f"REQ-032: Converting sidecar files to database from {args.input_dir}")
-        try:
-            from media_indexer.sidecar_converter import import_sidecars_to_database
-
-            import_sidecars_to_database(
-                input_dir=args.input_dir,
-                database_path=args.db,
-                verbose=verbose,
-                workers=args.workers,
-            )
-            logging.info("REQ-032: Sidecar import to database completed successfully")
-            return 0
-        except Exception as e:
-            logging.error(f"REQ-032: Sidecar import failed: {e}")
-            return 1
-
-    elif args.direction == "to-sidecar":
-        # REQ-033: Export database to sidecar files
-        if not args.db:
-            logging.error("REQ-033: --db required for to-sidecar conversion")
-            return 1
-        if not args.db.exists():
-            logging.error(f"REQ-033: Database does not exist: {args.db}")
-            return 1
-
-        # For convert, sidecar files go next to the original image files
-        # We need to determine the directory from the database entries
-        logging.info(f"REQ-033: Converting database to sidecar files next to image files")
-        try:
-            from media_indexer.sidecar_converter import export_database_to_sidecars
-
-            export_database_to_sidecars(
-                database_path=args.db,
-                output_dir=None,  # None means sidecar files go next to image files
-                verbose=verbose,
-                workers=args.workers,
-            )
-            logging.info("REQ-033: Database export to sidecar completed successfully")
-            return 0
-        except Exception as e:
-            logging.error(f"REQ-033: Database export failed: {e}")
-            return 1
-
-    return 1
 
 
 def main() -> None:

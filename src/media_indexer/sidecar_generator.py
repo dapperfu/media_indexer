@@ -51,13 +51,17 @@ class SidecarGenerator:
 
         # REQ-004: Use image-sidecar-rust to handle sidecar file creation
         # The library creates sidecar files next to the image
-        image_path_resolved = Path(image_path).resolve()
+        resolved_image_path = Path(image_path).resolve()
         sidecar = image_sidecar_rust.ImageSidecar()
         try:
             # Use UNIFIED operation type to store all metadata types together
-            info = sidecar.save_data(str(image_path), image_sidecar_rust.OperationType.UNIFIED, metadata)
+            info = sidecar.save_data(
+                str(resolved_image_path),
+                image_sidecar_rust.OperationType.UNIFIED,
+                metadata,
+            )
             logger.debug(f"REQ-004: Generated sidecar info: {info}")
-            generated_sidecar_path = Path(info.get('sidecar_path', str(image_path) + '.json')).resolve()
+            generated_sidecar_path = Path(info.get("sidecar_path", str(image_path) + ".json")).resolve()
             return generated_sidecar_path
         except Exception as e:
             # Fallback if library fails
@@ -84,32 +88,33 @@ class SidecarGenerator:
         sidecar = image_sidecar_rust.ImageSidecar()
         try:
             # Extract image path from sidecar path
-            image_path = Path(str(sidecar_path).replace('.json', ''))
+            image_path = Path(str(sidecar_path).replace(".json", ""))
             metadata = sidecar.read_data(str(image_path))
             logger.debug(f"REQ-004: Read sidecar from {sidecar_path}")
             return metadata
         except Exception as e:
             logger.warning(f"REQ-004: Sidecar read failed: {e}")
             return {}
-    
+
     def _fallback_sidecar(self, image_path: Path, metadata: dict[str, Any]) -> Path:
         """
         Fallback sidecar generation using JSON file.
-        
+
         Args:
             image_path: Path to the image file.
             metadata: Metadata to store in sidecar.
-            
+
         Returns:
             Path to the generated sidecar file.
         """
         image_path_resolved = Path(image_path).resolve()
-        
+
         # Always create sidecar next to image file
-        sidecar_path = image_path_resolved.with_suffix(image_path_resolved.suffix + '.json')
-        
+        sidecar_path = image_path_resolved.with_suffix(image_path_resolved.suffix + ".json")
+
         import json
-        with open(sidecar_path, 'w') as f:
+
+        with open(sidecar_path, "w") as f:
             json.dump(metadata, f, indent=2)
         return sidecar_path
 

@@ -7,7 +7,7 @@ REQ-024: Object entity linked to Image.
 
 import logging
 
-from pony.orm import Optional, Required, Json
+from pony.orm import Json, Optional, Required
 
 from media_indexer.db.connection import db
 from media_indexer.db.image import Image

@@ -92,8 +92,9 @@ class DatabaseConnection:
 
             # REQ-066: Verify tables were created by making a test connection
             from pony.orm import db_session
+
             from media_indexer.db.image import Image as ImageEntity
-            
+
             with db_session:
                 try:
                     # Try to count images to verify the Image table exists

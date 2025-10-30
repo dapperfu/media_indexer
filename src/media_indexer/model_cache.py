@@ -7,6 +7,7 @@ Central location for model weight storage and management.
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -73,14 +74,16 @@ class ModelCache:
         model_path = self.yolo_cache / model_name
         return model_path
 
-    def get_model_info(self) -> dict[str, any]:
-        """
-        Get information about cached models.
+    def get_model_info(self) -> dict[str, Any]:
+        """Collect metadata about cached model artifacts.
 
-        Returns:
-            Dictionary with cache information.
+        Returns
+        -------
+        dict[str, Any]
+            Mapping of model filename to size (MB) and absolute path
+            within the local cache directory.
         """
-        models = {}
+        models: dict[str, Any] = {}
         model_files = list(self.yolo_cache.glob("*.pt"))
         for model_file in model_files:
             size = model_file.stat().st_size / (1024 * 1024)  # MB

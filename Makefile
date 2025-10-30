@@ -1,4 +1,4 @@
-.PHONY: all install install-dev test lint doc-check format format-check check validate-requirements generate-sdocs-html clean help
+.PHONY: all install install-dev test lint doc-check format format-check check validate-requirements generate-sdocs-html clean help install-hooks install-dlib
 
 # Python and virtual environment setup
 VENV_DIR = venv
@@ -10,6 +10,7 @@ PYTEST = ${VENV_DIR}/bin/pytest
 RUFF = ${VENV_DIR}/bin/ruff
 STRICTDOC = ${VENV_DIR}/bin/strictdoc
 PYDOCSTYLE = ${VENV_DIR}/bin/pydocstyle
+HOOKS_DIR = .githooks
 
 # Default target - venv installs everything
 all: venv
@@ -29,6 +30,13 @@ install: ${VENV_UV}
 # Install development dependencies
 install-dev: ${VENV_UV}
 	${VENV_UV} pip install -e ".[dev]"
+
+install-hooks:
+	git config core.hooksPath ${HOOKS_DIR}
+	@echo "Git hooks configured to use ${HOOKS_DIR}"
+
+install-dlib: venv
+	${VENV_PYTHON} scripts/install_dlib_cuda.py
 
 # Target files for dev tools - ensures they're installed
 ${RUFF}: ${VENV_UV}
@@ -93,6 +101,8 @@ help:
 	@echo "  make venv              - Create virtual environment"
 	@echo "  make install           - Install dependencies"
 	@echo "  make install-dev       - Install development dependencies"
+	@echo "  make install-dlib      - Build and install dlib with CUDA support"
+	@echo "  make install-hooks     - Configure git to use project hooks"
 	@echo "  make test              - Run tests"
 	@echo "  make lint              - Run ruff linter"
 	@echo "  make doc-check         - Check documentation style (pydocstyle)"

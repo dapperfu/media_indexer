@@ -9,8 +9,6 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from pony.orm import db_session
-
 from media_indexer.db.exif import EXIFData
 from media_indexer.db.face import Face
 from media_indexer.db.hash_util import calculate_file_hash, get_file_size
@@ -208,4 +206,3 @@ class MetadataConverter:
         )
 
         return db_image
-

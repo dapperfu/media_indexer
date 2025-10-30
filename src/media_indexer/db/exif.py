@@ -6,9 +6,9 @@ REQ-024: EXIF entity linked to Image.
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
-from pony.orm import Optional, Required, Json
+from pony.orm import Json, Optional, Required
 
 from media_indexer.db.connection import db
 from media_indexer.db.image import Image

@@ -5,7 +5,6 @@ REQ-013: Scan sidecar files and database to determine required analyses.
 REQ-010: All code components directly linked to requirements.
 """
 
-import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -62,9 +61,7 @@ class AnalysisScanner:
         image_path_resolved = Path(image_path).resolve()
 
         # Sidecar files are always next to the image file
-        sidecar_path = image_path_resolved.with_suffix(
-            image_path_resolved.suffix + ".json"
-        )
+        sidecar_path = image_path_resolved.with_suffix(image_path_resolved.suffix + ".json")
 
         if sidecar_path.exists():
             return sidecar_path
@@ -93,7 +90,7 @@ class AnalysisScanner:
 
         try:
             from media_indexer.db.image import Image as DBImage
-            
+
             with db_session:
                 # Query all images at once
                 # Convert to list for PonyORM compatibility (SQL IN clause)
@@ -152,7 +149,7 @@ class AnalysisScanner:
         if self.database_connection:
             try:
                 from media_indexer.db.image import Image as DBImage
-                
+
                 with db_session:
                     db_image = DBImage.get_by_path(str(image_path))
                     if db_image:
@@ -177,9 +174,7 @@ class AnalysisScanner:
             sidecar_path = self.find_sidecar_path(image_path)
             if sidecar_path and sidecar_path.exists():
                 try:
-                    metadata = read_sidecar_metadata(
-                        sidecar_path, self.sidecar_generator
-                    )
+                    metadata = read_sidecar_metadata(sidecar_path, self.sidecar_generator)
 
                     # REQ-040: Check for raw_conversion_failed flag
                     # If flag is set and force is False, skip processing by returning all required analyses
@@ -203,4 +198,3 @@ class AnalysisScanner:
                     logger.debug(f"REQ-013: Failed to read sidecar for {image_path}: {e}")
 
         return existing
-

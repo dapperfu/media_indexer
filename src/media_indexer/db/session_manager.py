@@ -73,4 +73,3 @@ class DatabaseSession:
                 self.db_connection.close()
             except Exception as e:
                 logger.error(f"REQ-022: Error closing database: {e}")
-

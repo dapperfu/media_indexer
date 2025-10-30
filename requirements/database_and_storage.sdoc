@@ -1,0 +1,78 @@
+[DOCUMENT]
+MID: REQ-DOC-DB
+TITLE: Database and Storage Requirements
+
+[SECTION]
+TITLE: Database Architecture
+
+[REQUIREMENT]
+UID: REQ-019
+STATEMENT: The tool shall provide an optional SQLite database index for extracted metadata to enable querying by faces, objects, poses, and EXIF tags.
+COMMENT: Sidecar files provide per-image metadata, but querying across millions of images requires a database index. SQLite was selected because: (1) Zero configuration - no database server required, single file database suitable for embedded use; (2) ACID compliance - ensures data integrity for concurrent access; (3) SQL support - standard SQL enables complex queries (find all images with person X AND car AND taken in 2023); (4) Portability - SQLite databases are portable across platforms; (5) Performance - SQLite handles millions of rows efficiently with proper indexing. The "optional" requirement acknowledges that some users may only need sidecar files (simpler, more portable), while others need database querying (enabling search UIs, analytics, integration with other tools). The explicit query types (faces, objects, poses, EXIF) define the use cases: person-based search, content-based search, activity-based search, and temporal/spatial queries. This requirement demonstrates understanding of different user needs - some need simple file-based metadata, others need queryable databases.
+
+[REQUIREMENT]
+UID: REQ-022
+STATEMENT: The tool shall use PonyORM as the Object-Relational Mapping (ORM) framework for database operations.
+COMMENT: ORM frameworks abstract database operations, enabling type-safe database access and reducing boilerplate code. PonyORM was selected over alternatives (SQLAlchemy, Django ORM, Peewee) because: (1) Pythonic syntax - PonyORM uses generator expressions for queries, resulting in more readable code than SQLAlchemy's query builder; (2) Performance - PonyORM generates efficient SQL and supports lazy loading optimizations; (3) Type safety - PonyORM models enable type checking with mypy, critical for large codebases; (4) Lightweight - PonyORM has minimal dependencies compared to Django ORM; (5) Active development - PonyORM is actively maintained with modern Python support. The ORM requirement abstracts database implementation details, enabling future migration to PostgreSQL or other databases if needed. This requirement demonstrates architectural decision-making - selecting appropriate tools based on code quality, maintainability, and performance considerations rather than defaulting to the most popular option.
+
+[REQUIREMENT]
+UID: REQ-023
+STATEMENT: Each PonyORM model entity (Image, Face, Object, Pose, EXIFData) shall be defined in a separate file within the db module directory.
+COMMENT: Separating model definitions into individual files follows the Single Responsibility Principle and improves code maintainability. This organization provides: (1) Modularity - each model is self-contained, making it easier to understand and modify individual entities; (2) Reduced merge conflicts - multiple developers can work on different models without conflicts; (3) Clear structure - file names map directly to model names, improving code discoverability; (4) Testability - models can be tested in isolation; (5) Scalability - adding new models doesn't bloat existing files. The explicit model list (Image, Face, Object, Pose, EXIFData) ensures all database entities are properly organized. This requirement demonstrates adherence to software engineering best practices for code organization - large files become unmaintainable, and modular structure improves long-term code quality.
+
+[REQUIREMENT]
+UID: REQ-024
+STATEMENT: The database schema shall implement relational design with proper foreign key relationships: Image (1:N with Face, Object, Pose), Image (1:1 with EXIFData, ImageMetadata).
+COMMENT: Relational database design ensures data integrity and enables efficient querying. The schema relationships reflect real-world data: (1) One-to-many (1:N) - one image can have multiple faces, objects, or poses detected, reflecting that images contain multiple entities; (2) One-to-one (1:1) - each image has exactly one set of EXIF data and one metadata record, reflecting that EXIF is embedded per-image; (3) Foreign key constraints - enforce referential integrity, preventing orphaned records and ensuring data consistency; (4) Query efficiency - proper relationships enable JOIN operations without complex workarounds; (5) Data normalization - avoids redundant data storage (e.g., storing image path multiple times). The explicit relationship specification ensures the schema supports efficient queries like "find all images containing person X" (Image JOIN Face) and "find all images taken in 2023" (Image JOIN EXIFData). This requirement demonstrates understanding of database design principles - proper schema design is foundational for query performance and data integrity.
+
+[REQUIREMENT]
+UID: REQ-028
+STATEMENT: The database schema shall be designed to support efficient querying by face embeddings, object classes, pose keypoints, and EXIF tags without requiring schema changes for new query patterns.
+COMMENT: Future-proof schema design prevents costly migrations when new query patterns emerge. The requirement ensures: (1) Extensibility - schema can accommodate new query types without structural changes; (2) Index optimization - proper indexing strategy supports the specified query types efficiently; (3) Query flexibility - supports both exact matches and similarity searches (e.g., face embedding similarity); (4) Performance - schema design considers query performance, not just data storage; (5) Migration avoidance - prevents breaking changes that would require database reconstruction. The explicit query types (embeddings, classes, keypoints, tags) represent the core use cases: face similarity search, object class filtering, pose-based queries, and EXIF-based temporal/spatial queries. This requirement demonstrates forward-thinking architecture - designing for known requirements while ensuring extensibility for unknown future needs.
+
+[SECTION]
+TITLE: Storage Modes and Conversion
+
+[REQUIREMENT]
+UID: REQ-025
+STATEMENT: The tool shall support database storage mode with the --db flag specifying the database file path. When specified, metadata shall be stored in the database.
+COMMENT: Database storage provides centralized querying capabilities distinct from file-based sidecar storage. The --db flag enables: (1) Opt-in functionality - users who don't need database querying can skip database creation, reducing complexity; (2) File path specification - allows users to control database location (local disk, network share, etc.); (3) Explicit activation - makes database usage intentional rather than automatic, improving user awareness; (4) Multiple databases - users can maintain separate databases for different collections or purposes. The requirement that metadata "shall be stored" when --db is specified ensures predictable behavior - if the flag is provided, database storage is guaranteed, not optional. This requirement demonstrates user-centric design - providing powerful features while maintaining simplicity for users who don't need them.
+
+[REQUIREMENT]
+UID: REQ-026
+STATEMENT: The tool shall support the --no-sidecar flag to disable sidecar file generation when using database storage mode.
+COMMENT: Some users prefer database-only storage for simplicity or disk space reasons. The --no-sidecar flag provides: (1) Storage efficiency - avoids duplicate metadata storage (database + sidecar files), reducing disk usage; (2) Simplified workflow - users who only query via database don't need sidecar files; (3) Performance - eliminating sidecar file I/O reduces processing overhead slightly; (4) Use case support - enterprise deployments may prefer centralized database storage over distributed sidecar files. The flag is only meaningful when --db is specified (database mode), making it a conditional option. This requirement demonstrates understanding of different user preferences - some want redundancy (database + sidecar), others want efficiency (database only). Providing both options maximizes user satisfaction.
+
+[REQUIREMENT]
+UID: REQ-027
+STATEMENT: The tool shall support concurrent storage to both database and sidecar files when --db is specified without --no-sidecar.
+COMMENT: Dual storage (database + sidecar) provides maximum flexibility and redundancy. This approach offers: (1) Redundancy - metadata stored in two locations provides backup and recovery options; (2) Portability - sidecar files travel with images, enabling metadata sharing without database access; (3) Tool compatibility - sidecar files enable integration with other tools that don't access the database; (4) Database migration - sidecar files provide a backup if database corruption occurs; (5) Workflow support - users can query via database while maintaining portable sidecar files. The "concurrent" requirement ensures both storage operations happen during processing, not sequentially, minimizing performance impact. This requirement demonstrates understanding of enterprise requirements - redundancy and portability are often more valuable than storage efficiency.
+
+[REQUIREMENT]
+UID: REQ-032
+STATEMENT: The 'convert' subcommand shall support importing existing sidecar files into the database, allowing migration from sidecar-only storage to database storage.
+COMMENT: Migration from sidecar-only to database storage enables users to adopt querying capabilities for existing collections. This provides: (1) Incremental adoption - users can start with sidecar files and migrate to database when querying needs arise; (2) Workflow evolution - supports user workflows that evolve from simple file-based to query-based; (3) Data consolidation - enables combining metadata from multiple sidecar files into a single queryable database; (4) Tool integration - migration enables integration with database-querying tools and UIs; (5) Backup and recovery - database import can recreate databases from sidecar file backups. The import operation validates sidecar file format and handles errors gracefully, ensuring data integrity during migration. This requirement demonstrates understanding of user migration needs - users don't start with perfect workflows, and tools must support evolution of usage patterns.
+
+[REQUIREMENT]
+UID: REQ-033
+STATEMENT: The 'convert' subcommand shall support exporting database contents to sidecar files, allowing extraction of database-stored features to individual sidecar JSON files.
+COMMENT: Database-to-sidecar export enables reverse migration and metadata portability. This provides: (1) Portability - users can extract metadata from databases to portable sidecar files for sharing or backup; (2) Tool compatibility - enables use of sidecar-compatible tools even when metadata is stored in databases; (3) Backup strategy - sidecar files provide backup format independent of database technology; (4) Distributed workflows - sidecar files can be shared across systems without database access; (5) Migration flexibility - supports bidirectional migration between storage formats. The export operation ensures each image gets its corresponding sidecar file, maintaining the one-to-one relationship between images and metadata files. This requirement demonstrates understanding of data portability needs - users need flexibility to move between storage formats as requirements evolve.
+
+[REQUIREMENT]
+UID: REQ-034
+STATEMENT: The 'convert' subcommand shall provide --direction flag with values 'to-db' (import sidecar to database) and 'to-sidecar' (export database to sidecar).
+COMMENT: Explicit direction specification prevents ambiguity and makes conversion operations clear and intentional. The flag design provides: (1) Clarity - direction is explicit, not inferred from arguments or context; (2) Safety - prevents accidental conversion in wrong direction; (3) Discoverability - users can see available conversion directions via help; (4) Extensibility - new directions (e.g., 'to-json', 'to-csv') can be added without breaking existing usage; (5) Validation - direction flag enables validation of required arguments for each direction. The two values ('to-db', 'to-sidecar') cover bidirectional conversion between the two primary storage formats. This requirement demonstrates UX design thinking - making operations explicit and discoverable reduces user errors and improves usability.
+
+[SECTION]
+TITLE: Database Initialization and Operations
+
+[REQUIREMENT]
+UID: REQ-066
+STATEMENT: When database storage is enabled with the --db flag, the database SHALL be properly initialized with all required tables (Image, Face, Object, Pose, EXIFData) before any metadata storage operations are performed. If database initialization fails or tables are not created, the tool SHALL raise an error and NOT proceed with processing.
+COMMENT: Database initialization validation prevents data corruption and ensures schema consistency. This requirement: (1) Data integrity - ensures schema exists before data insertion; (2) Error prevention - catches initialization failures early, before processing starts; (3) Reliability - guarantees all required tables exist before use; (4) Debugging - early failure provides clear error messages vs cryptic database errors later; (5) Safety - prevents partial processing that could corrupt data. The explicit table list (Image, Face, Object, Pose, EXIFData) ensures all required entities are verified. The "NOT proceed" requirement is absolute - processing must stop if initialization fails. This requirement demonstrates understanding of database reliability - schema must be verified before use.
+
+[REQUIREMENT]
+UID: REQ-067
+STATEMENT: Database management operations SHALL be organized under a 'db' command group with subcommands: 'stats' (display database statistics), 'init' (initialize database), 'search' (search for images), and 'clean' (remove orphaned records). The CLI syntax SHALL be 'media-indexer db <subcommand>'.
+COMMENT: Organizing database operations under a command group provides clear separation and intuitive CLI structure. This requirement: (1) Organization - groups related database operations together; (2) Discoverability - users can explore database commands via 'db --help'; (3) Consistency - follows established CLI patterns (git, docker, kubectl); (4) Extensibility - new database operations can be added as subcommands; (5) User experience - clear command structure improves usability. The subcommands cover essential database operations: stats (monitoring), init (setup), search (querying), and clean (maintenance). This requirement demonstrates UX design thinking - organizing commands logically improves discoverability and usability.
+

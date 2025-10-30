@@ -1,5 +1,4 @@
-"""
-Parallel Executor with Cancellation Support
+"""Parallel execution helpers with cooperative cancellation support.
 
 REQ-020: Parallel processing with thread-based I/O operations.
 REQ-015: Handle user interruption gracefully with quick shutdown.
@@ -7,27 +6,65 @@ REQ-010: All code components directly linked to requirements.
 """
 
 import logging
+from collections.abc import Callable
 from concurrent.futures import CancelledError, ThreadPoolExecutor, as_completed
-from typing import Any, Callable, Generic, TypeVar
+from dataclasses import dataclass
+from typing import Any, Generic, TypeVar
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
-R = TypeVar("R")
+R_co = TypeVar("R_co")
 
 
-class ParallelExecutor(Generic[T, R]):
+@dataclass(slots=True)
+class ParallelResult(Generic[T, R_co]):
+    """Container describing the outcome of processing a single item.
+
+    Parameters
+    ----------
+    item : T
+        Work item that was processed.
+    success : bool
+        Indicator specifying whether ``func`` completed without raising.
+    value : R_co | None
+        Value returned by ``func`` when successful.
+    error : Exception | None
+        Captured exception when execution fails.
+
+    Notes
+    -----
+    REQ-070
+        Provides a structured payload for downstream error handling while
+        preserving type information required by the project's mypy policy
+        (REQ-057).
     """
-    Context manager for parallel execution with cancellation support.
 
-    REQ-020: Provides thread-based parallel execution with configurable workers.
-    REQ-015: Supports graceful cancellation and quick shutdown.
+    item: T
+    success: bool
+    value: R_co | None
+    error: Exception | None = None
 
-    Attributes:
-        workers: Number of parallel workers.
-        cancellation_manager: Cancellation manager for shutdown handling.
-        progress_bar: Optional progress bar for tracking.
-        executor: Thread pool executor instance.
+
+class ParallelExecutor(Generic[T, R_co]):
+    """Coordinate callable execution across a worker pool.
+
+    Parameters
+    ----------
+    workers : int
+        Number of worker threads to allocate.
+    cancellation_manager : Any
+        Object exposing ``is_cancelled`` used to coordinate graceful
+        shutdown (REQ-015).
+    progress_bar : Any, optional
+        Optional UI element providing an ``update`` method.
+
+    Notes
+    -----
+    REQ-070
+        Exposes structured results instead of raw tuples so callers can
+        distinguish success, payload, and exceptions without sentinel
+        values.
     """
 
     def __init__(
@@ -36,16 +73,6 @@ class ParallelExecutor(Generic[T, R]):
         cancellation_manager: Any,  # CancellationManager (avoid circular import)
         progress_bar: Any | None = None,
     ) -> None:
-        """
-        Initialize parallel executor.
-
-        REQ-020: Configure worker count and cancellation handling.
-
-        Args:
-            workers: Number of parallel workers.
-            cancellation_manager: Cancellation manager instance.
-            progress_bar: Optional progress bar for updates.
-        """
         self.workers: int = workers
         self.cancellation_manager: Any = cancellation_manager
         self.progress_bar: Any | None = progress_bar
@@ -54,25 +81,34 @@ class ParallelExecutor(Generic[T, R]):
     def execute(
         self,
         items: list[T],
-        func: Callable[[T], tuple[bool, R]],
-    ) -> list[tuple[T, bool, R]]:
-        """
-        Execute function on items in parallel.
+        func: Callable[[T], tuple[bool, R_co | None]],
+    ) -> list[ParallelResult[T, R_co]]:
+        """Execute ``func`` across ``items`` with cooperative cancellation.
 
-        REQ-020: Process items in parallel with thread pool.
-        REQ-015: Check for cancellation and handle gracefully.
+        Parameters
+        ----------
+        items : list[T]
+            Items scheduled for execution.
+        func : Callable[[T], tuple[bool, R_co | None]]
+            Callable returning a success flag and optional payload for each
+            processed item.
 
-        Args:
-            items: List of items to process.
-            func: Function to execute on each item (returns success, result).
+        Returns
+        -------
+        list[ParallelResult[T, R_co]]
+            Structured execution results preserving original items and any
+            captured exceptions.
 
-        Returns:
-            List of tuples (item, success, result) for each processed item.
+        Notes
+        -----
+        REQ-070
+            Ensures type-safe propagation of worker outcomes and failures
+            back to the caller.
         """
         if not items:
             return []
 
-        results: list[tuple[T, bool, R]] = []
+        results: list[ParallelResult[T, R_co]] = []
 
         if self.workers == 1:
             # Sequential processing for single worker
@@ -83,10 +119,10 @@ class ParallelExecutor(Generic[T, R]):
 
                 try:
                     success, result = func(item)
-                    results.append((item, success, result))
-                except Exception as e:
-                    logger.error(f"REQ-015: Error processing {item}: {e}")
-                    results.append((item, False, None))  # type: ignore[assignment]
+                    results.append(ParallelResult(item=item, success=success, value=result))
+                except Exception as exc:  # noqa: BLE001
+                    logger.error("REQ-015: Error processing %s: %s", item, exc)
+                    results.append(ParallelResult(item=item, success=False, value=None, error=exc))
                 finally:
                     if self.progress_bar:
                         self.progress_bar.update(1)
@@ -94,9 +130,7 @@ class ParallelExecutor(Generic[T, R]):
             # REQ-020: Parallel processing with thread pool
             try:
                 self.executor = ThreadPoolExecutor(max_workers=self.workers)
-                futures = {
-                    self.executor.submit(func, item): item for item in items
-                }
+                futures = {self.executor.submit(func, item): item for item in items}
 
                 for future in as_completed(futures):
                     # REQ-015: Check for cancellation
@@ -111,14 +145,14 @@ class ParallelExecutor(Generic[T, R]):
                     item = futures[future]
                     try:
                         success, result = future.result()
-                        results.append((item, success, result))
-                    except CancelledError:
+                        results.append(ParallelResult(item=item, success=success, value=result))
+                    except CancelledError as exc:
                         # REQ-015: Future was cancelled, skip
-                        logger.debug(f"REQ-015: Processing cancelled for {item}")
-                        results.append((item, False, None))  # type: ignore[assignment]
-                    except Exception as e:
-                        logger.error(f"REQ-015: Error processing {item}: {e}")
-                        results.append((item, False, None))  # type: ignore[assignment]
+                        logger.debug("REQ-015: Processing cancelled for %s", item)
+                        results.append(ParallelResult(item=item, success=False, value=None, error=exc))
+                    except Exception as exc:  # noqa: BLE001
+                        logger.error("REQ-015: Error processing %s: %s", item, exc)
+                        results.append(ParallelResult(item=item, success=False, value=None, error=exc))
                     finally:
                         if self.progress_bar:
                             self.progress_bar.update(1)
@@ -132,7 +166,7 @@ class ParallelExecutor(Generic[T, R]):
 
         return results
 
-    def __enter__(self) -> "ParallelExecutor[T, R]":
+    def __enter__(self) -> "ParallelExecutor[T, R_co]":
         """Enter context manager."""
         return self
 
@@ -147,4 +181,3 @@ class ParallelExecutor(Generic[T, R]):
                 self.executor.shutdown(wait=False, cancel_futures=True)
             else:
                 self.executor.shutdown(wait=True)
-

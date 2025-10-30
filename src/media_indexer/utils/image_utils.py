@@ -5,8 +5,6 @@ REQ-007, REQ-008, REQ-009: Bounding box normalization utilities.
 REQ-010: All code components directly linked to requirements.
 """
 
-from typing import Any
-
 
 def normalize_bbox(
     bbox_absolute: list[float],
@@ -27,10 +25,10 @@ def normalize_bbox(
         Normalized bounding box coordinates [x1, y1, x2, y2] in range 0.0-1.0.
     """
     return [
-        bbox_absolute[0] / img_width,   # x1
-        bbox_absolute[1] / img_height,   # y1
-        bbox_absolute[2] / img_width,    # x2
-        bbox_absolute[3] / img_height,   # y2
+        bbox_absolute[0] / img_width,  # x1
+        bbox_absolute[1] / img_height,  # y1
+        bbox_absolute[2] / img_width,  # x2
+        bbox_absolute[3] / img_height,  # y2
     ]
 
 
@@ -53,4 +51,3 @@ def normalize_keypoints(
         Normalized keypoint coordinates [[x, y], ...] in range 0.0-1.0.
     """
     return [[kp[0] / img_width, kp[1] / img_height] for kp in keypoints_absolute]
-

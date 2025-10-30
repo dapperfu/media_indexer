@@ -1,0 +1,108 @@
+[DOCUMENT]
+MID: REQ-DOC-ENG
+TITLE: Engineering Workflow and Tooling Requirements
+
+[SECTION]
+TITLE: Project Configuration and Dependencies
+
+[REQUIREMENT]
+UID: REQ-005
+STATEMENT: A complete pyproject.toml file shall be included with all necessary dependencies including image-sidecar-rust, insightface, ultralytics, torch, and GPU acceleration libraries.
+COMMENT: Modern Python projects require declarative dependency management following PEP 518/621 standards. pyproject.toml consolidates project metadata, build configuration, and dependencies in a single file, replacing the fragmented setup.py/setup.cfg/requirements.txt approach. This requirement ensures: (1) Reproducible builds - exact dependency versions enable consistent installation across development, CI/CD, and production environments; (2) Tool integration - modern tools (pip, uv, poetry, pdm) all support pyproject.toml natively; (3) Project metadata - version, description, authors, and license information enable proper package distribution; (4) Build system configuration - allows modern build backends (setuptools, hatchling) without legacy cruft. The explicit library listing (image-sidecar-rust for metadata, insightface for face recognition, ultralytics for YOLO models, torch for PyTorch, GPU libraries for acceleration) demonstrates dependency awareness and ensures all critical components are tracked. This requirement reflects professional software engineering practices where dependencies are managed, not discovered at runtime.
+
+[REQUIREMENT]
+UID: REQ-037
+STATEMENT: Python dependency management shall use uv for installation of all packages. The virtual environment creation process shall install uv using pip, and subsequent package installations shall use 'uv pip install'.
+COMMENT: uv is a modern Python package manager written in Rust that provides 10-100x faster package installation than pip. The selection rationale includes: (1) Performance - faster installation improves developer productivity and CI/CD pipeline speed; (2) Modern design - uv uses Rust for performance and implements modern dependency resolution algorithms; (3) Compatibility - uv pip install is compatible with pip's interface, minimizing migration effort; (4) Reproducibility - uv provides deterministic dependency resolution; (5) Future-proofing - uv represents the future direction of Python packaging. The two-stage installation (pip installs uv, then uv installs packages) enables bootstrapping uv without requiring pre-installation while leveraging uv's performance for actual package management. This requirement demonstrates adoption of modern tooling and performance-conscious decision-making.
+
+[REQUIREMENT]
+UID: REQ-073
+STATEMENT: The build tooling SHALL provide an automated script that downloads, patches, and installs dlib with CUDA support using the local GPU compute capability so that face recognition pipelines can rely on GPU-enabled dlib without manual intervention.
+COMMENT: Manual rebuilding of dlib to enable CUDA is error-prone and time consuming, requiring developers to remember architecture flags and patch upstream CMake files. Automating the process ensures consistent GPU-enabled builds across environments, reduces onboarding friction, and guarantees that downstream components depending on dlib's CUDA kernels operate with expected performance. This requirement formalizes the scripted installation workflow so it can be validated, version-controlled, and reused in CI pipelines.
+
+[SECTION]
+TITLE: Version Control and Commit Process
+
+[REQUIREMENT]
+UID: REQ-046
+STATEMENT: The git user SHALL be changed to "<username> | Cursor.sh | <model>" where <username> is the output of the whoami command. This way any git commit changed by you will be known as automated.
+COMMENT: Transparent attribution is essential when AI tools assist with code generation. This requirement ensures: (1) AI transparency - commits clearly indicate AI-assisted development; (2) Audit trail - enables tracking of human vs AI contributions; (3) Compliance - supports requirements for documenting AI tool usage; (4) Attribution accuracy - preserves human username while indicating AI involvement; (5) Tool identification - specifies both IDE (Cursor.sh) and model for complete context. The format "<username> | Cursor.sh | <model>" provides clear, parsable attribution that distinguishes AI-assisted commits from purely human commits. This requirement demonstrates commitment to transparency and ethical AI use - critical for maintaining trust with stakeholders and complying with potential future regulations.
+
+[REQUIREMENT]
+UID: REQ-047
+STATEMENT: ALL git commits SHALL be followed by a git push if and only if a remote exists.
+COMMENT: Automated git push ensures that commits are immediately backed up to remote repositories, preventing data loss from local failures. The requirement: (1) Prevents data loss - commits are backed up immediately, not dependent on manual push; (2) Enables collaboration - team members see changes immediately after commits; (3) CI/CD integration - automated pushes trigger CI/CD pipelines automatically; (4) Backup strategy - remote repositories serve as backup for local work; (5) Conditional safety - "if and only if a remote exists" prevents errors when no remote is configured. The automatic push requirement reflects understanding that manual processes are error-prone and automation improves reliability. This requirement demonstrates DevOps maturity - automation reduces manual steps and prevents human error.
+
+[REQUIREMENT]
+UID: REQ-048
+STATEMENT: The commit message SHALL include the filename and what changed / why it was added. In addition to a summary of the prompt as to why the changes were made.
+COMMENT: Comprehensive commit messages enable effective code review, debugging, and project history understanding. This requirement ensures: (1) Code review efficiency - reviewers understand what changed and why without reading diffs; (2) Historical context - commit history serves as project documentation; (3) Debugging aid - detailed messages help identify when and why bugs were introduced; (4) Change tracking - enables tracking of feature evolution over time; (5) Prompt context - for AI-assisted development, prompt context explains the reasoning behind changes. The dual requirement (filename/what changed + prompt summary) provides both technical details and business context. This requirement demonstrates commitment to code quality - good commit messages are essential for maintainable codebases.
+
+[REQUIREMENT]
+UID: REQ-049
+STATEMENT: ALWAYS pull from remote before committing changes.
+COMMENT: Pulling before committing prevents merge conflicts and ensures code is based on the latest remote state. This requirement: (1) Prevents conflicts - pulling first integrates remote changes before local commits; (2) Ensures consistency - local work is based on latest remote state; (3) Reduces merge complexity - small, frequent pulls prevent large merge conflicts; (4) Collaboration safety - ensures local changes don't conflict with concurrent work; (5) Best practice - pulling before committing is standard git workflow. The "ALWAYS" emphasis (uppercase) indicates this is a critical practice, not optional. This requirement demonstrates understanding of distributed version control best practices - preventing conflicts is more efficient than resolving them.
+
+[REQUIREMENT]
+UID: REQ-060
+STATEMENT: Always include a detailed technical attribution comment at the top of each commit message with a specified format including the exact LLM model version identifier (e.g., claude-3-5-sonnet-20241022, gpt-5, etc.), IDE information, generation method, code style, and dependencies. The model identifier MUST be the specific version, not a generic name like "Claude" or "ChatGPT".
+COMMENT: Detailed attribution enables tracking of AI tool usage and supports reproducibility. This requirement: (1) Complete attribution - provides full context of AI assistance including model version, IDE, and method; (2) Reproducibility - exact model versions enable reproducing results; (3) Audit trail - comprehensive attribution supports compliance and auditing; (4) Tool evolution - tracking model versions enables understanding of AI tool improvements over time; (5) Transparency - detailed attribution demonstrates commitment to transparency. The requirement for specific version identifiers (not generic names) ensures accurate tracking - different model versions have different capabilities and behaviors. This requirement demonstrates commitment to ethical AI use and transparency - critical for maintaining trust in AI-assisted development.
+
+[REQUIREMENT]
+UID: REQ-061
+STATEMENT: After all file changes add and commit.
+COMMENT: Automatic commit ensures changes are tracked and not lost. This requirement: (1) Version control - ensures all changes are captured in git history; (2) Backup - commits provide backup of work in progress; (3) Rollback capability - committed changes can be reverted if needed; (4) Collaboration - enables sharing changes with team members; (5) Workflow consistency - ensures consistent git workflow. The "after all file changes" timing ensures commits are atomic and complete. This requirement demonstrates understanding of version control best practices - frequent commits prevent work loss and enable collaboration.
+
+[REQUIREMENT]
+UID: REQ-065
+STATEMENT: When determining the model version for commit attribution, the system SHALL use the most specific available model identifier. If an exact version identifier is available (e.g., from CURSOR_MODEL environment variable or system information), that specific version SHALL be used. Otherwise, the best available approximation SHALL be used, but MUST distinguish between different model families (e.g., Claude Sonnet 3.5, ChatGPT-5, GPT-4, etc.).
+COMMENT: Accurate model attribution requires precise version identification, not generic names. This requirement: (1) Accuracy - specific versions enable exact reproduction of AI-assisted work; (2) Traceability - precise version tracking enables understanding of model capabilities; (3) Compliance - supports requirements for documenting AI tool usage; (4) Reproducibility - exact versions enable reproducing results; (5) Honesty - prevents misleading attribution with generic names. The hierarchy (exact version > approximation > family) ensures best available accuracy while preventing false precision. This requirement demonstrates commitment to accurate attribution - transparent AI use requires precise model identification.
+
+[SECTION]
+TITLE: Command Safety and Environment Isolation
+
+[REQUIREMENT]
+UID: REQ-050
+STATEMENT: Never under any circumstances SHALL rm -rf be run on ~/ (the user's home directory).
+COMMENT: Preventing deletion of user home directories is a critical safety requirement to avoid catastrophic data loss. This requirement: (1) Prevents data loss - home directories contain user data that cannot be recovered; (2) Safety override - even if other commands suggest home directory deletion, this requirement takes precedence; (3) User protection - protects users from accidental or malicious destruction of their data; (4) Legal protection - prevents liability from data destruction; (5) Professional practice - responsible software never risks user data destruction. The "Never under any circumstances" language is absolute to prevent any exceptions. This requirement demonstrates commitment to user safety - protecting user data is paramount, even at the cost of functionality.
+
+[REQUIREMENT]
+UID: REQ-051
+STATEMENT: Under no circumstances should sudo be run. All commands SHALL be done in userspace.
+COMMENT: Avoiding sudo prevents privilege escalation and reduces security risks. This requirement: (1) Security - prevents accidental privilege escalation that could compromise system security; (2) User safety - avoids requiring root access for normal operations; (3) Portability - userspace operations work without special permissions; (4) Error prevention - prevents accidental system-wide changes; (5) Best practice - following principle of least privilege. The "under no circumstances" language prevents exceptions that could compromise security. This requirement demonstrates security-conscious development practices - minimizing privilege requirements reduces attack surface and operational risk.
+
+[REQUIREMENT]
+UID: REQ-052
+STATEMENT: The exclamation mark (!) SHALL NOT be used in strings meant for the command line / bash.
+COMMENT: Exclamation marks have special meaning in bash (history expansion) and can cause unexpected behavior when used in strings. This requirement: (1) Prevents errors - avoids bash history expansion triggering unintended commands; (2) Portability - ensures commands work consistently across different shell configurations; (3) Predictability - prevents shell-specific behavior from affecting command execution; (4) Safety - avoids potential command injection risks from history expansion; (5) Compatibility - ensures commands work with history expansion disabled. This requirement demonstrates attention to shell scripting details - understanding subtle shell behaviors prevents hard-to-debug issues.
+
+[REQUIREMENT]
+UID: REQ-053
+STATEMENT: The system pip SHALL NOT be used. All Python related matters SHALL use a virtual environment.
+COMMENT: Isolating Python dependencies prevents conflicts with system packages and other projects. This requirement: (1) Prevents conflicts - virtual environments isolate dependencies from system Python; (2) Reproducibility - virtual environments enable reproducible builds across systems; (3) Safety - avoids modifying system Python that other software depends on; (4) Professional practice - virtual environments are standard for Python development; (5) Portability - projects can be moved between systems without system modification. The prohibition on system pip ensures all package management goes through virtual environments. This requirement demonstrates Python best practices - isolation is fundamental to reliable Python development.
+
+[REQUIREMENT]
+UID: REQ-054
+STATEMENT: Python packages SHALL NOT be installed to the system. All Python related matters SHALL use a virtual environment.
+COMMENT: Installing packages to system Python can break system tools and create conflicts. This requirement: (1) System stability - prevents breaking system Python packages that OS tools depend on; (2) Clean separation - clearly separates project dependencies from system packages; (3) Uninstall safety - project removal doesn't affect system Python; (4) Multi-project support - enables multiple projects with different dependency versions; (5) Professional practice - system package installation is considered harmful in Python development. This requirement reinforces REQ-053 by explicitly prohibiting system installation, ensuring virtual environment usage. This requirement demonstrates commitment to proper Python dependency management - a fundamental skill for professional Python development.
+
+[REQUIREMENT]
+UID: REQ-055
+STATEMENT: All Python related matters SHALL use a virtual environment. The Python virtual environment SHALL be called `venv`
+COMMENT: Standardizing virtual environment name improves consistency and tooling integration. This requirement: (1) Consistency - all documentation and scripts reference the same environment name; (2) Tool integration - Makefiles and scripts can reliably reference venv/bin; (3) .gitignore - standard name enables proper .gitignore patterns; (4) Developer familiarity - 'venv' is the standard name recognized by Python developers; (5) Simplicity - single name reduces cognitive load compared to project-specific names. The explicit name requirement ensures all tooling (Makefiles, CI/CD, documentation) can reference the same environment. This requirement demonstrates attention to developer experience - consistent naming reduces confusion and enables tooling.
+
+[REQUIREMENT]
+UID: REQ-056
+STATEMENT: All Makefile references to pip and python installed tools like pytest SHALL use the full path to the venv bin directory, eg `venv/bin/pytest`, `venv/bin/pip`
+COMMENT: Explicit paths in Makefiles ensure tools are executed from the virtual environment, not system Python. This requirement: (1) Reliability - prevents accidental use of system Python or wrong virtual environment; (2) Clarity - makes virtual environment usage explicit in Makefiles; (3) Portability - works regardless of PATH configuration; (4) Debugging - easier to identify which Python/tools are being used; (5) CI/CD compatibility - ensures consistent behavior in automated environments. The explicit path requirement complements REQ-055 (standard venv name) - with a standard name, paths can be hardcoded reliably. This requirement demonstrates Makefile best practices - explicit dependencies and paths prevent subtle bugs.
+
+[REQUIREMENT]
+UID: REQ-062
+STATEMENT: Makefiles SHALL use full escape for all variables: ${VAR} not $VAR to avoid confusion.
+COMMENT: Explicit variable syntax prevents ambiguity and ensures correct Makefile expansion. This requirement: (1) Clarity - ${VAR} is unambiguous, $VAR can be confused with shell variables; (2) Reliability - prevents accidental shell variable expansion; (3) Portability - works consistently across different make implementations; (4) Debugging - explicit syntax makes variable usage clear; (5) Best practice - ${VAR} is the recommended Makefile syntax. This requirement demonstrates attention to Makefile details - subtle syntax differences can cause hard-to-debug issues.
+
+[REQUIREMENT]
+UID: REQ-063
+STATEMENT: All makefiles SHALL use an actual file/folder where possible as a target. For example python -mvenv venv generates venv. Any target that depends on Python having the venv built shall use `venv` as a dependency so that the GNU make resolves everything correctly and in the right order.
+COMMENT: Using file-based targets enables Make's dependency resolution to work correctly. This requirement: (1) Dependency resolution - Make can determine if targets need rebuilding based on file timestamps; (2) Correct ordering - dependencies ensure targets build in correct order; (3) Efficiency - Make skips unnecessary rebuilds when dependencies are up-to-date; (4) Reliability - file-based targets prevent race conditions and incorrect builds; (5) Best practice - file-based targets are the standard Make pattern. The example (venv directory as target) illustrates the principle - Make can check if venv exists and rebuild only if needed. This requirement demonstrates deep understanding of Make - proper dependency management is essential for reliable builds.
+

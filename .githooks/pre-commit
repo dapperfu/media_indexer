@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# REQ-072: Prevent commits that introduce files exceeding the 500-line limit.
+
+set -euo pipefail
+
+SCRIPT="scripts/check_line_lengths.py"
+if [[ ! -x "${SCRIPT}" ]]; then
+  echo "Missing line-length checker: ${SCRIPT}" >&2
+  exit 1
+fi
+
+if [[ -x "venv/bin/python" ]]; then
+  PYTHON="venv/bin/python"
+else
+  PYTHON="python3"
+fi
+
+"${PYTHON}" "${SCRIPT}" || exit 1

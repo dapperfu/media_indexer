@@ -43,15 +43,10 @@ class CancellationManager:
         self._original_handler = signal.signal(signal.SIGINT, self._signal_handler)
         logger.debug("REQ-015: Signal handler registered")
 
-    def _signal_handler(self, signum: int, frame: Any) -> None:
-        """
-        Signal handler for SIGINT (KeyboardInterrupt).
+    def _signal_handler(self, _signum: int, _frame: Any) -> None:
+        """Signal handler for SIGINT (KeyboardInterrupt).
 
         REQ-015: Set shutdown flag when user interrupts processing.
-
-        Args:
-            signum: Signal number.
-            frame: Current stack frame.
         """
         logger.warning("REQ-015: Processing interrupted by user")
         self._flag.set()
@@ -95,4 +90,3 @@ class CancellationManager:
             signal.signal(signal.SIGINT, self._original_handler)
             self._original_handler = None
             logger.debug("REQ-015: Signal handler restored")
-

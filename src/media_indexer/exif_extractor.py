@@ -49,7 +49,7 @@ class EXIFExtractor:
         # REQ-003: Use fast-exif-rs-py for extraction
         reader = fast_exif_rs_py.PyFastExifReader()
         exif_data: dict[str, Any] = reader.read_file(str(image_path))
-        
+
         logger.debug(f"REQ-003: Successfully extracted EXIF from {image_path}")
         return exif_data
 
@@ -72,7 +72,7 @@ class EXIFExtractor:
         # REQ-003: Use fast-exif-rs-py for extraction
         reader = fast_exif_rs_py.PyFastExifReader()
         exif_data: dict[str, Any] = reader.read_bytes(image_bytes)
-        
+
         logger.debug("REQ-003: Successfully extracted EXIF from bytes")
         return exif_data
 

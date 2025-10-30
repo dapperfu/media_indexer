@@ -14,10 +14,7 @@ from pony.orm import Optional, Required, Set
 from media_indexer.db.connection import db
 
 if TYPE_CHECKING:
-    from media_indexer.db.exif import EXIFData
-    from media_indexer.db.face import Face
-    from media_indexer.db.object import Object
-    from media_indexer.db.pose import Pose
+    pass
 
 logger = logging.getLogger(__name__)
 

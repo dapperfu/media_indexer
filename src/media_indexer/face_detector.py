@@ -2,6 +2,7 @@
 Face Detection Module
 
 REQ-007: Face recognition using insightface, yolov8-face, and yolov11-face.
+REQ-074: Generate face_recognition embeddings for compatibility with dlib encodings.
 REQ-010: All code components directly linked to requirements.
 """
 
@@ -15,9 +16,9 @@ import cv2
 import torch
 
 from media_indexer.raw_converter import get_raw_image_source, load_image_to_array
-from media_indexer.utils.suppression import setup_suppression
 from media_indexer.utils.image_utils import normalize_bbox
 from media_indexer.utils.model_utils import download_model_if_needed
+from media_indexer.utils.suppression import setup_suppression
 
 # REQ-016: Suppress ONNX Runtime and OpenCV verbose output
 setup_suppression()
@@ -32,6 +33,11 @@ try:
 except ImportError:
     insightface = None  # type: ignore[assignment, misc]
 
+try:
+    import face_recognition
+except ImportError:
+    face_recognition = None  # type: ignore[assignment, misc]
+
 logger = logging.getLogger(__name__)
 
 # Model download URLs
@@ -40,6 +46,15 @@ YOLOV8N_FACE_URL = "https://drive.google.com/uc?export=download&id=1qcr9DbgsX3ry
 YOLOV11N_FACE_URL = "https://github.com/YapaLab/yolo-face/releases/download/v0.0.0/yolov11n-face.pt"
 
 
+def _clip_normalized_bbox(x1: float, y1: float, x2: float, y2: float) -> list[float]:
+    """Return bounding box coordinates clipped to the [0, 1] interval."""
+
+    return [
+        min(max(x1, 0.0), 1.0),
+        min(max(y1, 0.0), 1.0),
+        min(max(x2, 0.0), 1.0),
+        min(max(y2, 0.0), 1.0),
+    ]
 
 
 class FaceDetector:
@@ -72,6 +87,7 @@ class FaceDetector:
         self.yolo_model: Any | None = None
         self.yolo_model_v11: Any | None = None
         self.insight_model: Any | None = None
+        self._face_recognition_available: bool = face_recognition is not None
 
         # REQ-007: Initialize yolov8-face
         if YOLO is not None:
@@ -107,14 +123,14 @@ class FaceDetector:
                 logger.info("REQ-007: Loading insightface model")
                 # REQ-016: Suppress InsightFace verbose output (ONNX Runtime and print statements)
                 import warnings
-                
+
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     # Suppress InsightFace's print statements by redirecting stdout and stderr temporarily
                     null_stream = StringIO()
                     with redirect_stdout(null_stream), redirect_stderr(null_stream):
                         # Use buffalo_l model (best accuracy with embeddings)
-                        self.insight_model = insightface.app.FaceAnalysis(name='buffalo_l')
+                        self.insight_model = insightface.app.FaceAnalysis(name="buffalo_l")
                         # Prepare for GPU execution
                         self.insight_model.prepare(ctx_id=0, det_size=(640, 640))
                 logger.info("REQ-007: insightface model loaded successfully")
@@ -123,6 +139,11 @@ class FaceDetector:
 
         if self.yolo_model is None and self.yolo_model_v11 is None and self.insight_model is None:
             raise RuntimeError("REQ-007: Failed to load any face detection model")
+
+        if self._face_recognition_available:
+            logger.info("REQ-074: face_recognition embeddings enabled")
+        else:
+            logger.info("REQ-074: face_recognition library not available; skipping dlib embeddings")
 
     def detect_faces(self, image_path: Path) -> list[dict[str, Any]]:
         """
@@ -146,7 +167,7 @@ class FaceDetector:
             if rgb_array is None:
                 logger.debug(f"REQ-007: Could not load image {image_path}")
                 return faces
-            
+
             # For insightface, we need the numpy array directly
             image_rgb = rgb_array
 
@@ -168,12 +189,12 @@ class FaceDetector:
                         boxes = detection.boxes
                         # Get image dimensions for normalization
                         img_height, img_width = detection.orig_shape
-                        
+
                         for box in boxes:
                             # Normalize bbox to percentages (0.0-1.0)
                             bbox_absolute = box.xyxy[0].cpu().numpy().tolist()
                             bbox_normalized = normalize_bbox(bbox_absolute, img_width, img_height)
-                            
+
                             yolo_v8_results.append(
                                 {
                                     "confidence": float(box.conf.item()),
@@ -198,12 +219,12 @@ class FaceDetector:
                         boxes = detection.boxes
                         # Get image dimensions for normalization
                         img_height, img_width = detection.orig_shape
-                        
+
                         for box in boxes:
                             # Normalize bbox to percentages (0.0-1.0)
                             bbox_absolute = box.xyxy[0].cpu().numpy().tolist()
                             bbox_normalized = normalize_bbox(bbox_absolute, img_width, img_height)
-                            
+
                             yolo_v11_results.append(
                                 {
                                     "confidence": float(box.conf.item()),
@@ -221,41 +242,75 @@ class FaceDetector:
                 # Load image for insightface
                 # REQ-016: Suppress OpenCV warnings and CR2 corruption messages during image reading
                 import os
-                with open(os.devnull, 'w') as devnull:
-                    with redirect_stderr(devnull):
-                        image = cv2.imread(str(image_path))
+
+                with open(os.devnull, "w") as devnull, redirect_stderr(devnull):
+                    image = cv2.imread(str(image_path))
                 if image is None:
                     logger.debug(f"REQ-007: Could not load image {image_path} for insightface")
                 else:
                     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                     insight_faces = self.insight_model.get(image_rgb)
-                    
+
                     # Get image dimensions for normalization
                     img_height, img_width = image_rgb.shape[:2]
-                    
+
                     for face in insight_faces:
                         # Normalize bbox to percentages (0.0-1.0)
                         # insightface bbox format is [x1, y1, x2, y2]
                         bbox_absolute = face.bbox.tolist()
                         bbox_normalized = normalize_bbox(bbox_absolute, img_width, img_height)
-                        
+
                         insight_results.append(
                             {
                                 "confidence": float(face.det_score),
                                 "bbox": bbox_normalized,
-                                "embedding": face.embedding.tolist() if hasattr(face, 'embedding') else None,
+                                "embedding": face.embedding.tolist() if hasattr(face, "embedding") else None,
                                 "model": "insightface",
                             }
                         )
             except Exception as e:
                 import traceback
+
                 logger.warning(f"REQ-007: insightface detection failed: {e}")
                 logger.debug(f"REQ-007: insightface traceback: {traceback.format_exc()}")
+
+        face_recognition_results: list[dict[str, Any]] = []
+        if self._face_recognition_available:
+            try:
+                fr_image = rgb_array
+                img_height, img_width = fr_image.shape[:2]
+                try:
+                    fr_locations = face_recognition.face_locations(fr_image, model="cnn")  # type: ignore[attr-defined]
+                except Exception as cnn_exc:  # noqa: BLE001
+                    logger.debug(f"REQ-074: face_recognition CNN model failed ({cnn_exc}), falling back to HOG")
+                    fr_locations = face_recognition.face_locations(fr_image, model="hog")  # type: ignore[attr-defined]
+
+                fr_encodings = face_recognition.face_encodings(fr_image, known_face_locations=fr_locations)  # type: ignore[attr-defined]
+
+                for location, encoding in zip(fr_locations, fr_encodings, strict=False):
+                    top, right, bottom, left = location
+                    bbox_normalized = _clip_normalized_bbox(
+                        left / img_width,
+                        top / img_height,
+                        right / img_width,
+                        bottom / img_height,
+                    )
+                    face_recognition_results.append(
+                        {
+                            "confidence": 1.0,
+                            "bbox": bbox_normalized,
+                            "embedding": encoding.tolist(),
+                            "model": "face_recognition",
+                        }
+                    )
+            except Exception as exc:  # noqa: BLE001
+                logger.debug(f"REQ-074: face_recognition embeddings unavailable for {image_path}: {exc}")
 
         # Combine results
         faces.extend(yolo_v8_results)
         faces.extend(yolo_v11_results)
         faces.extend(insight_results)
+        faces.extend(face_recognition_results)
 
         logger.debug(f"REQ-007: Detected {len(faces)} faces in {image_path}")
         return faces

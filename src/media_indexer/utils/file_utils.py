@@ -6,10 +6,9 @@ REQ-010: All code components directly linked to requirements.
 """
 
 from pathlib import Path
-from typing import Set
 
 
-def get_image_extensions() -> Set[str]:
+def get_image_extensions() -> set[str]:
     """
     Get set of supported image file extensions.
 
@@ -21,7 +20,7 @@ def get_image_extensions() -> Set[str]:
     return {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".raw", ".cr2", ".nef", ".arw"}
 
 
-def get_raw_extensions() -> Set[str]:
+def get_raw_extensions() -> set[str]:
     """
     Get set of RAW image file extensions.
 
@@ -61,4 +60,3 @@ def is_raw_file(file_path: Path) -> bool:
         True if file is a RAW format.
     """
     return file_path.suffix.lower() in get_raw_extensions()
-

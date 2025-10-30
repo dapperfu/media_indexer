@@ -19,4 +19,3 @@ __all__ = [
     "normalize_keypoints",
     "setup_suppression",
 ]
-

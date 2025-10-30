@@ -8,4 +8,3 @@ REQ-010: All code components directly linked to requirements.
 from media_indexer.processor.core import ImageProcessor
 
 __all__ = ["ImageProcessor"]
-

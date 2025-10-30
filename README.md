@@ -8,6 +8,7 @@ GPU-accelerated image analysis tool for extracting metadata, faces, objects, and
 - **Parallel processing** - Thread-based I/O with batch processing (default 4 images/batch for 12GB VRAM)
 - **EXIF extraction** - Fast EXIF parsing using fast-exif-rs-py
 - **Face detection** - Multi-model approach using insightface, YOLOv8-face, and YOLOv11-face
+- **Dlib embeddings** - face_recognition 128-d vectors supplement InsightFace embeddings (REQ-074)
 - **Object detection** - YOLOv12x for comprehensive object detection
 - **Pose detection** - YOLOv11-pose for human pose estimation
 - **Sidecar files** - JSON format sidecar files containing extracted metadata
@@ -31,12 +32,28 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install dependencies
 pip install -e .
 
+# Build GPU-enabled dlib (REQ-073)
+make install-dlib
+
 # Download models to central cache (optional, will auto-download on first run)
 media-indexer-download-models --download-yolo --download-insightface
 
 # Or just list cached models
 media-indexer-download-models --list
 ```
+
+### Automated CUDA dlib build (REQ-073)
+
+The project provides a scripted workflow that downloads, patches, and installs
+dlib with the correct CUDA compute capability for your GPU. Run:
+
+```bash
+make install-dlib
+```
+
+Pass additional pip arguments after `--`, for example `make install-dlib -- --force-reinstall`.
+The script verifies that the resulting installation reports `DLIB_USE_CUDA=True`
+so downstream components can rely on GPU-accelerated face recognition.
 
 ### Centralized Model Cache
 
@@ -133,6 +150,9 @@ media_indexer/
 # Install development dependencies
 pip install -e ".[dev]"
 
+# Configure git hooks to enforce the 500-line limit
+make install-hooks
+
 # Run tests
 make test
 
@@ -145,6 +165,8 @@ make format
 # Run all checks (lint + test)
 make check
 ```
+
+Running the checker directly (e.g. `venv/bin/python scripts/check_line_lengths.py --all`) verifies that the entire repository still complies with REQ-072.
 
 ## Performance
 
