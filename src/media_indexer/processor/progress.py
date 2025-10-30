@@ -52,9 +52,13 @@ class AvgSpeedColumn(ProgressColumn):
             Formatted text for average speed.
         """
         avg_speed = task.fields.get("avg_speed", "0.0")
-        if avg_speed:
-            return Text(f"[cyan]avg: {avg_speed}[/cyan]", style="progress.data.speed")
-        return Text(f"[cyan]avg: 0.0 {self.unit}/s[/cyan]", style="progress.data.speed")
+        text = Text()
+        text.append("avg: ", style="cyan")
+        if avg_speed and avg_speed != "0.0":
+            text.append(avg_speed, style="cyan")
+        else:
+            text.append(f"0.0 {self.unit}/s", style="cyan")
+        return text
 
 
 class MultiLineInfoColumn(ProgressColumn):
@@ -142,11 +146,8 @@ class SpeedColumn(ProgressColumn):
         """
         speed = getattr(task, "speed", None)
         if speed is not None:
-            return Text(
-                f"[progress.speed]{speed:>8.1f}[/progress.speed]",
-                style="progress.speed",
-            )
-        return Text("[progress.speed]       0.0[/progress.speed]", style="progress.speed")
+            return Text(f"{speed:>8.1f}", style="progress.speed")
+        return Text("       0.0", style="progress.speed")
 
 
 class PercentageColumn(ProgressColumn):
