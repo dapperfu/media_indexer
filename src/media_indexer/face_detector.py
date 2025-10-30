@@ -147,8 +147,6 @@ class FaceDetector:
                 logger.info("REQ-007: Loading insightface model")
                 # REQ-016: Suppress InsightFace verbose output (ONNX Runtime and print statements)
                 import warnings
-                from contextlib import redirect_stderr, redirect_stdout
-                from io import StringIO
                 
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
