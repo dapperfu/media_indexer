@@ -45,6 +45,22 @@ def setup_logging(verbose: int) -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
+    # REQ-016: Suppress OpenCV warnings by default (when verbosity is INFO level)
+    # OpenCV warnings write directly to stderr and break tqdm progress bars
+    if verbose >= 20:  # Default INFO level and above
+        try:
+            import cv2
+            # Suppress all OpenCV warnings except errors
+            # Use cv2.utils.logging for newer OpenCV versions
+            if hasattr(cv2, 'utils') and hasattr(cv2.utils, 'logging'):
+                cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)
+            elif hasattr(cv2, 'setLogLevel'):
+                # Fallback for older OpenCV versions
+                cv2.setLogLevel(cv2.LOG_LEVEL_ERROR)
+        except (ImportError, AttributeError):
+            # cv2 not available or logging API not available
+            pass
+
     # REQ-016: Disable tqdm if verbosity is too high (DEBUG level)
     if verbose < 20:  # Only disable tqdm at DEBUG level (10) or below
         import tqdm
@@ -52,16 +68,17 @@ def setup_logging(verbose: int) -> None:
         tqdm.tqdm.__init__ = lambda _self, *_args, **_kwargs: None  # type: ignore[method-assign, assignment]
 
 
-def add_common_args(parser: argparse.ArgumentParser) -> None:
+def add_common_args(parser: argparse.ArgumentParser, include_db: bool = False) -> None:
     """
     Add common arguments to a parser.
 
     REQ-016: Multi-level verbosity.
     REQ-017: Configuration file support.
-    REQ-025: Database storage.
+    REQ-025: Database storage (optional).
 
     Args:
         parser: Argument parser to add arguments to.
+        include_db: If True, include --db and --no-sidecar arguments.
     """
     # REQ-016: Multi-level verbosity
     parser.add_argument(
@@ -79,20 +96,21 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
         help="Configuration file (YAML/TOML) (REQ-017)",
     )
 
-    # REQ-025: Database storage option
-    parser.add_argument(
-        "--db",
-        type=Path,
-        default=None,
-        help="Database file path for storing metadata (SQLite)",
-    )
+    # REQ-025: Database storage option (only for subcommands that need it)
+    if include_db:
+        parser.add_argument(
+            "--db",
+            type=Path,
+            default=None,
+            help="Database file path for storing metadata (SQLite)",
+        )
 
-    # REQ-026: No sidecar option
-    parser.add_argument(
-        "--no-sidecar",
-        action="store_true",
-        help="Disable sidecar file generation when using --db (REQ-026)",
-    )
+        # REQ-026: No sidecar option
+        parser.add_argument(
+            "--no-sidecar",
+            action="store_true",
+            help="Disable sidecar file generation when using --db (REQ-026)",
+        )
 
 
 def parse_args() -> argparse.Namespace:
@@ -112,8 +130,8 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    # Add common arguments
-    add_common_args(parser)
+    # Add common arguments (without --db at top level)
+    add_common_args(parser, include_db=False)
 
     # REQ-029: Create subparsers for subcommands
     subparsers = parser.add_subparsers(dest="command", help="Subcommands")
@@ -129,21 +147,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Input directory containing images to process",
     )
-    extract_parser.add_argument(
-        "-o",
-        "--output-dir",
-        type=Path,
-        default=None,
-        help="Output directory for sidecar files (defaults to input directory)",
-    )
-    add_common_args(extract_parser)
-    extract_parser.add_argument(
-        "-c",
-        "--checkpoint",
-        type=Path,
-        default=Path(".checkpoint.json"),
-        help="Checkpoint file path for resume functionality (REQ-011)",
-    )
+    add_common_args(extract_parser, include_db=True)
     extract_parser.add_argument(
         "-b",
         "--batch-size",
@@ -152,9 +156,10 @@ def parse_args() -> argparse.Namespace:
         help="Batch size for parallel processing (default: 1 auto-scales to 4 for 12GB VRAM) (REQ-014, REQ-020)",
     )
     extract_parser.add_argument(
-        "--resume",
+        "-f",
+        "--force",
         action="store_true",
-        help="Resume from checkpoint (REQ-011)",
+        help="Force reprocessing even if analyses already exist (REQ-013)",
     )
     extract_parser.add_argument(
         "--retry",
@@ -193,21 +198,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Input directory containing images to process",
     )
-    annotate_parser.add_argument(
-        "-o",
-        "--output-dir",
-        type=Path,
-        default=None,
-        help="Output directory for sidecar files (defaults to input directory)",
-    )
-    add_common_args(annotate_parser)
-    annotate_parser.add_argument(
-        "-c",
-        "--checkpoint",
-        type=Path,
-        default=Path(".checkpoint.json"),
-        help="Checkpoint file path for resume functionality (REQ-011)",
-    )
+    add_common_args(annotate_parser, include_db=True)
     annotate_parser.add_argument(
         "-b",
         "--batch-size",
@@ -216,9 +207,10 @@ def parse_args() -> argparse.Namespace:
         help="Batch size for parallel processing (default: 1 auto-scales to 4 for 12GB VRAM) (REQ-014, REQ-020)",
     )
     annotate_parser.add_argument(
-        "--resume",
+        "-f",
+        "--force",
         action="store_true",
-        help="Resume from checkpoint (REQ-011)",
+        help="Force reprocessing even if analyses already exist (REQ-013)",
     )
     annotate_parser.add_argument(
         "--retry",
@@ -245,21 +237,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Input directory containing images to process",
     )
-    analyze_parser.add_argument(
-        "-o",
-        "--output-dir",
-        type=Path,
-        default=None,
-        help="Output directory for sidecar files (defaults to input directory)",
-    )
-    add_common_args(analyze_parser)
-    analyze_parser.add_argument(
-        "-c",
-        "--checkpoint",
-        type=Path,
-        default=Path(".checkpoint.json"),
-        help="Checkpoint file path for resume functionality (REQ-011)",
-    )
+    add_common_args(analyze_parser, include_db=True)
     analyze_parser.add_argument(
         "-b",
         "--batch-size",
@@ -268,9 +246,10 @@ def parse_args() -> argparse.Namespace:
         help="Batch size for parallel processing (default: 1 auto-scales to 4 for 12GB VRAM) (REQ-014, REQ-020)",
     )
     analyze_parser.add_argument(
-        "--resume",
+        "-f",
+        "--force",
         action="store_true",
-        help="Resume from checkpoint (REQ-011)",
+        help="Force reprocessing even if analyses already exist (REQ-013)",
     )
     analyze_parser.add_argument(
         "--retry",
@@ -341,7 +320,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Input directory containing images or sidecar files",
     )
-    add_common_args(convert_parser)
+    add_common_args(convert_parser, include_db=True)
     # REQ-034: Direction flag
     convert_parser.add_argument(
         "--direction",
@@ -360,22 +339,10 @@ def parse_args() -> argparse.Namespace:
 
     args = parser.parse_args()
 
-    # REQ-029: Default to 'extract' if no subcommand specified (backwards compatibility)
+    # REQ-029: If no subcommand specified, show help
     if args.command is None:
-        # Parse again with extract as default for backwards compatibility
-        # This allows old-style usage: media-indexer /path/to/images
-        try:
-            # Try to parse without subcommand
-            import sys
-
-            old_args = sys.argv[1:]
-            if old_args and old_args[0] not in ["extract", "annotate", "convert", "db", "-h", "--help"]:
-                # Insert 'extract' as the subcommand
-                args = parser.parse_args(["extract"] + old_args)
-        except Exception:
-            # If parsing fails, show help
-            parser.print_help()
-            sys.exit(1)
+        parser.print_help()
+        sys.exit(0)
 
     return args
 
@@ -402,10 +369,6 @@ def process_extract(args: argparse.Namespace, verbose: int) -> int:
         logging.error(f"REQ-030: Input directory does not exist: {args.input_dir}")
         return 1
     
-    if not args.output_dir:
-        logging.error("REQ-030: --output-dir is required")
-        return 1
-    
     logging.info("REQ-030: Extracting features from sidecars/database")
     logging.info(f"REQ-016: Verbosity level: {verbose}")
     
@@ -416,7 +379,7 @@ def process_extract(args: argparse.Namespace, verbose: int) -> int:
         extractor = FeatureExtractor(
             input_dir=args.input_dir,
             database_path=args.db,
-            output_dir=args.output_dir,
+            output_dir=args.input_dir,  # Output to same directory as input
         )
         
         # REQ-030: Extract features
@@ -462,13 +425,12 @@ def process_analyze(args: argparse.Namespace, verbose: int) -> int:
         
         processor = ImageProcessor(
             input_dir=args.input_dir,
-            output_dir=args.output_dir or args.input_dir,
-            checkpoint_file=args.checkpoint,
             verbose=verbose,
             batch_size=args.batch_size,
             database_path=args.db,
             disable_sidecar=args.no_sidecar,
             limit=args.limit,
+            force=getattr(args, 'force', False),
         )
         
         # REQ-031: Process images
@@ -483,7 +445,7 @@ def process_analyze(args: argparse.Namespace, verbose: int) -> int:
             return 0
     
     except KeyboardInterrupt:
-        logging.warning("REQ-011: Processing interrupted by user, checkpoint saved")
+        logging.warning("REQ-015: Processing interrupted by user")
         return 130
     except Exception as e:
         logging.error(f"REQ-015: Processing failed: {e}")
@@ -623,14 +585,15 @@ def process_convert(args: argparse.Namespace, verbose: int) -> int:
             logging.error(f"REQ-033: Database does not exist: {args.db}")
             return 1
 
-        output_dir = args.output_dir or args.input_dir
-        logging.info(f"REQ-033: Converting database to sidecar files, output: {output_dir}")
+        # For convert, sidecar files go next to the original image files
+        # We need to determine the directory from the database entries
+        logging.info(f"REQ-033: Converting database to sidecar files next to image files")
         try:
             from media_indexer.sidecar_converter import export_database_to_sidecars
 
             export_database_to_sidecars(
                 database_path=args.db,
-                output_dir=output_dir,
+                output_dir=None,  # None means sidecar files go next to image files
                 verbose=verbose,
             )
             logging.info("REQ-033: Database export to sidecar completed successfully")
@@ -675,7 +638,7 @@ def main() -> None:
         # REQ-067: Route to database management handler
         sys.exit(process_db(args, verbose))
     else:
-        # Should not reach here due to default handling in parse_args
+        # Should not reach here due to handling in parse_args
         logging.error("REQ-029: Unknown subcommand")
         sys.exit(1)
 

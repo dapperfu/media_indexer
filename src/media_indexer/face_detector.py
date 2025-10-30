@@ -116,7 +116,10 @@ class FaceDetector:
         if insightface is not None:
             try:
                 logger.info("REQ-007: Loading insightface model")
-                self.insight_model = insightface.app.FaceAnalysis(providers=["CUDAExecutionProvider"])
+                # Use buffalo_l model (best accuracy with embeddings)
+                self.insight_model = insightface.app.FaceAnalysis(name='buffalo_l')
+                # Prepare for GPU execution
+                self.insight_model.prepare(ctx_id=0, det_size=(640, 640))
                 logger.info("REQ-007: insightface model loaded successfully")
             except Exception as e:
                 logger.warning(f"REQ-007: Failed to load insightface model: {e}")
@@ -144,14 +147,14 @@ class FaceDetector:
             # Use universal loader that handles RAW files
             rgb_array = load_image_to_array(image_path)
             if rgb_array is None:
-                logger.warning(f"REQ-007: Could not load image {image_path}")
+                logger.debug(f"REQ-007: Could not load image {image_path}")
                 return faces
             
             # For insightface, we need the numpy array directly
             image_rgb = rgb_array
 
         except Exception as e:
-            logger.warning(f"REQ-007: Error loading image {image_path}: {e}")
+            logger.debug(f"REQ-007: Error loading image {image_path}: {e}")
             return faces
 
         # REQ-007: Detect with YOLOv8
@@ -231,7 +234,7 @@ class FaceDetector:
                 # Load image for insightface
                 image = cv2.imread(str(image_path))
                 if image is None:
-                    logger.warning(f"REQ-007: Could not load image {image_path} for insightface")
+                    logger.debug(f"REQ-007: Could not load image {image_path} for insightface")
                 else:
                     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                     insight_faces = self.insight_model.get(image_rgb)
