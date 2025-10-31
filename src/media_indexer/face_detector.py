@@ -81,6 +81,10 @@ class FaceDetector:
         self._face_recognition_available: bool | None = None  # Lazy-loaded
 
         # REQ-007: Initialize yolov8-face
+        # NOTE: YOLOv8-face model may be incompatible with ultralytics 8.3.0+ due to architecture changes.
+        # The model uses older Conv layers with 'bn' attribute that newer ultralytics versions don't support.
+        # You cannot install multiple ultralytics versions simultaneously - they conflict.
+        # If YOLOv8 fails, YOLOv11 and InsightFace will continue operating.
         if YOLO is not None:
             try:
                 logger.info(f"REQ-007: Loading YOLOv8 face model from {model_path}")
@@ -95,24 +99,39 @@ class FaceDetector:
                     try:
                         # Try to access model structure to verify compatibility
                         _ = self.yolo_model.model
-                    except (AttributeError, ModuleNotFoundError) as compat_error:
+                    except (AttributeError, ModuleNotFoundError, TypeError) as compat_error:
                         error_msg = str(compat_error)
-                        if "ultralytics.yolo" in error_msg or "Conv" in error_msg or "bn" in error_msg:
+                        if (
+                            "NoneType" in error_msg
+                            or "not callable" in error_msg
+                            or "ultralytics.yolo" in error_msg
+                            or "Conv" in error_msg
+                            or "bn" in error_msg
+                        ):
                             logger.warning(
                                 f"REQ-007: YOLOv8 face model is incompatible with current ultralytics version: {compat_error}. "
-                                "Disabling YOLOv8 face detection. YOLOv11 and InsightFace will continue to operate."
+                                "YOLOv8 face model requires an older ultralytics version (<8.3.0) but you cannot install "
+                                "multiple ultralytics versions simultaneously. Disabling YOLOv8 face detection. "
+                                "YOLOv11 and InsightFace will continue to operate."
                             )
                             self.yolo_model = None
                         else:
                             raise
                 if self.yolo_model is not None:
                     logger.info("REQ-007: YOLOv8 face model loaded successfully")
-            except (ModuleNotFoundError, AttributeError) as e:
+            except (ModuleNotFoundError, AttributeError, TypeError) as e:
                 error_msg = str(e)
-                if "ultralytics.yolo" in error_msg or "Conv" in error_msg or "bn" in error_msg:
+                if (
+                    "NoneType" in error_msg
+                    or "not callable" in error_msg
+                    or "ultralytics.yolo" in error_msg
+                    or "Conv" in error_msg
+                    or "bn" in error_msg
+                ):
                     logger.warning(
                         f"REQ-007: YOLOv8 face model compatibility issue detected: {e}. "
-                        "The model appears to require an older ultralytics version. "
+                        "The model appears to require an older ultralytics version (<8.3.0). "
+                        "You cannot install multiple ultralytics versions simultaneously. "
                         "Disabling YOLOv8 face detection. YOLOv11 and InsightFace will continue to operate."
                     )
                     self.yolo_model = None
@@ -120,8 +139,22 @@ class FaceDetector:
                     logger.warning(f"REQ-007: Failed to load YOLOv8 face model: {e}")
                     self.yolo_model = None
             except Exception as e:
-                logger.warning(f"REQ-007: Failed to load YOLOv8 face model: {e}")
-                self.yolo_model = None
+                error_msg = str(e)
+                if (
+                    "NoneType" in error_msg
+                    or "not callable" in error_msg
+                    or "ultralytics.yolo" in error_msg
+                    or "Conv" in error_msg
+                    or "bn" in error_msg
+                ):
+                    logger.warning(
+                        f"REQ-007: YOLOv8 face model compatibility issue: {e}. "
+                        "Disabling YOLOv8 face detection. YOLOv11 and InsightFace will continue to operate."
+                    )
+                    self.yolo_model = None
+                else:
+                    logger.warning(f"REQ-007: Failed to load YOLOv8 face model: {e}")
+                    self.yolo_model = None
 
         # REQ-007: Initialize yolov11-face
         if YOLO is not None:
@@ -191,6 +224,10 @@ class FaceDetector:
             return faces
 
         # REQ-007: Detect with YOLOv8
+        # NOTE: YOLOv8-face model may be incompatible with ultralytics 8.3.0+ due to architecture changes.
+        # The model uses older Conv layers with 'bn' attribute that newer ultralytics versions don't support.
+        # You cannot install multiple ultralytics versions simultaneously - they conflict.
+        # If YOLOv8 fails, it will be disabled and YOLOv11/InsightFace will continue operating.
         yolo_v8_results: list[dict[str, Any]] = []
         if self.yolo_model is not None:
             try:
@@ -217,12 +254,21 @@ class FaceDetector:
                                     "model": "yolov8-face",
                                 }
                             )
-            except (AttributeError, ModuleNotFoundError) as e:
+            except (AttributeError, ModuleNotFoundError, TypeError) as e:
                 error_msg = str(e)
-                if "ultralytics.yolo" in error_msg or "'Conv' object has no attribute 'bn'" in error_msg or "'Conv' object has no attribute" in error_msg:
+                # Catch TypeError which includes 'NoneType' object is not callable
+                # Catch compatibility issues with Conv.bn attribute and ultralytics version mismatches
+                if (
+                    "NoneType" in error_msg
+                    or "not callable" in error_msg
+                    or "ultralytics.yolo" in error_msg
+                    or "'Conv' object has no attribute 'bn'" in error_msg
+                    or "'Conv' object has no attribute" in error_msg
+                ):
                     logger.warning(
                         f"REQ-007: YOLOv8 detection failed due to model compatibility issue: {e}. "
-                        "YOLOv8 face model is incompatible with current ultralytics version. "
+                        "YOLOv8 face model is incompatible with current ultralytics version (>=8.3.0). "
+                        "You cannot install multiple ultralytics versions simultaneously. "
                         "YOLOv11 and InsightFace will continue to operate."
                     )
                     # Disable YOLOv8 to prevent repeated errors
@@ -233,9 +279,15 @@ class FaceDetector:
                 import traceback
                 error_msg = str(e)
                 # Check for segmentation fault indicators or compatibility issues
-                if "ultralytics.yolo" in error_msg or "Conv" in error_msg:
+                if (
+                    "NoneType" in error_msg
+                    or "not callable" in error_msg
+                    or "ultralytics.yolo" in error_msg
+                    or "Conv" in error_msg
+                ):
                     logger.warning(
                         f"REQ-007: YOLOv8 detection failed due to compatibility issue: {e}. "
+                        "YOLOv8 face model is incompatible with current ultralytics version. "
                         "Disabling YOLOv8 to prevent further errors."
                     )
                     self.yolo_model = None
