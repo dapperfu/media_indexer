@@ -99,11 +99,29 @@ class ImageProcessorComponent:
             # REQ-040: Check RAW conversion early to detect failures
             # If this is a RAW file and conversion fails, mark it and skip detections
             if is_raw_file(image_path):
+                # REQ-015: Check if file is in segfault blacklist before attempting conversion
+                from media_indexer.raw_converter import is_segfault_blacklisted
+                if is_segfault_blacklisted(image_path):
+                    logger.warning(f"REQ-015: Skipping {image_path} - in segfault blacklist")
+                    metadata["segfault_blacklisted"] = True
+                    metadata["raw_conversion_failed"] = True
+                    # Still save the sidecar with the flag
+                    if not self.disable_sidecar and self.sidecar_generator is not None:
+                        try:
+                            self.sidecar_generator.generate_sidecar(image_path, metadata)
+                            logger.debug(f"REQ-015: Updated sidecar with segfault_blacklisted flag for {image_path}")
+                        except Exception as e:
+                            logger.error(f"REQ-004: Sidecar generation failed: {e}")
+                    return True, detection_results
+                
                 source_path = get_raw_image_source(image_path)
                 if source_path is None:
                     # RAW conversion failed - mark in sidecar and skip processing
                     logger.warning(f"REQ-040: RAW conversion failed for {image_path}, marking in sidecar")
                     metadata["raw_conversion_failed"] = True
+                    # Check if it was a segfault-related failure
+                    if is_segfault_blacklisted(image_path):
+                        metadata["segfault_blacklisted"] = True
                     # Still save the sidecar with the flag
                     if not self.disable_sidecar and self.sidecar_generator is not None:
                         try:
