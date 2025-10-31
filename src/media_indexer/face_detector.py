@@ -90,9 +90,38 @@ class FaceDetector:
                 null_stream = StringIO()
                 with redirect_stdout(null_stream), redirect_stderr(null_stream):
                     self.yolo_model = YOLO(str(actual_path))
-                logger.info("REQ-007: YOLOv8 face model loaded successfully")
+                    # Test model compatibility immediately to catch issues early
+                    # This prevents segmentation faults during inference
+                    try:
+                        # Try to access model structure to verify compatibility
+                        _ = self.yolo_model.model
+                    except (AttributeError, ModuleNotFoundError) as compat_error:
+                        error_msg = str(compat_error)
+                        if "ultralytics.yolo" in error_msg or "Conv" in error_msg or "bn" in error_msg:
+                            logger.warning(
+                                f"REQ-007: YOLOv8 face model is incompatible with current ultralytics version: {compat_error}. "
+                                "Disabling YOLOv8 face detection. YOLOv11 and InsightFace will continue to operate."
+                            )
+                            self.yolo_model = None
+                        else:
+                            raise
+                if self.yolo_model is not None:
+                    logger.info("REQ-007: YOLOv8 face model loaded successfully")
+            except (ModuleNotFoundError, AttributeError) as e:
+                error_msg = str(e)
+                if "ultralytics.yolo" in error_msg or "Conv" in error_msg or "bn" in error_msg:
+                    logger.warning(
+                        f"REQ-007: YOLOv8 face model compatibility issue detected: {e}. "
+                        "The model appears to require an older ultralytics version. "
+                        "Disabling YOLOv8 face detection. YOLOv11 and InsightFace will continue to operate."
+                    )
+                    self.yolo_model = None
+                else:
+                    logger.warning(f"REQ-007: Failed to load YOLOv8 face model: {e}")
+                    self.yolo_model = None
             except Exception as e:
                 logger.warning(f"REQ-007: Failed to load YOLOv8 face model: {e}")
+                self.yolo_model = None
 
         # REQ-007: Initialize yolov11-face
         if YOLO is not None:
@@ -188,19 +217,31 @@ class FaceDetector:
                                     "model": "yolov8-face",
                                 }
                             )
-            except AttributeError as e:
-                if "'Conv' object has no attribute 'bn'" in str(e) or "'Conv' object has no attribute" in str(e):
+            except (AttributeError, ModuleNotFoundError) as e:
+                error_msg = str(e)
+                if "ultralytics.yolo" in error_msg or "'Conv' object has no attribute 'bn'" in error_msg or "'Conv' object has no attribute" in error_msg:
                     logger.warning(
-                        f"REQ-007: YOLOv8 detection failed due to model compatibility issue (Conv.bn): {e}. "
-                        "This may indicate a version mismatch between the model and ultralytics library. "
-                        "Try updating ultralytics: pip install --upgrade ultralytics"
+                        f"REQ-007: YOLOv8 detection failed due to model compatibility issue: {e}. "
+                        "YOLOv8 face model is incompatible with current ultralytics version. "
+                        "YOLOv11 and InsightFace will continue to operate."
                     )
+                    # Disable YOLOv8 to prevent repeated errors
+                    self.yolo_model = None
                 else:
                     logger.warning(f"REQ-007: YOLOv8 detection failed: {e}")
             except Exception as e:
                 import traceback
-                logger.warning(f"REQ-007: YOLOv8 detection failed: {e}")
-                logger.debug(f"REQ-007: YOLOv8 traceback: {traceback.format_exc()}")
+                error_msg = str(e)
+                # Check for segmentation fault indicators or compatibility issues
+                if "ultralytics.yolo" in error_msg or "Conv" in error_msg:
+                    logger.warning(
+                        f"REQ-007: YOLOv8 detection failed due to compatibility issue: {e}. "
+                        "Disabling YOLOv8 to prevent further errors."
+                    )
+                    self.yolo_model = None
+                else:
+                    logger.warning(f"REQ-007: YOLOv8 detection failed: {e}")
+                    logger.debug(f"REQ-007: YOLOv8 traceback: {traceback.format_exc()}")
 
         # REQ-007: Detect with YOLOv11
         yolo_v11_results: list[dict[str, Any]] = []
@@ -229,19 +270,31 @@ class FaceDetector:
                                     "model": "yolov11-face",
                                 }
                             )
-            except AttributeError as e:
-                if "'Conv' object has no attribute 'bn'" in str(e) or "'Conv' object has no attribute" in str(e):
+            except (AttributeError, ModuleNotFoundError) as e:
+                error_msg = str(e)
+                if "ultralytics.yolo" in error_msg or "'Conv' object has no attribute 'bn'" in error_msg or "'Conv' object has no attribute" in error_msg:
                     logger.warning(
-                        f"REQ-007: YOLOv11 detection failed due to model compatibility issue (Conv.bn): {e}. "
-                        "This may indicate a version mismatch between the model and ultralytics library. "
-                        "Try updating ultralytics: pip install --upgrade ultralytics"
+                        f"REQ-007: YOLOv11 detection failed due to model compatibility issue: {e}. "
+                        "YOLOv11 face model is incompatible with current ultralytics version. "
+                        "Other detectors will continue to operate."
                     )
+                    # Disable YOLOv11 to prevent repeated errors
+                    self.yolo_model_v11 = None
                 else:
                     logger.warning(f"REQ-007: YOLOv11 detection failed: {e}")
             except Exception as e:
                 import traceback
-                logger.warning(f"REQ-007: YOLOv11 detection failed: {e}")
-                logger.debug(f"REQ-007: YOLOv11 traceback: {traceback.format_exc()}")
+                error_msg = str(e)
+                # Check for segmentation fault indicators or compatibility issues
+                if "ultralytics.yolo" in error_msg or "Conv" in error_msg:
+                    logger.warning(
+                        f"REQ-007: YOLOv11 detection failed due to compatibility issue: {e}. "
+                        "Disabling YOLOv11 to prevent further errors."
+                    )
+                    self.yolo_model_v11 = None
+                else:
+                    logger.warning(f"REQ-007: YOLOv11 detection failed: {e}")
+                    logger.debug(f"REQ-007: YOLOv11 traceback: {traceback.format_exc()}")
 
         # REQ-007: Detect with insightface
         insight_results: list[dict[str, Any]] = []

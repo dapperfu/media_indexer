@@ -64,7 +64,39 @@ class PoseDetector:
             null_stream = StringIO()
             with redirect_stdout(null_stream), redirect_stderr(null_stream):
                 self.model: YOLO = YOLO(str(actual_path))
+                # Test model compatibility immediately to catch issues early
+                # This prevents segmentation faults during inference
+                try:
+                    # Try to access model structure to verify compatibility
+                    _ = self.model.model
+                except (AttributeError, ModuleNotFoundError) as compat_error:
+                    error_msg = str(compat_error)
+                    if "ultralytics.yolo" in error_msg or "Conv" in error_msg or "bn" in error_msg:
+                        logger.error(
+                            f"REQ-009: YOLOv11-pose model is incompatible with current ultralytics version: {compat_error}. "
+                            "The model appears to require an older ultralytics version or has compatibility issues."
+                        )
+                        raise RuntimeError(
+                            f"REQ-009: Model compatibility error: {compat_error}. "
+                            "Try updating ultralytics or using a compatible model version."
+                        ) from compat_error
+                    else:
+                        raise
             logger.info("REQ-009: YOLOv11-pose model loaded successfully")
+        except (ModuleNotFoundError, AttributeError) as e:
+            error_msg_str = str(e)
+            if "ultralytics.yolo" in error_msg_str or "Conv" in error_msg_str or "bn" in error_msg_str:
+                error_msg = (
+                    f"REQ-009: YOLOv11-pose model compatibility issue detected: {e}. "
+                    "The model appears to require an older ultralytics version. "
+                    "Try updating ultralytics: pip install --upgrade ultralytics"
+                )
+                logger.error(error_msg)
+                raise RuntimeError(error_msg) from e
+            else:
+                error_msg = f"REQ-009: Failed to load YOLOv11-pose model: {e}"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg) from e
         except Exception as e:
             error_msg = f"REQ-009: Failed to load YOLOv11-pose model: {e}"
             logger.error(error_msg)
@@ -123,10 +155,11 @@ class PoseDetector:
             logger.debug(f"REQ-009: Detected {len(poses)} poses in {image_path}")
             return poses
 
-        except AttributeError as e:
-            if "'Conv' object has no attribute 'bn'" in str(e) or "'Conv' object has no attribute" in str(e):
+        except (AttributeError, ModuleNotFoundError) as e:
+            error_msg = str(e)
+            if "ultralytics.yolo" in error_msg or "'Conv' object has no attribute 'bn'" in error_msg or "'Conv' object has no attribute" in error_msg:
                 logger.warning(
-                    f"REQ-009: Pose detection failed for {image_path} due to model compatibility issue (Conv.bn): {e}. "
+                    f"REQ-009: Pose detection failed for {image_path} due to model compatibility issue: {e}. "
                     "This may indicate a version mismatch between the model and ultralytics library. "
                     "Try updating ultralytics: pip install --upgrade ultralytics"
                 )
@@ -135,8 +168,16 @@ class PoseDetector:
             return []
         except Exception as e:
             import traceback
-            logger.warning(f"REQ-009: Pose detection failed for {image_path}: {e}")
-            logger.debug(f"REQ-009: Pose detection traceback: {traceback.format_exc()}")
+            error_msg = str(e)
+            # Check for segmentation fault indicators or compatibility issues
+            if "ultralytics.yolo" in error_msg or "Conv" in error_msg:
+                logger.warning(
+                    f"REQ-009: Pose detection failed for {image_path} due to compatibility issue: {e}. "
+                    "This may indicate a version mismatch between the model and ultralytics library."
+                )
+            else:
+                logger.warning(f"REQ-009: Pose detection failed for {image_path}: {e}")
+                logger.debug(f"REQ-009: Pose detection traceback: {traceback.format_exc()}")
             return []
 
 
