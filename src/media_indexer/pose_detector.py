@@ -123,8 +123,20 @@ class PoseDetector:
             logger.debug(f"REQ-009: Detected {len(poses)} poses in {image_path}")
             return poses
 
+        except AttributeError as e:
+            if "'Conv' object has no attribute 'bn'" in str(e) or "'Conv' object has no attribute" in str(e):
+                logger.warning(
+                    f"REQ-009: Pose detection failed for {image_path} due to model compatibility issue (Conv.bn): {e}. "
+                    "This may indicate a version mismatch between the model and ultralytics library. "
+                    "Try updating ultralytics: pip install --upgrade ultralytics"
+                )
+            else:
+                logger.warning(f"REQ-009: Pose detection failed for {image_path}: {e}")
+            return []
         except Exception as e:
+            import traceback
             logger.warning(f"REQ-009: Pose detection failed for {image_path}: {e}")
+            logger.debug(f"REQ-009: Pose detection traceback: {traceback.format_exc()}")
             return []
 
 

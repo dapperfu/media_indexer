@@ -201,7 +201,6 @@ class FaceAttributeAnalyzer:
             actions=["age", "emotion"],
             enforce_detection=False,
             detector_backend="skip",
-            prog_bar=False,
         )
 
         payload = analysis[0] if isinstance(analysis, list) else analysis

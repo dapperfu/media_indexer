@@ -188,8 +188,19 @@ class FaceDetector:
                                     "model": "yolov8-face",
                                 }
                             )
+            except AttributeError as e:
+                if "'Conv' object has no attribute 'bn'" in str(e) or "'Conv' object has no attribute" in str(e):
+                    logger.warning(
+                        f"REQ-007: YOLOv8 detection failed due to model compatibility issue (Conv.bn): {e}. "
+                        "This may indicate a version mismatch between the model and ultralytics library. "
+                        "Try updating ultralytics: pip install --upgrade ultralytics"
+                    )
+                else:
+                    logger.warning(f"REQ-007: YOLOv8 detection failed: {e}")
             except Exception as e:
+                import traceback
                 logger.warning(f"REQ-007: YOLOv8 detection failed: {e}")
+                logger.debug(f"REQ-007: YOLOv8 traceback: {traceback.format_exc()}")
 
         # REQ-007: Detect with YOLOv11
         yolo_v11_results: list[dict[str, Any]] = []
@@ -218,8 +229,19 @@ class FaceDetector:
                                     "model": "yolov11-face",
                                 }
                             )
+            except AttributeError as e:
+                if "'Conv' object has no attribute 'bn'" in str(e) or "'Conv' object has no attribute" in str(e):
+                    logger.warning(
+                        f"REQ-007: YOLOv11 detection failed due to model compatibility issue (Conv.bn): {e}. "
+                        "This may indicate a version mismatch between the model and ultralytics library. "
+                        "Try updating ultralytics: pip install --upgrade ultralytics"
+                    )
+                else:
+                    logger.warning(f"REQ-007: YOLOv11 detection failed: {e}")
             except Exception as e:
+                import traceback
                 logger.warning(f"REQ-007: YOLOv11 detection failed: {e}")
+                logger.debug(f"REQ-007: YOLOv11 traceback: {traceback.format_exc()}")
 
         # REQ-007: Detect with insightface
         insight_results: list[dict[str, Any]] = []
