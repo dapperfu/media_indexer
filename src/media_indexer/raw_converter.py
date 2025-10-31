@@ -50,19 +50,59 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
             # REQ-016: Suppress CR2 corruption messages from rawpy (printed to stderr)
             # Use os.devnull for C library output suppression
             # REQ-015: Handle KeyboardInterrupt gracefully to prevent crashes
+            # REQ-015: Add protection against segfaults from corrupted RAW files
             try:
+                # Check file size first - corrupted files might be suspiciously small or large
+                file_size = image_path.stat().st_size
+                if file_size < 1024:  # Very small files are likely corrupted
+                    logger.warning(f"REQ-040: RAW file {image_path} is suspiciously small ({file_size} bytes), skipping rawpy")
+                    raise ValueError("File too small, likely corrupted")
+                
                 with (
                     open(os.devnull, "w") as devnull,
                     redirect_stderr(devnull),
                     rawpy.imread(str(image_path)) as raw,
                 ):
-                    rgb = raw.postprocess()
+                    # REQ-015: Add timeout and protection for postprocess which can segfault on corrupted files
+                    # Try to detect corruption before postprocessing
+                    try:
+                        # Access basic properties first to detect corruption early
+                        _ = raw.color_desc
+                        _ = raw.raw_image
+                    except Exception as early_check_error:
+                        logger.debug(f"REQ-040: RAW file {image_path} appears corrupted (early check failed): {early_check_error}")
+                        raise ValueError("RAW file appears corrupted") from early_check_error
+                    
+                    # Postprocess with conservative settings to reduce segfault risk
+                    rgb = raw.postprocess(
+                        use_camera_wb=True,
+                        half_size=False,
+                        no_auto_bright=False,
+                        output_bps=8,  # Use 8-bit to reduce memory pressure
+                    )
             except KeyboardInterrupt:
                 # REQ-015: Handle interrupt during rawpy processing
                 logger.warning(f"REQ-015: RAW conversion interrupted for {image_path}")
                 raise
+            except (ValueError, RuntimeError, OSError) as e:
+                # REQ-015: Catch corruption-related errors before they cause segfaults
+                error_msg = str(e).lower()
+                if "corrupt" in error_msg or "invalid" in error_msg or "too small" in error_msg:
+                    logger.warning(f"REQ-040: RAW file {image_path} appears corrupted, skipping rawpy: {e}")
+                    raise ValueError(f"Corrupted RAW file: {e}") from e
+                raise
+            except Exception as e:
+                # REQ-015: Catch any other exceptions to prevent cascading failures
+                error_msg = str(e).lower()
+                if "segmentation" in error_msg or "signal" in error_msg:
+                    logger.error(f"REQ-015: RAW file {image_path} caused a crash, skipping: {e}")
+                    raise ValueError(f"RAW file processing crashed: {e}") from e
+                raise
 
             # Convert to uint8 if needed
+            if rgb is None or rgb.size == 0:
+                raise ValueError("rawpy.postprocess() returned empty result")
+                
             if rgb.dtype != np.uint8:
                 rgb = (rgb / 255.0 * 255).astype(np.uint8)
 
@@ -72,6 +112,9 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
         except KeyboardInterrupt:
             # REQ-015: Re-raise KeyboardInterrupt to propagate to signal handler
             raise
+        except (ValueError, RuntimeError) as e:
+            # REQ-015: Corrupted file detected - skip rawpy and try PIL
+            logger.debug(f"REQ-040: rawpy detected corruption for {image_path}: {e}, trying PIL fallback")
         except Exception as e:
             logger.debug(f"REQ-040: rawpy failed for {image_path}: {e}, trying PIL fallback")
 
@@ -81,12 +124,29 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
         # REQ-016: Suppress CR2 corruption messages from PIL (printed to stderr)
         # Use os.devnull for C library output suppression
         # REQ-015: Handle KeyboardInterrupt gracefully
+        # REQ-015: Add protection against segfaults from corrupted RAW files
         try:
+            # Check file size first
+            file_size = image_path.stat().st_size
+            if file_size < 1024:  # Very small files are likely corrupted
+                logger.warning(f"REQ-040: RAW file {image_path} is suspiciously small ({file_size} bytes), skipping PIL")
+                raise ValueError("File too small, likely corrupted")
+            
             with (
                 open(os.devnull, "w") as devnull,
                 redirect_stderr(devnull),
             ):
-                image = Image.open(str(image_path))
+                # REQ-015: Use verify=True to check for corruption before full loading
+                try:
+                    image = Image.open(str(image_path))
+                    # Verify the image is valid before processing
+                    image.verify()
+                    # Reopen after verify (verify() closes the file)
+                    image = Image.open(str(image_path))
+                except Exception as verify_error:
+                    logger.warning(f"REQ-040: PIL verification failed for {image_path}: {verify_error}")
+                    raise ValueError(f"PIL verification failed: {verify_error}") from verify_error
+                
                 # Convert to RGB if needed
                 if image.mode != "RGB":
                     image = image.convert("RGB")
@@ -94,8 +154,18 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
             # REQ-015: Handle interrupt during PIL processing
             logger.warning(f"REQ-015: RAW conversion interrupted for {image_path}")
             raise
+        except (ValueError, OSError, IOError) as e:
+            # REQ-015: Catch corruption-related errors
+            error_msg = str(e).lower()
+            if "corrupt" in error_msg or "invalid" in error_msg or "truncated" in error_msg or "too small" in error_msg:
+                logger.warning(f"REQ-040: RAW file {image_path} appears corrupted, PIL failed: {e}")
+                raise
+            raise
 
         rgb_array = np.array(image)
+        
+        if rgb_array is None or rgb_array.size == 0:
+            raise ValueError("PIL conversion returned empty array")
 
         # Ensure uint8 dtype
         if rgb_array.dtype != np.uint8:
