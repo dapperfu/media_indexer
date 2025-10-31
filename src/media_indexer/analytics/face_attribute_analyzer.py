@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum, auto
+import gc
 import logging
 from pathlib import Path
 from typing import Any
@@ -233,45 +234,98 @@ class FaceAttributeAnalyzer:
         # REQ-081: Handle DeepFace analyze() call with compatibility for 'prog_bar' errors
         # DeepFace may internally try to use 'prog_bar' parameter with TensorFlow/Keras
         # which newer versions don't support, causing TypeError
-        with _suppress_tf_progbar():
+        # Use try-finally to ensure CUDA memory cleanup even on exceptions
+        try:
+            with _suppress_tf_progbar():
+                try:
+                    analysis = DeepFace.analyze(  # type: ignore[misc]
+                        img_path=bgr_face,
+                        actions=["age", "emotion"],
+                        enforce_detection=False,
+                        detector_backend="skip",
+                    )
+                except TypeError as e:
+                    error_msg = str(e)
+                    # Handle 'prog_bar' compatibility issue - DeepFace internally tries to pass this
+                    # to TensorFlow/Keras but newer versions (TensorFlow 2.20+) don't support it
+                    if "prog_bar" in error_msg:
+                        # This is a known compatibility issue between DeepFace and TensorFlow 2.20+
+                        # The error occurs inside DeepFace when it tries to suppress progress bars
+                        # Re-raise with clearer message - outer handler will catch and log the error
+                        # InsightFace attributes are stored separately and independently
+                        raise TypeError(
+                            f"REQ-081: DeepFace compatibility issue with TensorFlow/Keras: {error_msg}. "
+                            "This is a known issue with DeepFace and TensorFlow 2.20+. "
+                            "DeepFace analysis failed for this face. InsightFace attributes are stored separately."
+                        ) from e
+                    else:
+                        # Re-raise if it's a different TypeError
+                        raise
+            
+            payload = analysis[0] if isinstance(analysis, list) else analysis
+            age = self._safe_float(payload.get("age"))
+            emotion_scores = self._extract_emotion_scores(payload.get("emotion"))
+            primary_emotion, emotion_confidence = self._max_emotion(emotion_scores)
+
+            # Extract data before cleanup to avoid issues if cleanup raises
+            result = FaceAttributeResult(
+                age=age,
+                age_confidence=None,
+                primary_emotion=primary_emotion,
+                emotion_confidence=emotion_confidence,
+                emotion_scores=emotion_scores,
+                source=AttributeSource.DEEPFACE,
+            )
+
+            # Explicitly delete temporary variables to help garbage collection
+            del analysis
+            del payload
+            del bgr_face
+            
+            return result
+        finally:
+            # Always cleanup CUDA memory after DeepFace analysis, even on exceptions
+            # DeepFace uses TensorFlow/Keras which can hold GPU memory
+            # This ensures GPU memory is freed even if analysis fails
+            self._cleanup_cuda_memory()
+
+    def _cleanup_cuda_memory(self) -> None:
+        """Clean up CUDA memory after DeepFace operations.
+        
+        DeepFace uses TensorFlow/Keras which can hold GPU memory allocations.
+        This method ensures proper cleanup of CUDA memory to prevent OOM errors.
+        
+        REQ-081: Ensure proper GPU memory management for face attribute analysis.
+        """
+        try:
+            # Clear TensorFlow/Keras backend session and memory
             try:
-                analysis = DeepFace.analyze(  # type: ignore[misc]
-                    img_path=bgr_face,
-                    actions=["age", "emotion"],
-                    enforce_detection=False,
-                    detector_backend="skip",
-                )
-            except TypeError as e:
-                error_msg = str(e)
-                # Handle 'prog_bar' compatibility issue - DeepFace internally tries to pass this
-                # to TensorFlow/Keras but newer versions (TensorFlow 2.20+) don't support it
-                if "prog_bar" in error_msg:
-                    # This is a known compatibility issue between DeepFace and TensorFlow 2.20+
-                    # The error occurs inside DeepFace when it tries to suppress progress bars
-                    # Re-raise with clearer message - outer handler will catch and log the error
-                    # InsightFace attributes are stored separately and independently
-                    raise TypeError(
-                        f"REQ-081: DeepFace compatibility issue with TensorFlow/Keras: {error_msg}. "
-                        "This is a known issue with DeepFace and TensorFlow 2.20+. "
-                        "DeepFace analysis failed for this face. InsightFace attributes are stored separately."
-                    ) from e
-                else:
-                    # Re-raise if it's a different TypeError
-                    raise
-
-        payload = analysis[0] if isinstance(analysis, list) else analysis
-        age = self._safe_float(payload.get("age"))
-        emotion_scores = self._extract_emotion_scores(payload.get("emotion"))
-        primary_emotion, emotion_confidence = self._max_emotion(emotion_scores)
-
-        return FaceAttributeResult(
-            age=age,
-            age_confidence=None,
-            primary_emotion=primary_emotion,
-            emotion_confidence=emotion_confidence,
-            emotion_scores=emotion_scores,
-            source=AttributeSource.DEEPFACE,
-        )
+                import tensorflow as tf  # noqa: PLC0415
+                # Clear TensorFlow GPU memory
+                tf.keras.backend.clear_session()
+                # Reset memory stats and clear CUDA cache
+                if hasattr(tf.config.experimental, "reset_memory_stats"):
+                    try:
+                        tf.config.experimental.reset_memory_stats("GPU:0")
+                    except Exception:  # noqa: BLE001
+                        pass  # May fail if no GPU or if not supported
+            except ImportError:
+                pass  # TensorFlow not available
+            
+            # Clear PyTorch CUDA cache if available
+            try:
+                import torch  # noqa: PLC0415
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+            except ImportError:
+                pass  # PyTorch not available
+            
+            # Force Python garbage collection to free unreferenced objects
+            gc.collect()
+        except Exception as e:  # noqa: BLE001
+            # Log but don't fail on cleanup errors
+            logger.debug("CUDA memory cleanup warning: %s", e)
 
     @staticmethod
     def _prepare_face_crop(crop: np.ndarray) -> np.ndarray | None:
