@@ -63,17 +63,9 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
                     redirect_stderr(devnull),
                     rawpy.imread(str(image_path)) as raw,
                 ):
-                    # REQ-015: Add timeout and protection for postprocess which can segfault on corrupted files
-                    # Try to detect corruption before postprocessing
-                    try:
-                        # Access basic properties first to detect corruption early
-                        _ = raw.color_desc
-                        _ = raw.raw_image
-                    except Exception as early_check_error:
-                        logger.debug(f"REQ-040: RAW file {image_path} appears corrupted (early check failed): {early_check_error}")
-                        raise ValueError("RAW file appears corrupted") from early_check_error
-                    
-                    # Postprocess with conservative settings to reduce segfault risk
+                    # REQ-015: Postprocess with conservative settings to reduce segfault risk
+                    # Note: Accessing raw properties can also segfault on corrupted files,
+                    # so we go straight to postprocess which will raise exceptions on corruption
                     rgb = raw.postprocess(
                         use_camera_wb=True,
                         half_size=False,
