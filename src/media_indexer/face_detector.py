@@ -84,7 +84,7 @@ class FaceDetector:
         # NOTE: YOLOv8-face model may be incompatible with ultralytics 8.3.0+ due to architecture changes.
         # The model uses older Conv layers with 'bn' attribute that newer ultralytics versions don't support.
         # You cannot install multiple ultralytics versions simultaneously - they conflict.
-        # If YOLOv8 fails, YOLOv11 and InsightFace will continue operating.
+        # YOLOv8, YOLOv11, and InsightFace are independent analyses that can succeed or fail independently.
         if YOLO is not None:
             try:
                 logger.info(f"REQ-007: Loading YOLOv8 face model from {model_path}")
@@ -111,8 +111,8 @@ class FaceDetector:
                             logger.warning(
                                 f"REQ-007: YOLOv8 face model is incompatible with current ultralytics version: {compat_error}. "
                                 "YOLOv8 face model requires an older ultralytics version (<8.3.0) but you cannot install "
-                                "multiple ultralytics versions simultaneously. Disabling YOLOv8 face detection. "
-                                "YOLOv11 and InsightFace will continue to operate."
+                                "multiple ultralytics versions simultaneously. YOLOv8 analysis disabled. "
+                                "YOLOv11 and InsightFace analyses are independent and will run separately."
                             )
                             self.yolo_model = None
                         else:
@@ -132,7 +132,7 @@ class FaceDetector:
                         f"REQ-007: YOLOv8 face model compatibility issue detected: {e}. "
                         "The model appears to require an older ultralytics version (<8.3.0). "
                         "You cannot install multiple ultralytics versions simultaneously. "
-                        "Disabling YOLOv8 face detection. YOLOv11 and InsightFace will continue to operate."
+                        "YOLOv8 analysis disabled. YOLOv11 and InsightFace analyses are independent and will run separately."
                     )
                     self.yolo_model = None
                 else:
@@ -149,7 +149,7 @@ class FaceDetector:
                 ):
                     logger.warning(
                         f"REQ-007: YOLOv8 face model compatibility issue: {e}. "
-                        "Disabling YOLOv8 face detection. YOLOv11 and InsightFace will continue to operate."
+                        "YOLOv8 analysis disabled. YOLOv11 and InsightFace analyses are independent and will run separately."
                     )
                     self.yolo_model = None
                 else:
@@ -227,7 +227,7 @@ class FaceDetector:
         # NOTE: YOLOv8-face model may be incompatible with ultralytics 8.3.0+ due to architecture changes.
         # The model uses older Conv layers with 'bn' attribute that newer ultralytics versions don't support.
         # You cannot install multiple ultralytics versions simultaneously - they conflict.
-        # If YOLOv8 fails, it will be disabled and YOLOv11/InsightFace will continue operating.
+        # YOLOv8, YOLOv11, and InsightFace are independent analyses that can succeed or fail independently.
         yolo_v8_results: list[dict[str, Any]] = []
         if self.yolo_model is not None:
             try:
@@ -269,7 +269,7 @@ class FaceDetector:
                         f"REQ-007: YOLOv8 detection failed due to model compatibility issue: {e}. "
                         "YOLOv8 face model is incompatible with current ultralytics version (>=8.3.0). "
                         "You cannot install multiple ultralytics versions simultaneously. "
-                        "YOLOv11 and InsightFace will continue to operate."
+                        "YOLOv8 analysis disabled. YOLOv11 and InsightFace analyses are independent and will run separately."
                     )
                     # Disable YOLOv8 to prevent repeated errors
                     self.yolo_model = None
@@ -288,7 +288,7 @@ class FaceDetector:
                     logger.warning(
                         f"REQ-007: YOLOv8 detection failed due to compatibility issue: {e}. "
                         "YOLOv8 face model is incompatible with current ultralytics version. "
-                        "Disabling YOLOv8 to prevent further errors."
+                        "YOLOv8 analysis disabled. YOLOv11 and InsightFace analyses are independent and will run separately."
                     )
                     self.yolo_model = None
                 else:
@@ -328,7 +328,7 @@ class FaceDetector:
                     logger.warning(
                         f"REQ-007: YOLOv11 detection failed due to model compatibility issue: {e}. "
                         "YOLOv11 face model is incompatible with current ultralytics version. "
-                        "Other detectors will continue to operate."
+                        "Other analyses are independent and will run separately."
                     )
                     # Disable YOLOv11 to prevent repeated errors
                     self.yolo_model_v11 = None

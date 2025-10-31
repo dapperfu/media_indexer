@@ -44,7 +44,7 @@ class AttributeSource(Enum):
 
     DEEPFACE = auto()
     INSIGHTFACE = auto()
-    FALLBACK = auto()
+    ERROR = auto()
 
 
 @dataclass(slots=True)
@@ -374,7 +374,7 @@ class FaceAttributeAnalyzer:
                 primary_emotion=None,
                 emotion_confidence=None,
                 emotion_scores={},
-                source=AttributeSource.FALLBACK,
+                source=AttributeSource.ERROR,
                 error=error,
             ),
         )
@@ -451,7 +451,8 @@ def get_face_attribute_analyzer(face_detector: Any | None = None) -> FaceAttribu
     Parameters
     ----------
     face_detector : Any | None
-        Optional face detector for InsightFace fallback support.
+        Optional face detector instance. Used to access InsightFace detections
+        which have separate InsightFace attributes stored independently.
 
     Returns
     -------
