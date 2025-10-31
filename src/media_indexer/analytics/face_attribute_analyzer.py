@@ -86,8 +86,8 @@ class FaceAttributeAnalyzer:
         Parameters
         ----------
         face_detector : Any | None
-            Optional face detector instance for InsightFace fallback.
-            If provided and DeepFace unavailable, will use InsightFace attributes.
+            Optional face detector instance. Used to access InsightFace detections
+            which have separate InsightFace attributes stored independently.
 
         Raises
         ------
@@ -153,12 +153,14 @@ class FaceAttributeAnalyzer:
 
             result: FaceAttributeResult | None = None
 
-            # REQ-081: DeepFace is required - always try it first
+            # REQ-081: DeepFace analysis runs on all faces independently
+            # DeepFace provides age and emotion attributes for all detected faces
             if self._deepface_available:
                 try:
                     result = self._run_deepface(prepared)
                 except Exception as exc:  # noqa: BLE001
-                    # REQ-081: If DeepFace fails, log error but allow InsightFace fallback
+                    # REQ-081: If DeepFace fails, log error but continue processing
+                    # InsightFace attributes are stored separately and independently
                     logger.warning("REQ-081: DeepFace analysis failed: %s", exc)
                     result = None
             else:
@@ -166,23 +168,13 @@ class FaceAttributeAnalyzer:
                 logger.error("REQ-081: DeepFace unavailable during analysis (should have been caught at init)")
                 result = None
 
-            # REQ-081: Use InsightFace attributes if available (in addition to DeepFace)
-            # InsightFace provides age and sex, which can supplement DeepFace's age and emotion
-            if detection.get("model") == "insightface":
-                insightface_result = self._extract_insightface_attributes(detection)
-                if insightface_result is not None:
-                    # If DeepFace result exists, prefer DeepFace for emotion but use InsightFace age/sex if better
-                    # If DeepFace failed, use InsightFace result
-                    if result is None:
-                        result = insightface_result
-                    else:
-                        # Merge: prefer InsightFace age/sex if available, keep DeepFace emotion
-                        if insightface_result.age is not None:
-                            result.age = insightface_result.age
-                        # Note: sex is not in DeepFace result structure, so we add it to attributes dict later
-                        logger.debug("REQ-081: Merged InsightFace and DeepFace attributes")
+            # REQ-081: InsightFace attributes are stored separately in insightface_attributes
+            # They are not merged with DeepFace attributes - they are independent analyses
+            # InsightFace attributes come from InsightFace detections and are already stored
+            # separately in the detection dict under 'insightface_attributes'
+            # Both DeepFace and InsightFace attributes are stored independently in the database and sidecar
 
-            # Apply result or attach error
+            # Apply DeepFace result or attach error
             if result is not None:
                 enriched_faces.append(self._apply_attributes(detection, result))
             else:
@@ -256,11 +248,12 @@ class FaceAttributeAnalyzer:
                 if "prog_bar" in error_msg:
                     # This is a known compatibility issue between DeepFace and TensorFlow 2.20+
                     # The error occurs inside DeepFace when it tries to suppress progress bars
-                    # Re-raise with clearer message - outer handler will catch and fall back to InsightFace
+                    # Re-raise with clearer message - outer handler will catch and log the error
+                    # InsightFace attributes are stored separately and independently
                     raise TypeError(
                         f"REQ-081: DeepFace compatibility issue with TensorFlow/Keras: {error_msg}. "
                         "This is a known issue with DeepFace and TensorFlow 2.20+. "
-                        "Falling back to InsightFace attributes."
+                        "DeepFace analysis failed for this face. InsightFace attributes are stored separately."
                     ) from e
                 else:
                     # Re-raise if it's a different TypeError
@@ -294,20 +287,19 @@ class FaceAttributeAnalyzer:
 
     @staticmethod
     def _apply_attributes(detection: dict[str, Any], result: FaceAttributeResult) -> dict[str, Any]:
-        """Attach attribute data to a detection dictionary."""
+        """Attach DeepFace attribute data to a detection dictionary.
+
+        REQ-081: DeepFace attributes are stored separately from InsightFace attributes.
+        InsightFace attributes remain in the 'insightface_attributes' field of the detection dict.
+        """
 
         updated = detection.copy()
         
-        # REQ-081: Include sex from InsightFace if available
-        sex = None
-        insightface_attrs = detection.get("insightface_attributes")
-        if insightface_attrs and isinstance(insightface_attrs, dict):
-            sex = insightface_attrs.get("sex")
-        
+        # REQ-081: Store DeepFace attributes independently
+        # InsightFace attributes remain separate in 'insightface_attributes' field
         updated["attributes"] = {
             "age": result.age,
             "age_confidence": result.age_confidence,
-            "sex": sex,  # REQ-081: InsightFace provides sex (male/female)
             "primary_emotion": result.primary_emotion,
             "emotion_confidence": result.emotion_confidence,
             "emotion_scores": result.emotion_scores,
@@ -397,43 +389,6 @@ class FaceAttributeAnalyzer:
         label = max(scores, key=scores.get)
         return label, scores[label]
 
-    def _extract_insightface_attributes(self, detection: dict[str, Any]) -> FaceAttributeResult | None:
-        """Extract age, sex, and emotion from InsightFace detection if available.
-
-        REQ-081: Extract InsightFace attributes (age, sex) in addition to DeepFace.
-        Note: InsightFace buffalo_l model provides age and gender, but not emotion.
-        Emotion requires a separate model or DeepFace.
-
-        Parameters
-        ----------
-        detection : dict[str, Any]
-            Face detection dictionary from InsightFace model, containing
-            ``insightface_attributes`` key with age and sex.
-
-        Returns
-        -------
-        FaceAttributeResult | None
-            Attribute result with age/sex if available, None otherwise.
-        """
-        insightface_attrs = detection.get("insightface_attributes")
-        if not insightface_attrs or not isinstance(insightface_attrs, dict):
-            return None
-
-        age = self._safe_float(insightface_attrs.get("age"))
-        sex = insightface_attrs.get("sex")  # "male" or "female"
-        
-        # InsightFace doesn't provide emotion directly from buffalo_l model
-        # We set emotion scores to empty dict since InsightFace doesn't have emotion
-        emotion_scores: dict[str, float] = {}
-
-        return FaceAttributeResult(
-            age=age,
-            age_confidence=None,  # InsightFace doesn't provide confidence
-            primary_emotion=None,  # InsightFace doesn't provide emotion
-            emotion_confidence=None,
-            emotion_scores=emotion_scores,
-            source=AttributeSource.INSIGHTFACE,
-        )
 
 
 def get_face_attribute_analyzer(face_detector: Any | None = None) -> FaceAttributeAnalyzer:
