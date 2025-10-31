@@ -5,6 +5,7 @@ REQ-040: Convert RAW image files to usable formats in memory for detection model
 REQ-010: All code components directly linked to requirements.
 """
 
+import io
 import logging
 import os
 import tempfile
@@ -17,6 +18,57 @@ from PIL import Image
 from media_indexer.utils.file_utils import is_raw_file
 
 logger = logging.getLogger(__name__)
+
+# Global blacklist for files that caused segfaults (in-memory cache)
+_segfault_blacklist: set[Path] = set()
+
+
+def load_segfault_blacklist_from_sidecar(sidecar_path: Path) -> None:
+    """Load segfault blacklist from sidecar file.
+    
+    REQ-015: Load previously blacklisted files from sidecar metadata.
+    
+    Args:
+        sidecar_path: Path to sidecar file to check.
+    """
+    try:
+        from media_indexer.utils.sidecar_utils import read_sidecar_metadata
+        metadata = read_sidecar_metadata(sidecar_path, None)
+        if metadata.get("segfault_blacklisted"):
+            # Extract image path from sidecar path
+            # Sidecar files are typically image_path + ".json"
+            image_path = sidecar_path.parent / sidecar_path.stem
+            if image_path.exists():
+                _segfault_blacklist.add(image_path.resolve())
+                logger.debug(f"REQ-015: Loaded {image_path} from segfault blacklist")
+    except Exception as e:
+        logger.debug(f"REQ-015: Failed to load blacklist from {sidecar_path}: {e}")
+
+
+def is_segfault_blacklisted(image_path: Path) -> bool:
+    """Check if a file is in the segfault blacklist.
+    
+    REQ-015: Check if file previously caused a segfault.
+    
+    Args:
+        image_path: Path to check.
+        
+    Returns:
+        True if file is blacklisted, False otherwise.
+    """
+    return image_path.resolve() in _segfault_blacklist
+
+
+def mark_segfault_blacklisted(image_path: Path) -> None:
+    """Mark a file as causing a segfault.
+    
+    REQ-015: Add file to segfault blacklist to prevent future crashes.
+    
+    Args:
+        image_path: Path to blacklist.
+    """
+    _segfault_blacklist.add(image_path.resolve())
+    logger.warning(f"REQ-015: Added {image_path} to segfault blacklist")
 
 
 def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
@@ -43,6 +95,11 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
         logger.debug(f"REQ-040: {image_path} is not a RAW file")
         return None, "unknown"
 
+    # REQ-015: Skip files that previously caused segfaults
+    if is_segfault_blacklisted(image_path):
+        logger.warning(f"REQ-015: Skipping {image_path} - previously caused segfault, using PIL only")
+        rawpy_available = False  # Force PIL fallback
+
     # Try rawpy first if available
     if rawpy_available:
         try:
@@ -58,20 +115,47 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
                     logger.warning(f"REQ-040: RAW file {image_path} is suspiciously small ({file_size} bytes), skipping rawpy")
                     raise ValueError("File too small, likely corrupted")
                 
-                with (
-                    open(os.devnull, "w") as devnull,
-                    redirect_stderr(devnull),
-                    rawpy.imread(str(image_path)) as raw,
-                ):
+                # REQ-015: Capture stderr to detect corruption messages from libraw
+                # libraw prints corruption messages to stderr before segfaulting
+                stderr_capture = io.StringIO()
+                try:
+                    with redirect_stderr(stderr_capture):
+                        raw = rawpy.imread(str(image_path))
+                    
+                    # Check stderr for corruption messages before proceeding
+                    stderr_content = stderr_capture.getvalue()
+                    if stderr_content:
+                        stderr_lower = stderr_content.lower()
+                        # Check for common corruption indicators
+                        corruption_indicators = [
+                            "data corrupted",
+                            "corrupted",
+                            "invalid",
+                            "truncated",
+                            "error reading",
+                            "failed to decode",
+                        ]
+                        if any(indicator in stderr_lower for indicator in corruption_indicators):
+                            logger.warning(
+                                f"REQ-040: RAW file {image_path} shows corruption indicators in stderr, "
+                                f"skipping rawpy: {stderr_content[:200]}"
+                            )
+                            # Mark as blacklisted to prevent future attempts
+                            mark_segfault_blacklisted(image_path)
+                            raise ValueError(f"Corruption detected in stderr: {stderr_content[:200]}")
+                    
                     # REQ-015: Postprocess with conservative settings to reduce segfault risk
                     # Note: Accessing raw properties can also segfault on corrupted files,
                     # so we go straight to postprocess which will raise exceptions on corruption
-                    rgb = raw.postprocess(
-                        use_camera_wb=True,
-                        half_size=False,
-                        no_auto_bright=False,
-                        output_bps=8,  # Use 8-bit to reduce memory pressure
-                    )
+                    with raw:
+                        rgb = raw.postprocess(
+                            use_camera_wb=True,
+                            half_size=False,
+                            no_auto_bright=False,
+                            output_bps=8,  # Use 8-bit to reduce memory pressure
+                        )
+                finally:
+                    stderr_capture.close()
             except KeyboardInterrupt:
                 # REQ-015: Handle interrupt during rawpy processing
                 logger.warning(f"REQ-015: RAW conversion interrupted for {image_path}")
@@ -106,8 +190,16 @@ def convert_raw_to_array(image_path: Path) -> tuple[np.ndarray | None, str]:
             raise
         except (ValueError, RuntimeError) as e:
             # REQ-015: Corrupted file detected - skip rawpy and try PIL
+            error_msg = str(e).lower()
+            if "corrupt" in error_msg or "corruption" in error_msg:
+                # Mark as blacklisted if corruption was detected
+                mark_segfault_blacklisted(image_path)
             logger.debug(f"REQ-040: rawpy detected corruption for {image_path}: {e}, trying PIL fallback")
         except Exception as e:
+            error_msg = str(e).lower()
+            # Check if this might be a segfault-related error
+            if "segmentation" in error_msg or "signal" in error_msg or "crash" in error_msg:
+                mark_segfault_blacklisted(image_path)
             logger.debug(f"REQ-040: rawpy failed for {image_path}: {e}, trying PIL fallback")
 
     # Fall back to PIL (works for many CR2 files even when rawpy fails)
